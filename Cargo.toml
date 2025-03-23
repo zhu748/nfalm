@@ -1,0 +1,22 @@
+[package]
+name = "clewdr"
+version = "0.1.0"
+edition = "2024"
+authors = ["Xerxes-2"]
+
+[lib]
+path = "src/lib/lib.rs"
+
+[dependencies]
+claude-tokenizer = "0.3"
+tokio = { version = "1", features = ["full"] }
+rquest = { version = "5", features = ["json"] }
+rquest-util = "2"
+serde_json = "1"
+const_format = { version = "0.2", features = ["fmt"] }
+figlet-rs = "0.1.5"
+serde = { version = "1.0.219", features = ["derive"] }
+toml = "0.8.20"
+anyhow = "1.0.97"
+colored = "3"
+
