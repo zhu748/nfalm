@@ -1,8 +1,17 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use clewdr::{self, config::Config, utils::BANNER};
 
-fn main() -> Result<()> {
-    let config = Config::load()?;
+#[tokio::main]
+async fn main() -> Result<()> {
     println!("{}", *BANNER);
+    let config = Arc::new(Config::load()?.trim());
+    // TODO: load config from env
+
+    let router = clewdr::api::RouterBuilder::new(config.clone()).build();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, router).await.unwrap();
+
     Ok(())
 }

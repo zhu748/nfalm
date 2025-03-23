@@ -149,4 +149,35 @@ impl Config {
         std::fs::write(CONFIG_PATH, config_string)?;
         Ok(())
     }
+
+    pub fn trim(mut self) -> Self {
+        // trim and remove non-ASCII characters from cookie
+        self.cookie = trim_cookie(&self.cookie);
+        self.cookie_array = self.cookie_array.iter().map(|c| trim_cookie(c)).collect();
+        self.wasted_cookie = self.wasted_cookie.iter().map(|c| trim_cookie(c)).collect();
+        self.unknown_models = self
+            .unknown_models
+            .iter()
+            .map(|c| c.trim().to_string())
+            .collect();
+        self.ip = self.ip.trim().to_string();
+        self.rproxy = self.rproxy.trim().to_string();
+        self.api_rproxy = self
+            .api_rproxy
+            .trim()
+            .trim_end_matches('/')
+            .trim_end_matches("/v1")
+            .to_string();
+        self.settings.padtxt = self.settings.padtxt.trim().to_string();
+        self
+    }
+}
+
+fn trim_cookie(cookie: &str) -> String {
+    cookie
+        .chars()
+        .filter(|c| c.is_ascii())
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
