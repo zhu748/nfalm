@@ -14,7 +14,8 @@ pub static BANNER: LazyLock<String> = LazyLock::new(|| {
     )
 });
 
-pub const MODELS: [&str; 9] = [
+pub const MODELS: [&str; 10] = [
+    "claude-3-7-sonnet-20250219",
     "claude-3-5-sonnet-20240620",
     "claude-3-opus-20240229",
     "claude-3-sonnet-20240229",
