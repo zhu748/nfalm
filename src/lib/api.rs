@@ -84,7 +84,7 @@ impl AppState {
             });
     }
 
-    fn get_cookies(&self) -> String {
+    fn header_cookie(&self) -> String {
         let cookies = self.0.cookies.read();
         cookies
             .iter()
@@ -168,9 +168,8 @@ impl AppState {
                 env!("CARGO_PKG_VERSION"),
                 env!("CARGO_PKG_AUTHORS")
             );
-            let addr = config.ip.clone() + ":" + &config.port.to_string();
             println!("{}", TITLE.blue());
-            println!("Listening on {}", addr.green());
+            println!("Listening on {}", config.address().green());
             // println!("Config:\n{:?}", config);
             // TODO: Local tunnel
         }
@@ -206,7 +205,7 @@ impl AppState {
             .get(end_point.clone())
             .header_append("Origin", ENDPOINT)
             .header_append("Referer", header_ref(""))
-            .header_append("Cookie", self.get_cookies())
+            .header_append("Cookie", self.header_cookie())
             .send()
             .await;
         let Ok(res) = res else {
@@ -226,6 +225,22 @@ impl AppState {
             println!("{}", "Null!".red());
             return self.cookie_cleaner(UselessReason::Null);
         }
+        let memberships = bootstrap["account"]["memberships"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let Some(boot_acc_info) = memberships
+            .iter()
+            .find(|m| {
+                m["organization"]["capabilities"]
+                    .as_array()
+                    .map_or(false, |c| c.iter().any(|c| c.as_str() == Some("chat")))
+            })
+            .and_then(|m| m["organization"].as_object())
+        else {
+            error!("Failed to get account info");
+            return false;
+        };
         let mut cookie_model = None;
         if let Some(model) = bootstrap["statsig"]["values"]["layer_configs"]["HPOHwBLNLQLxkj5Yn4bfSkgCQnBX28kPR7h/BNKdVLw="]
             ["value"]["console_default_model_override"]["model"].as_str()
@@ -239,7 +254,7 @@ impl AppState {
             }
         }
         let mut is_pro = None;
-        if let Some(capabilities) = bootstrap["account"]["capabilities"].as_array() {
+        if let Some(capabilities) = boot_acc_info["capabilities"].as_array() {
             if capabilities
                 .iter()
                 .any(|c| c.as_str() == Some("claude_pro"))
@@ -266,9 +281,9 @@ impl AppState {
         }
 
         let model_name = if is_pro.is_some() {
-            is_pro.unwrap().clone()
+            is_pro.clone().unwrap()
         } else if cookie_model.is_some() {
-            cookie_model.unwrap().clone()
+            cookie_model.clone().unwrap().clone()
         } else {
             String::new()
         };
@@ -280,6 +295,43 @@ impl AppState {
                 });
             }
         }
+        if is_pro.is_none()
+            && istate.model.read().is_some()
+            && istate.model.read().as_ref() != cookie_model.as_ref()
+        {
+            return self.cookie_changer(None, None);
+        }
+        let index = if config.cookie_array.is_empty() {
+            "".to_string()
+        } else {
+            format!("(Index: {}) ", config.cookie_index)
+                .blue()
+                .to_string()
+        };
+        let name = boot_acc_info["name"]
+            .as_str()
+            .and_then(|n| n.split_once("@"))
+            .map(|(n, _)| n)
+            .unwrap_or_default();
+        let email = bootstrap["account"]["email_address"]
+            .as_str()
+            .unwrap_or_default();
+        let caps = boot_acc_info["capabilities"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|c| c.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!(
+            "{}Logged in \nname: {}\nmail: {}\ncookieModel: {}\ncapabilities: {}",
+            index,
+            name.blue(),
+            email.blue(),
+            cookie_model.unwrap_or_default().blue(),
+            caps.blue()
+        );
         // TODO
         false
     }

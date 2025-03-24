@@ -187,7 +187,7 @@ impl Default for Config {
             cookie_index: 0,
             proxy_password: String::new(),
             ip: "127.0.0.1".to_string(),
-            port: 8444,
+            port: 8484,
             local_tunnel: false,
             buffer_size: 1,
             system_interval: 3,
@@ -247,6 +247,10 @@ impl Config {
             }
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub fn address(&self) -> String {
+        format!("{}:{}", self.ip, self.port)
     }
 
     pub fn save(&self) -> Result<()> {
