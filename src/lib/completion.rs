@@ -1,4 +1,4 @@
-use crate::api::ApiState;
+use crate::api::{AppState, MyState};
 use axum::{
     Json,
     extract::{Request, State},
@@ -9,14 +9,14 @@ use serde_json::Value;
 fn cookie_changer(reset_timer: Option<bool>, cleanup: Option<bool>) {
     let reset_timer = reset_timer.unwrap_or(true);
     let cleanup = cleanup.unwrap_or(false);
-    
 }
 
 pub async fn completion(
-    State(state): State<ApiState>,
+    State(state): State<AppState>,
     header: HeaderMap,
     Json(payload): Json<Value>,
 ) {
+    let state = state.0;
     let temp = payload["temperature"].clone();
     // if temp is not f64 or within 0.1 to 1.0, set it to Null
     let temp = if temp.is_f64() && (0.1..=1.0).contains(&temp.as_f64().unwrap()) {
@@ -72,4 +72,5 @@ pub async fn completion(
     {
         panic!("No cookie available");
     }
+    // TODO
 }

@@ -25,3 +25,5 @@ pub const MODELS: [&str; 9] = [
     "claude-instant-1.2",
     "claude-instant-1.1",
 ];
+
+pub const ENDPOINT: &str = "https://api.claude.ai";

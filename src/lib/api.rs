@@ -1,4 +1,6 @@
-use std::sync::{Arc, LazyLock, Mutex};
+use std::{
+    collections::HashMap, process::exit, sync::{Arc, LazyLock, Mutex}, time::{Duration, SystemTime}
+};
 
 use axum::{
     Json, Router,
@@ -11,84 +13,123 @@ use colored::Colorize;
 use const_format::{concatc, formatc};
 use rquest::{Client, ClientBuilder};
 use serde_json::{Map, Value, json};
+use tokio::{
+    spawn,
+    time::{Interval, timeout},
+};
 
-use crate::{completion::completion, config::Config, utils::MODELS};
+use crate::{
+    completion::completion,
+    config::Config,
+    utils::{ENDPOINT, MODELS},
+};
 
 pub struct RouterBuilder {
     inner: Router,
 }
 
-#[derive(Default, Clone)]
-pub struct ApiState {
+#[derive(Default)]
+pub struct MyState {
     pub config: Arc<Config>,
-    model_list: Arc<Mutex<Vec<String>>>,
-    pub is_pro: Arc<Mutex<bool>>,
-    pub cookie_model: Arc<Mutex<String>>,
-    pub uuid_org: Arc<Mutex<String>>,
-    pub changing: Arc<Mutex<bool>>,
-    pub change_flag: Arc<Mutex<u32>>,
-    pub current_index: Arc<Mutex<u32>>,
-    first_login: Arc<Mutex<bool>>,
-    timestamp: Arc<Mutex<u64>>,
-    change_time: Arc<Mutex<u64>>,
-    total_time: Arc<Mutex<u64>>,
-    model: Arc<Mutex<String>>,
+    model_list: Mutex<Vec<String>>,
+    pub is_pro: Mutex<bool>,
+    pub cookie_model: Mutex<String>,
+    pub uuid_org: Mutex<String>,
+    pub changing: Mutex<bool>,
+    pub change_flag: Mutex<usize>,
+    pub current_index: Mutex<usize>,
+    pub first_login: Mutex<bool>,
+    pub timestamp: Mutex<u128>,
+    pub change_times: Mutex<usize>,
+    pub total_times: usize,
+    pub model: Mutex<String>,
+    pub cookies: Mutex<HashMap<String, String>>,
 }
 
-impl ApiState {
+#[derive(Clone)]
+pub struct AppState(pub Arc<MyState>);
+
+impl AppState {
     pub fn new(config: Arc<Config>) -> Self {
-        Self {
-            config,
-            first_login: Arc::new(Mutex::new(true)),
+        let m = MyState {
+            config: config.clone(),
+            first_login: Mutex::new(true),
+            total_times: config.clone().cookie_array.len(),
             ..Default::default()
-        }
+        };
+        let m = Arc::new(m);
+        AppState(m)
     }
 
     fn cookie_changer(&self, reset_timer: Option<bool>, cleanup: Option<bool>) -> bool {
+        let my_state = self.0.clone();
         let reset_timer = reset_timer.unwrap_or(true);
         let cleanup = cleanup.unwrap_or(false);
-        if self.config.cookie_array.is_empty() {
-            !self.changing.lock().unwrap().clone()
+        if my_state.config.cookie_array.is_empty() {
+            *my_state.changing.lock().unwrap() = false;
+            false
         } else {
-            *self.change_flag.lock().unwrap() = 0;
-            *self.changing.lock().unwrap() = true;
+            *my_state.change_flag.lock().unwrap() = 0;
+            *my_state.changing.lock().unwrap() = true;
             if !cleanup {
                 // rotate the cookie
-                let mut index = self.current_index.lock().unwrap();
-                let array_len = self.config.cookie_array.len() as u32;
+                let mut index = my_state.current_index.lock().unwrap();
+                let array_len = my_state.config.cookie_array.len();
                 *index = (*index + 1) % array_len;
                 println!("{}", "Changing cookie".green());
             }
+            // set timeout callback
+            let dur = if my_state.config.rproxy.is_empty() || my_state.config.rproxy == ENDPOINT {
+                15000 + my_state.timestamp.lock().unwrap().clone()
+                    - SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis()
+            } else {
+                0
+            };
+            let dur = Duration::from_millis(dur as u64);
+            let self_clone = self.clone();
+            spawn(timeout(dur, async move {
+                self_clone.on_listen();
+                if reset_timer {
+                    let now = SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis();
+                    *my_state.timestamp.lock().unwrap() = now;
+                }
+            }));
             false
         }
     }
 
-    fn on_listen(&self) {
-        if self.first_login.lock().unwrap().clone() {
-            *self.first_login.lock().unwrap() = false;
+    fn on_listen(&self) -> bool {
+        let my_state = self.0.clone();
+        if my_state.first_login.lock().unwrap().clone() {
+            *my_state.first_login.lock().unwrap() = false;
             // get time now
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs();
-            *self.timestamp.lock().unwrap() = now;
-            *self.total_time.lock().unwrap() = self.config.api_rproxy.len() as u64;
+                .as_millis();
+            *my_state.timestamp.lock().unwrap() = now;
             const TITLE: &str = formatc!(
                 "Clewdr v{} by {}",
                 env!("CARGO_PKG_VERSION"),
                 env!("CARGO_PKG_AUTHORS")
             );
-            let addr = self.config.ip.clone() + ":" + &self.config.port.to_string();
+            let addr = my_state.config.ip.clone() + ":" + &my_state.config.port.to_string();
             println!("{}", TITLE.blue());
             println!("Listening on {}", addr.green());
             // TODO: Print the config
             // TODO: Local tunnel
         }
-        if !self.config.cookie_array.is_empty() {
-            let current_cookie = self
+        if !my_state.config.cookie_array.is_empty() {
+            let current_cookie = my_state
                 .config
                 .cookie_array
-                .get(*self.current_index.lock().unwrap() as usize)
+                .get(*my_state.current_index.lock().unwrap() as usize)
                 .cloned()
                 .unwrap_or_default();
             // if not start with sessionKey=, add it
@@ -97,15 +138,27 @@ impl ApiState {
             } else {
                 format!("sessionKey={}", current_cookie)
             };
-            *self.change_time.lock().unwrap() += 1;
-            if (!self.model.lock().unwrap().is_empty()) {}
+            *my_state.change_times.lock().unwrap() += 1;
+            if !my_state.model.lock().unwrap().is_empty() {
+                //TODO: check cookie prefix "claude"
+            }
         }
+        let percentage = ((*my_state.change_times.lock().unwrap() as f32)
+            + my_state.config.cookie_index.saturating_sub(1) as f32)
+            / (my_state.total_times as f32)
+            * 100.0;
+        if my_state.config.cookie.is_empty() {
+            *my_state.changing.lock().unwrap() = false;
+            print!("{}", "No cookie available, enter apiKey-only mode.".red());
+            return false;
+        }
+        false
     }
 }
 
 impl RouterBuilder {
     pub fn new(config: Arc<Config>) -> Self {
-        let api_state = ApiState::new(config);
+        let api_state = AppState::new(config);
         Self {
             inner: Router::new()
                 .route("/v1/models", get(get_models))
@@ -138,8 +191,9 @@ async fn api_options() -> HeaderMap {
 
 async fn get_models(
     headers: HeaderMap,
-    State(api_state): State<ApiState>,
+    State(api_state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
+    let api_state = api_state.0;
     let authorization = headers
         .get("Authorization")
         .and_then(|h| h.to_str().ok())

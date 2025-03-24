@@ -69,7 +69,7 @@ pub struct Settings {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cookie: String::new(),
+            cookie: String::from("SET YOUR COOKIE HERE"),
             cookie_array: Vec::new(),
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
@@ -132,7 +132,7 @@ impl Config {
                 let default_config = Config::default();
                 default_config.save()?;
                 println!("Default config file created at {}", CONFIG_PATH);
-                println!("{}", "SET YOUR COOKIE THERE".green());
+                println!("{}", "SET YOUR COOKIE HERE".green());
                 Ok(default_config)
             }
             Err(e) => Err(e.into()),
@@ -153,8 +153,18 @@ impl Config {
     pub fn trim(mut self) -> Self {
         // trim and remove non-ASCII characters from cookie
         self.cookie = trim_cookie(&self.cookie);
-        self.cookie_array = self.cookie_array.iter().map(|c| trim_cookie(c)).collect();
-        self.wasted_cookie = self.wasted_cookie.iter().map(|c| trim_cookie(c)).collect();
+        self.cookie_array = self
+            .cookie_array
+            .iter()
+            .map(|c| trim_cookie(c))
+            .filter(|c| !c.is_empty())
+            .collect();
+        self.wasted_cookie = self
+            .wasted_cookie
+            .iter()
+            .map(|c| trim_cookie(c))
+            .filter(|c| !c.is_empty())
+            .collect();
         self.unknown_models = self
             .unknown_models
             .iter()
@@ -174,10 +184,15 @@ impl Config {
 }
 
 fn trim_cookie(cookie: &str) -> String {
-    cookie
+    let c = cookie
         .chars()
         .filter(|c| c.is_ascii())
         .collect::<String>()
         .trim()
-        .to_string()
+        .trim_start_matches("sessionKey=")
+        .to_string();
+    if c == "SET YOUR COOKIE HERE" {
+        return "".to_string();
+    }
+    format!("sessionKey={}", c)
 }
