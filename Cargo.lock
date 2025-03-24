@@ -317,6 +317,7 @@ dependencies = [
  "colored",
  "const_format",
  "figlet-rs",
+ "regex",
  "rquest",
  "rquest-util",
  "serde",
@@ -1481,12 +1482,11 @@ dependencies = [
 
 [[package]]
 name = "rquest-util"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64a7e95aec5eb09fd7e5487438bf21335e7cadd91eb91a2c8ed42dd8175afd44"
+checksum = "3f5cf9b79bf4101e34c058cdc26f8c794e7e525c1ed36956ecf77b4ef6327f9f"
 dependencies = [
  "rquest",
- "serde",
  "typed-builder",
 ]
 

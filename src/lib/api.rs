@@ -1,5 +1,8 @@
 use std::{
-    collections::HashMap, process::exit, sync::{Arc, LazyLock, Mutex}, time::{Duration, SystemTime}
+    collections::HashMap,
+    process::exit,
+    sync::{Arc, LazyLock, Mutex},
+    time::{Duration, SystemTime},
 };
 
 use axum::{
@@ -30,7 +33,7 @@ pub struct RouterBuilder {
 
 #[derive(Default)]
 pub struct MyState {
-    pub config: Arc<Config>,
+    pub config: Mutex<Config>,
     model_list: Mutex<Vec<String>>,
     pub is_pro: Mutex<bool>,
     pub cookie_model: Mutex<String>,
@@ -50,11 +53,12 @@ pub struct MyState {
 pub struct AppState(pub Arc<MyState>);
 
 impl AppState {
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: Config) -> Self {
+        let total_times = config.cookie_array.len();
         let m = MyState {
-            config: config.clone(),
+            config: Mutex::new(config),
             first_login: Mutex::new(true),
-            total_times: config.clone().cookie_array.len(),
+            total_times,
             ..Default::default()
         };
         let m = Arc::new(m);
@@ -65,7 +69,8 @@ impl AppState {
         let my_state = self.0.clone();
         let reset_timer = reset_timer.unwrap_or(true);
         let cleanup = cleanup.unwrap_or(false);
-        if my_state.config.cookie_array.is_empty() {
+        let config = self.0.config.lock().unwrap();
+        if config.cookie_array.is_empty() {
             *my_state.changing.lock().unwrap() = false;
             false
         } else {
@@ -74,12 +79,12 @@ impl AppState {
             if !cleanup {
                 // rotate the cookie
                 let mut index = my_state.current_index.lock().unwrap();
-                let array_len = my_state.config.cookie_array.len();
+                let array_len = config.cookie_array.len();
                 *index = (*index + 1) % array_len;
                 println!("{}", "Changing cookie".green());
             }
             // set timeout callback
-            let dur = if my_state.config.rproxy.is_empty() || my_state.config.rproxy == ENDPOINT {
+            let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
                 15000 + my_state.timestamp.lock().unwrap().clone()
                     - SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
@@ -106,6 +111,7 @@ impl AppState {
 
     fn on_listen(&self) -> bool {
         let my_state = self.0.clone();
+        let config = my_state.config.lock().unwrap();
         if my_state.first_login.lock().unwrap().clone() {
             *my_state.first_login.lock().unwrap() = false;
             // get time now
@@ -119,15 +125,14 @@ impl AppState {
                 env!("CARGO_PKG_VERSION"),
                 env!("CARGO_PKG_AUTHORS")
             );
-            let addr = my_state.config.ip.clone() + ":" + &my_state.config.port.to_string();
+            let addr = config.ip.clone() + ":" + &config.port.to_string();
             println!("{}", TITLE.blue());
             println!("Listening on {}", addr.green());
             // TODO: Print the config
             // TODO: Local tunnel
         }
-        if !my_state.config.cookie_array.is_empty() {
-            let current_cookie = my_state
-                .config
+        if !config.cookie_array.is_empty() {
+            let current_cookie = config
                 .cookie_array
                 .get(*my_state.current_index.lock().unwrap() as usize)
                 .cloned()
@@ -144,10 +149,10 @@ impl AppState {
             }
         }
         let percentage = ((*my_state.change_times.lock().unwrap() as f32)
-            + my_state.config.cookie_index.saturating_sub(1) as f32)
+            + config.cookie_index.saturating_sub(1) as f32)
             / (my_state.total_times as f32)
             * 100.0;
-        if my_state.config.cookie.is_empty() {
+        if config.cookie.is_empty() {
             *my_state.changing.lock().unwrap() = false;
             print!("{}", "No cookie available, enter apiKey-only mode.".red());
             return false;
@@ -157,7 +162,7 @@ impl AppState {
 }
 
 impl RouterBuilder {
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: Config) -> Self {
         let api_state = AppState::new(config);
         Self {
             inner: Router::new()
@@ -199,14 +204,14 @@ async fn get_models(
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
     // TODO: get api_rproxy from url query
-    let config = &api_state.config;
-    let models = if authorization.matches("oaiKey:").count() > 0 && !config.api_rproxy.is_empty() {
+    let api_rproxy = api_state.config.lock().unwrap().api_rproxy.clone();
+    let models = if authorization.matches("oaiKey:").count() > 0 && !api_rproxy.is_empty() {
         static CLIENT: LazyLock<Client> = LazyLock::new(|| {
             ClientBuilder::new()
                 .build()
                 .expect("Failed to create client")
         });
-        let url = format!("{}/v1/models", config.api_rproxy);
+        let url = format!("{}/v1/models", api_rproxy);
         let key = authorization.replace("oaiKey:", ",");
         if let Some((key, _)) = key.split_once(",") {
             let key = key.trim();
@@ -227,6 +232,7 @@ async fn get_models(
     } else {
         vec![]
     };
+    let config = api_state.config.lock().unwrap();
     let mut data = MODELS
         .iter()
         .cloned()

@@ -53,7 +53,7 @@ pub async fn completion(
     let stop_sequence = payload["stop"].as_str().unwrap_or_default();
     let top_p = payload["top_p"].clone();
     let top_k = payload["top_k"].clone();
-    let config = &state.config;
+    let config = &state.config.lock().unwrap();
     if api_keys.is_empty()
         && (!config.proxy_password.is_empty()
             && auth != format!("Bearer {}", config.proxy_password)
