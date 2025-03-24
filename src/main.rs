@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clewdr::{self, config::Config, utils::BANNER};
+use clewdr::{self, api::AppState, config::Config, utils::BANNER};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -9,10 +9,13 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber)?;
     println!("{}", *BANNER);
     let config = Config::load()?.validate();
+    let state = AppState::new(config);
     // TODO: load config from env
 
-    let router = clewdr::api::RouterBuilder::new(config).build();
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let router = clewdr::api::RouterBuilder::new(state).await.build();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await
+        .expect("Failed to bind to address");
     axum::serve(listener, router).await.unwrap();
 
     Ok(())

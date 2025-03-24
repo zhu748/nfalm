@@ -40,35 +40,35 @@ pub async fn completion(
         .contains("--force");
     let api_keys = third_key.split(",").map(|s| s.trim()).collect::<Vec<_>>();
     // TODO: validate api keys
-    let model = if !api_keys.is_empty() || force_model || state.pro.read().unwrap().is_some() {
+    let model = if !api_keys.is_empty() || force_model || state.pro.read().is_some() {
         let m = payload["model"]
             .as_str()
             .unwrap_or_default()
             .replace("--force", "");
         m.trim().to_string()
     } else {
-        state.cookie_model.read().unwrap().clone()
+        state.cookie_model.read().clone()
     };
     let max_tokens_to_sample = payload["max_tokens"].as_u64().unwrap_or(0);
     let stop_sequence = payload["stop"].as_str().unwrap_or_default();
     let top_p = payload["top_p"].clone();
     let top_k = payload["top_k"].clone();
-    let config = &state.config.read().unwrap();
+    let config = &state.config.read();
     if api_keys.is_empty()
         && (!config.proxy_password.is_empty()
             && auth != format!("Bearer {}", config.proxy_password)
-            || state.uuid_org.read().unwrap().is_empty())
+            || state.uuid_org.read().is_empty())
     {
-        let msg = if state.uuid_org.read().unwrap().is_empty() {
+        let msg = if state.uuid_org.read().is_empty() {
             "No cookie available or apiKey format wrong"
         } else {
             "proxy_password Wrong"
         };
         panic!("{}", msg);
-    } else if !*state.changing.read().unwrap()
+    } else if !*state.changing.read()
         && !api_keys.is_empty()
-        && state.pro.read().unwrap().is_none()
-        && model != *state.cookie_model.read().unwrap()
+        && state.pro.read().is_none()
+        && model != *state.cookie_model.read()
     {
         panic!("No cookie available");
     }

@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use axum::{
     Json, Router,
@@ -13,6 +9,7 @@ use axum::{
 };
 use colored::Colorize;
 use const_format::{concatc, formatc};
+use parking_lot::RwLock;
 use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value, json};
 use tokio::{spawn, time::timeout};
@@ -81,7 +78,7 @@ impl AppState {
                 if let Some(caps) = caps {
                     let key = caps[1].to_string();
                     let value = caps[2].to_string();
-                    let mut cookies = self.0.cookies.write().unwrap();
+                    let mut cookies = self.0.cookies.write();
                     cookies.insert(key, value);
                 }
             });
@@ -91,34 +88,33 @@ impl AppState {
         let my_state = self.0.clone();
         let reset_timer = reset_timer.unwrap_or(true);
         let cleanup = cleanup.unwrap_or(false);
-        let config = self.0.config.read().unwrap();
+        let config = self.0.config.read();
         if config.cookie_array.is_empty() {
-            *my_state.changing.write().unwrap() = false;
+            *my_state.changing.write() = false;
             false
         } else {
-            *my_state.change_flag.write().unwrap() = 0;
-            *my_state.changing.write().unwrap() = true;
+            *my_state.change_flag.write() = 0;
+            *my_state.changing.write() = true;
             if !cleanup {
                 // rotate the cookie
-                let mut index = my_state.current_index.write().unwrap();
+                let mut index = my_state.current_index.write();
                 let array_len = config.cookie_array.len();
                 *index = (*index + 1) % array_len;
                 println!("{}", "Changing cookie".green());
             }
             // set timeout callback
             let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
-                15000 + my_state.timestamp.read().unwrap().clone()
-                    - chrono::Utc::now().timestamp_millis()
+                15000 + my_state.timestamp.read().clone() - chrono::Utc::now().timestamp_millis()
             } else {
                 0
             };
             let dur = Duration::from_millis(dur as u64);
             let self_clone = self.clone();
             spawn(timeout(dur, async move {
-                self_clone.on_listen();
+                spawn(async move { self_clone.on_listen().await });
                 if reset_timer {
                     let now = chrono::Utc::now().timestamp_millis();
-                    *my_state.timestamp.write().unwrap() = now;
+                    *my_state.timestamp.write() = now;
                 }
             }));
             false
@@ -126,8 +122,8 @@ impl AppState {
     }
 
     fn cookie_cleaner(&self, reason: UselessReason) -> bool {
-        let current_index = self.0.current_index.read().unwrap().clone();
-        let mut config = self.0.config.write().unwrap();
+        let current_index = self.0.current_index.read().clone();
+        let mut config = self.0.config.write();
         let current_cookie = config.cookie_array.remove(current_index);
         config.cookie.clear();
         config
@@ -142,12 +138,12 @@ impl AppState {
 
     async fn on_listen(&self) -> bool {
         let istate = self.0.clone();
-        let mut config = istate.config.write().unwrap();
-        if istate.first_login.read().unwrap().clone() {
-            *istate.first_login.write().unwrap() = false;
+        let mut config = istate.config.write();
+        if istate.first_login.read().clone() {
+            *istate.first_login.write() = false;
             // get time now
             let now = chrono::Utc::now().timestamp_millis();
-            *istate.timestamp.write().unwrap() = now;
+            *istate.timestamp.write() = now;
             const TITLE: &str = formatc!(
                 "Clewdr v{} by {}",
                 env!("CARGO_PKG_VERSION"),
@@ -156,28 +152,28 @@ impl AppState {
             let addr = config.ip.clone() + ":" + &config.port.to_string();
             println!("{}", TITLE.blue());
             println!("Listening on {}", addr.green());
-            println!("Config:\n{:?}", config);
+            // println!("Config:\n{:?}", config);
             // TODO: Local tunnel
         }
         if !config.cookie_array.is_empty() {
             let current_cookie = config.current_cookie_info().unwrap().clone();
             config.cookie = current_cookie.cookie.clone();
 
-            *istate.change_times.write().unwrap() += 1;
-            if istate.model.read().unwrap().is_some()
+            *istate.change_times.write() += 1;
+            if istate.model.read().is_some()
                 && current_cookie.model.is_some()
                 && !current_cookie.is_pro()
-                && istate.model.read().unwrap().as_ref().unwrap() != &current_cookie.model.unwrap()
+                && istate.model.read().as_ref().unwrap() != &current_cookie.model.unwrap()
             {
                 return self.cookie_changer(Some(false), None);
             }
         }
-        let percentage = ((*istate.change_times.read().unwrap() as f32)
+        let percentage = ((*istate.change_times.read() as f32)
             + config.cookie_index.saturating_sub(1) as f32)
             / (istate.total_times as f32)
             * 100.0;
         if !config.cookie.validate() {
-            *istate.changing.write().unwrap() = false;
+            *istate.changing.write() = false;
             print!("{}", "No cookie available, enter apiKey-only mode.".red());
             return false;
         }
@@ -228,11 +224,11 @@ impl AppState {
                 is_pro = Some("claude_team_pro".to_string())
             }
         }
-        *istate.pro.write().unwrap() = is_pro.clone();
-        *istate.cookie_model.write().unwrap() = cookie_model.clone().unwrap_or_default();
+        *istate.pro.write() = is_pro.clone();
+        *istate.cookie_model.write() = cookie_model.clone().unwrap_or_default();
 
         // Check if cookie model is unknown (not in known models or in config's unknown models)
-        let mut config = istate.config.write().unwrap();
+        let mut config = istate.config.write();
         if let Some(cookie_model) = &cookie_model {
             if !MODELS.contains(&cookie_model.as_str())
                 && !config.unknown_models.contains(cookie_model)
@@ -265,8 +261,8 @@ impl AppState {
 }
 
 impl RouterBuilder {
-    pub fn new(config: Config) -> Self {
-        let api_state = AppState::new(config);
+    pub async fn new(state: AppState) -> Self {
+        state.on_listen().await;
         Self {
             inner: Router::new()
                 .route("/v1/models", get(get_models))
@@ -275,7 +271,7 @@ impl RouterBuilder {
                 .route("/v1", options(api_options))
                 .route("/", options(api_options))
                 .fallback(api_fallback)
-                .with_state(api_state),
+                .with_state(state),
         }
     }
 
@@ -307,7 +303,7 @@ async fn get_models(
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
     // TODO: get api_rproxy from url query
-    let api_rproxy = api_state.config.read().unwrap().api_rproxy.clone();
+    let api_rproxy = api_state.config.read().api_rproxy.clone();
     let models = if authorization.matches("oaiKey:").count() > 0 && !api_rproxy.is_empty() {
         let url = format!("{}/v1/models", api_rproxy);
         let key = authorization.replace("oaiKey:", ",");
@@ -330,7 +326,7 @@ async fn get_models(
     } else {
         vec![]
     };
-    let config = api_state.config.read().unwrap();
+    let config = api_state.config.read();
     let mut data = MODELS
         .iter()
         .cloned()
@@ -349,7 +345,7 @@ async fn get_models(
     });
     data.dedup();
     // write to model_list
-    let mut model_list = api_state.model_list.write().unwrap();
+    let mut model_list = api_state.model_list.write();
     model_list.clear();
     model_list.extend(
         data.iter()
