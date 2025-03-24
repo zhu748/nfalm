@@ -8,7 +8,7 @@ use tracing::warn;
 const CONFIG_PATH: &str = "config.toml";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-enum UselessCookie {
+pub enum UselessCookie {
     Null(Cookie),
     Disabled(Cookie),
     Unverified(Cookie),
@@ -21,6 +21,14 @@ enum UselessCookie {
 pub struct CookieInfo {
     pub model: Option<String>,
     pub cookie: Cookie,
+}
+
+impl CookieInfo {
+    pub fn is_pro(&self) -> bool {
+        self.model.as_ref().map_or(false, |model| {
+            model.contains("claude") && model.contains("_pro")
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -154,7 +162,7 @@ pub struct Settings {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cookie: Cookie::from("SET YOUR COOKIE HERE"),
+            cookie: Cookie::from("SET_YOUR_COOKIE_HERE"),
             cookie_array: Vec::new(),
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),

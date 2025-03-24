@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
-    process::exit,
-    sync::{Arc, LazyLock, Mutex, RwLock},
+    sync::{Arc, RwLock},
     time::{Duration, SystemTime},
 };
 
@@ -14,17 +13,15 @@ use axum::{
 };
 use colored::Colorize;
 use const_format::{concatc, formatc};
-use rquest::{Client, ClientBuilder};
+use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value, json};
-use tokio::{
-    spawn,
-    time::{Interval, timeout},
-};
+use tokio::{spawn, time::timeout};
 
 use crate::{
+    NORMAL_CLIENT, SUPER_CLIENT,
     completion::completion,
     config::Config,
-    utils::{ENDPOINT, MODELS},
+    utils::{ENDPOINT, MODELS, header_ref},
 };
 
 pub struct RouterBuilder {
@@ -32,7 +29,7 @@ pub struct RouterBuilder {
 }
 
 #[derive(Default)]
-pub struct MyState {
+pub struct InnerState {
     pub config: RwLock<Config>,
     model_list: RwLock<Vec<String>>,
     pub is_pro: RwLock<bool>,
@@ -45,17 +42,17 @@ pub struct MyState {
     pub timestamp: RwLock<u128>,
     pub change_times: RwLock<usize>,
     pub total_times: usize,
-    pub model: RwLock<String>,
+    pub model: RwLock<Option<String>>,
     pub cookies: RwLock<HashMap<String, String>>,
 }
 
 #[derive(Clone)]
-pub struct AppState(pub Arc<MyState>);
+pub struct AppState(pub Arc<InnerState>);
 
 impl AppState {
     pub fn new(config: Config) -> Self {
         let total_times = config.cookie_array.len();
-        let m = MyState {
+        let m = InnerState {
             config: RwLock::new(config),
             first_login: RwLock::new(true),
             total_times,
@@ -63,6 +60,30 @@ impl AppState {
         };
         let m = Arc::new(m);
         AppState(m)
+    }
+
+    fn update_cookies(&self, str: &str) {
+        let str = str.split("\n").to_owned().collect::<Vec<_>>().join("");
+        if str.is_empty() {
+            return;
+        }
+        let re1 = Regex::new(r";\s?").unwrap();
+        let re2 = RegexBuilder::new(r"^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*")
+            .case_insensitive(true)
+            .build()
+            .unwrap();
+        let re3 = Regex::new(r"^(.*?)=\s*(.*)").unwrap();
+        re1.split(&str)
+            .filter(|s| !re2.is_match(s) && !s.is_empty())
+            .for_each(|s| {
+                let caps = re3.captures(s);
+                if let Some(caps) = caps {
+                    let key = caps[1].to_string();
+                    let value = caps[2].to_string();
+                    let mut cookies = self.0.cookies.write().unwrap();
+                    cookies.insert(key, value);
+                }
+            });
     }
 
     fn cookie_changer(&self, reset_timer: Option<bool>, cleanup: Option<bool>) -> bool {
@@ -109,7 +130,7 @@ impl AppState {
         }
     }
 
-    fn on_listen(&self) -> bool {
+    async fn on_listen(&self) -> bool {
         let my_state = self.0.clone();
         let mut config = my_state.config.write().unwrap();
         if my_state.first_login.read().unwrap().clone() {
@@ -128,7 +149,7 @@ impl AppState {
             let addr = config.ip.clone() + ":" + &config.port.to_string();
             println!("{}", TITLE.blue());
             println!("Listening on {}", addr.green());
-            // TODO: Print the config
+            println!("Config:\n{:?}", config);
             // TODO: Local tunnel
         }
         if !config.cookie_array.is_empty() {
@@ -136,8 +157,13 @@ impl AppState {
             config.cookie = current_cookie.cookie.clone();
 
             *my_state.change_times.write().unwrap() += 1;
-            if !my_state.model.read().unwrap().is_empty() {
-                //TODO: check cookie prefix "claude"
+            if my_state.model.read().unwrap().is_some()
+                && current_cookie.model.is_some()
+                && !current_cookie.is_pro()
+                && my_state.model.read().unwrap().as_ref().unwrap()
+                    != &current_cookie.model.unwrap()
+            {
+                return self.cookie_changer(Some(false), None);
             }
         }
         let percentage = ((*my_state.change_times.read().unwrap() as f32)
@@ -149,6 +175,17 @@ impl AppState {
             print!("{}", "No cookie available, enter apiKey-only mode.".red());
             return false;
         }
+        self.update_cookies(&config.cookie.to_string());
+        let rproxy = config.rproxy.clone();
+        // drop the lock before the async call
+        drop(config);
+        let end_point = if rproxy.is_empty() { ENDPOINT } else { &rproxy };
+        let res = SUPER_CLIENT
+            .get(end_point)
+            .header_append("Origin", ENDPOINT)
+            .header_append("Referer", header_ref(""))
+            .send()
+            .await;
         false
     }
 }
@@ -198,16 +235,11 @@ async fn get_models(
     // TODO: get api_rproxy from url query
     let api_rproxy = api_state.config.read().unwrap().api_rproxy.clone();
     let models = if authorization.matches("oaiKey:").count() > 0 && !api_rproxy.is_empty() {
-        static CLIENT: LazyLock<Client> = LazyLock::new(|| {
-            ClientBuilder::new()
-                .build()
-                .expect("Failed to create client")
-        });
         let url = format!("{}/v1/models", api_rproxy);
         let key = authorization.replace("oaiKey:", ",");
         if let Some((key, _)) = key.split_once(",") {
             let key = key.trim();
-            let resp = CLIENT
+            let resp = NORMAL_CLIENT
                 .get(&url)
                 .header("Authorization", key)
                 .send()

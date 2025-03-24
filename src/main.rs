@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use clewdr::{self, config::Config, utils::BANNER};
 

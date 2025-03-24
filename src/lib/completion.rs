@@ -1,4 +1,4 @@
-use crate::api::{AppState, MyState};
+use crate::api::{AppState, InnerState};
 use axum::{
     Json,
     extract::{Request, State},

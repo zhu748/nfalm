@@ -1,4 +1,3 @@
-use const_format::formatc;
 use figlet_rs::FIGfont;
 use std::sync::LazyLock;
 
@@ -28,3 +27,11 @@ pub const MODELS: [&str; 10] = [
 ];
 
 pub const ENDPOINT: &str = "https://api.claude.ai";
+
+pub fn header_ref(ref_path: &str) -> String {
+    if ref_path.is_empty() {
+        format!("{}/", ENDPOINT)
+    } else {
+        format!("{}/chat/{}", ENDPOINT, ref_path)
+    }
+}
