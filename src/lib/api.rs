@@ -33,7 +33,7 @@ pub struct RouterBuilder {
 pub struct InnerState {
     pub config: RwLock<Config>,
     model_list: RwLock<Vec<String>>,
-    pub is_pro: RwLock<bool>,
+    pub pro: RwLock<Option<String>>,
     pub cookie_model: RwLock<String>,
     pub uuid_org: RwLock<String>,
     pub changing: RwLock<bool>,
@@ -141,13 +141,13 @@ impl AppState {
     }
 
     async fn on_listen(&self) -> bool {
-        let my_state = self.0.clone();
-        let mut config = my_state.config.write().unwrap();
-        if my_state.first_login.read().unwrap().clone() {
-            *my_state.first_login.write().unwrap() = false;
+        let istate = self.0.clone();
+        let mut config = istate.config.write().unwrap();
+        if istate.first_login.read().unwrap().clone() {
+            *istate.first_login.write().unwrap() = false;
             // get time now
             let now = chrono::Utc::now().timestamp_millis();
-            *my_state.timestamp.write().unwrap() = now;
+            *istate.timestamp.write().unwrap() = now;
             const TITLE: &str = formatc!(
                 "Clewdr v{} by {}",
                 env!("CARGO_PKG_VERSION"),
@@ -160,25 +160,24 @@ impl AppState {
             // TODO: Local tunnel
         }
         if !config.cookie_array.is_empty() {
-            let current_cookie = config.current_cookie_info().unwrap();
+            let current_cookie = config.current_cookie_info().unwrap().clone();
             config.cookie = current_cookie.cookie.clone();
 
-            *my_state.change_times.write().unwrap() += 1;
-            if my_state.model.read().unwrap().is_some()
+            *istate.change_times.write().unwrap() += 1;
+            if istate.model.read().unwrap().is_some()
                 && current_cookie.model.is_some()
                 && !current_cookie.is_pro()
-                && my_state.model.read().unwrap().as_ref().unwrap()
-                    != &current_cookie.model.unwrap()
+                && istate.model.read().unwrap().as_ref().unwrap() != &current_cookie.model.unwrap()
             {
                 return self.cookie_changer(Some(false), None);
             }
         }
-        let percentage = ((*my_state.change_times.read().unwrap() as f32)
+        let percentage = ((*istate.change_times.read().unwrap() as f32)
             + config.cookie_index.saturating_sub(1) as f32)
-            / (my_state.total_times as f32)
+            / (istate.total_times as f32)
             * 100.0;
         if !config.cookie.validate() {
-            *my_state.changing.write().unwrap() = false;
+            *istate.changing.write().unwrap() = false;
             print!("{}", "No cookie available, enter apiKey-only mode.".red());
             return false;
         }
@@ -197,17 +196,70 @@ impl AppState {
             error!("Failed to connect to {}: {}", end_point, res.unwrap_err());
             return false;
         };
-        let mut json: Option<Value> = None;
-        let _ = check_res_err(res, &mut json).await;
-        let Some(json) = json else {
+        let mut bootstrap: Option<Value> = None;
+        let _ = check_res_err(res, &mut bootstrap).await;
+        let Some(bootstrap) = bootstrap else {
             return false;
         };
-        if json["account"].is_null() {
+        if bootstrap["account"].is_null() {
             println!("{}", "Null!".red());
             return self.cookie_cleaner(UselessReason::Null);
         }
+        let mut cookie_model = None;
+        if let Some(model) = bootstrap["statsig"]["values"]["layer_configs"]["HPOHwBLNLQLxkj5Yn4bfSkgCQnBX28kPR7h/BNKdVLw="]
+            ["value"]["console_default_model_override"]["model"].as_str()
+        {
+            cookie_model = Some(model.to_string());
+        }
+        if cookie_model.is_none() {
+            if let Some(model) = bootstrap["statsig"]["values"]["dynamic_configs"]["6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8="]
+            ["value"]["model"].as_str() {
+                cookie_model = Some(model.to_string());
+            }
+        }
+        let mut is_pro = None;
+        if let Some(capabilities) = bootstrap["account"]["capabilities"].as_array() {
+            if capabilities
+                .iter()
+                .any(|c| c.as_str() == Some("claude_pro"))
+            {
+                is_pro = Some("claude_pro".to_string());
+            } else if capabilities.iter().any(|c| c.as_str() == Some("raven")) {
+                is_pro = Some("claude_team_pro".to_string())
+            }
+        }
+        *istate.pro.write().unwrap() = is_pro.clone();
+        *istate.cookie_model.write().unwrap() = cookie_model.clone().unwrap_or_default();
 
-        
+        // Check if cookie model is unknown (not in known models or in config's unknown models)
+        let mut config = istate.config.write().unwrap();
+        if let Some(cookie_model) = &cookie_model {
+            if !MODELS.contains(&cookie_model.as_str())
+                && !config.unknown_models.contains(cookie_model)
+            {
+                config.unknown_models.push(cookie_model.clone());
+                config.save().unwrap_or_else(|e| {
+                    println!("Failed to save config: {}", e);
+                });
+            }
+        }
+
+        let model_name = if is_pro.is_some() {
+            is_pro.unwrap().clone()
+        } else if cookie_model.is_some() {
+            cookie_model.unwrap().clone()
+        } else {
+            String::new()
+        };
+        if let Some(current_cookie) = config.current_cookie_info() {
+            if !model_name.is_empty() {
+                current_cookie.model = Some(model_name);
+                config.save().unwrap_or_else(|e| {
+                    println!("Failed to save config: {}", e);
+                });
+            }
+        }
+        // TODO
         false
     }
 }

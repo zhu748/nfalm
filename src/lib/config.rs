@@ -260,9 +260,9 @@ impl Config {
         Ok(())
     }
 
-    pub fn current_cookie_info(&self) -> Option<CookieInfo> {
+    pub fn current_cookie_info(&mut self) -> Option<&mut CookieInfo> {
         if self.cookie_index < self.cookie_array.len() as u32 {
-            Some(self.cookie_array[self.cookie_index as usize].clone())
+            Some(&mut self.cookie_array[self.cookie_index as usize])
         } else {
             None
         }
