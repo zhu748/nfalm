@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     process::exit,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock, Mutex, RwLock},
     time::{Duration, SystemTime},
 };
 
@@ -33,20 +33,20 @@ pub struct RouterBuilder {
 
 #[derive(Default)]
 pub struct MyState {
-    pub config: Mutex<Config>,
-    model_list: Mutex<Vec<String>>,
-    pub is_pro: Mutex<bool>,
-    pub cookie_model: Mutex<String>,
-    pub uuid_org: Mutex<String>,
-    pub changing: Mutex<bool>,
-    pub change_flag: Mutex<usize>,
-    pub current_index: Mutex<usize>,
-    pub first_login: Mutex<bool>,
-    pub timestamp: Mutex<u128>,
-    pub change_times: Mutex<usize>,
+    pub config: RwLock<Config>,
+    model_list: RwLock<Vec<String>>,
+    pub is_pro: RwLock<bool>,
+    pub cookie_model: RwLock<String>,
+    pub uuid_org: RwLock<String>,
+    pub changing: RwLock<bool>,
+    pub change_flag: RwLock<usize>,
+    pub current_index: RwLock<usize>,
+    pub first_login: RwLock<bool>,
+    pub timestamp: RwLock<u128>,
+    pub change_times: RwLock<usize>,
     pub total_times: usize,
-    pub model: Mutex<String>,
-    pub cookies: Mutex<HashMap<String, String>>,
+    pub model: RwLock<String>,
+    pub cookies: RwLock<HashMap<String, String>>,
 }
 
 #[derive(Clone)]
@@ -56,8 +56,8 @@ impl AppState {
     pub fn new(config: Config) -> Self {
         let total_times = config.cookie_array.len();
         let m = MyState {
-            config: Mutex::new(config),
-            first_login: Mutex::new(true),
+            config: RwLock::new(config),
+            first_login: RwLock::new(true),
             total_times,
             ..Default::default()
         };
@@ -69,23 +69,23 @@ impl AppState {
         let my_state = self.0.clone();
         let reset_timer = reset_timer.unwrap_or(true);
         let cleanup = cleanup.unwrap_or(false);
-        let config = self.0.config.lock().unwrap();
+        let config = self.0.config.read().unwrap();
         if config.cookie_array.is_empty() {
-            *my_state.changing.lock().unwrap() = false;
+            *my_state.changing.write().unwrap() = false;
             false
         } else {
-            *my_state.change_flag.lock().unwrap() = 0;
-            *my_state.changing.lock().unwrap() = true;
+            *my_state.change_flag.write().unwrap() = 0;
+            *my_state.changing.write().unwrap() = true;
             if !cleanup {
                 // rotate the cookie
-                let mut index = my_state.current_index.lock().unwrap();
+                let mut index = my_state.current_index.write().unwrap();
                 let array_len = config.cookie_array.len();
                 *index = (*index + 1) % array_len;
                 println!("{}", "Changing cookie".green());
             }
             // set timeout callback
             let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
-                15000 + my_state.timestamp.lock().unwrap().clone()
+                15000 + my_state.timestamp.read().unwrap().clone()
                     - SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap()
@@ -102,7 +102,7 @@ impl AppState {
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap()
                         .as_millis();
-                    *my_state.timestamp.lock().unwrap() = now;
+                    *my_state.timestamp.write().unwrap() = now;
                 }
             }));
             false
@@ -111,15 +111,15 @@ impl AppState {
 
     fn on_listen(&self) -> bool {
         let my_state = self.0.clone();
-        let config = my_state.config.lock().unwrap();
-        if my_state.first_login.lock().unwrap().clone() {
-            *my_state.first_login.lock().unwrap() = false;
+        let mut config = my_state.config.write().unwrap();
+        if my_state.first_login.read().unwrap().clone() {
+            *my_state.first_login.write().unwrap() = false;
             // get time now
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis();
-            *my_state.timestamp.lock().unwrap() = now;
+            *my_state.timestamp.write().unwrap() = now;
             const TITLE: &str = formatc!(
                 "Clewdr v{} by {}",
                 env!("CARGO_PKG_VERSION"),
@@ -132,28 +132,20 @@ impl AppState {
             // TODO: Local tunnel
         }
         if !config.cookie_array.is_empty() {
-            let current_cookie = config
-                .cookie_array
-                .get(*my_state.current_index.lock().unwrap() as usize)
-                .cloned()
-                .unwrap_or_default();
-            // if not start with sessionKey=, add it
-            let current_cookie = if current_cookie.starts_with("sessionKey=") {
-                current_cookie
-            } else {
-                format!("sessionKey={}", current_cookie)
-            };
-            *my_state.change_times.lock().unwrap() += 1;
-            if !my_state.model.lock().unwrap().is_empty() {
+            let current_cookie = config.current_cookie_info().unwrap();
+            config.cookie = current_cookie.cookie.clone();
+
+            *my_state.change_times.write().unwrap() += 1;
+            if !my_state.model.read().unwrap().is_empty() {
                 //TODO: check cookie prefix "claude"
             }
         }
-        let percentage = ((*my_state.change_times.lock().unwrap() as f32)
+        let percentage = ((*my_state.change_times.read().unwrap() as f32)
             + config.cookie_index.saturating_sub(1) as f32)
             / (my_state.total_times as f32)
             * 100.0;
-        if config.cookie.is_empty() {
-            *my_state.changing.lock().unwrap() = false;
+        if !config.cookie.validate() {
+            *my_state.changing.write().unwrap() = false;
             print!("{}", "No cookie available, enter apiKey-only mode.".red());
             return false;
         }
@@ -204,7 +196,7 @@ async fn get_models(
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
     // TODO: get api_rproxy from url query
-    let api_rproxy = api_state.config.lock().unwrap().api_rproxy.clone();
+    let api_rproxy = api_state.config.read().unwrap().api_rproxy.clone();
     let models = if authorization.matches("oaiKey:").count() > 0 && !api_rproxy.is_empty() {
         static CLIENT: LazyLock<Client> = LazyLock::new(|| {
             ClientBuilder::new()
@@ -232,7 +224,7 @@ async fn get_models(
     } else {
         vec![]
     };
-    let config = api_state.config.lock().unwrap();
+    let config = api_state.config.read().unwrap();
     let mut data = MODELS
         .iter()
         .cloned()
@@ -251,7 +243,7 @@ async fn get_models(
     });
     data.dedup();
     // write to model_list
-    let mut model_list = api_state.model_list.lock().unwrap();
+    let mut model_list = api_state.model_list.write().unwrap();
     model_list.clear();
     model_list.extend(
         data.iter()

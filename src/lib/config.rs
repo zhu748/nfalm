@@ -1,15 +1,100 @@
 use anyhow::Result;
 use colored::Colorize;
+use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Display};
+use tracing::warn;
 
 const CONFIG_PATH: &str = "config.toml";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+enum UselessCookie {
+    Null(Cookie),
+    Disabled(Cookie),
+    Unverified(Cookie),
+    Overlap(Cookie),
+    Banned(Cookie),
+    Invalid(Cookie),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CookieInfo {
+    pub model: Option<String>,
+    pub cookie: Cookie,
+}
+
+#[derive(Clone)]
+pub struct Cookie {
+    inner: String,
+}
+
+impl Cookie {
+    pub fn validate(&self) -> bool {
+        // Check if the cookie is valid
+        let re = regex::Regex::new(r"sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA").unwrap();
+        re.is_match(&self.inner)
+    }
+}
+
+impl From<&str> for Cookie {
+    fn from(cookie: &str) -> Self {
+        // only keep '=' '_' '-' and alphanumeric characters
+        let cookie = cookie
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '=' || *c == '_' || *c == '-')
+            .collect::<String>()
+            .trim_start_matches("sessionKey=")
+            .to_string();
+        let re = regex::Regex::new(r"sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA").unwrap();
+        if !re.is_match(&cookie) {
+            warn!("Invalid cookie format: {}", cookie);
+        }
+
+        Self {
+            // filter out non-ASCII characters, whitespace and newlines
+            inner: cookie,
+        }
+    }
+}
+
+impl Display for Cookie {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "sessionKey={}", self.inner)
+    }
+}
+
+impl Debug for Cookie {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "sessionKey={}", self.inner)
+    }
+}
+
+impl Serialize for Cookie {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let str = self.to_string();
+        serializer.serialize_str(&str)
+    }
+}
+
+impl<'de> Deserialize<'de> for Cookie {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Cookie::from(s.as_str()))
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     // Cookie configurations
-    pub cookie: String,
-    pub cookie_array: Vec<String>,
-    pub wasted_cookie: Vec<String>,
+    pub cookie: Cookie,
+    pub cookie_array: Vec<CookieInfo>,
+    pub wasted_cookie: Vec<UselessCookie>,
     pub unknown_models: Vec<String>,
 
     // Network settings
@@ -69,7 +154,7 @@ pub struct Settings {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cookie: String::from("SET YOUR COOKIE HERE"),
+            cookie: Cookie::from("SET YOUR COOKIE HERE"),
             cookie_array: Vec::new(),
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
@@ -150,21 +235,19 @@ impl Config {
         Ok(())
     }
 
-    pub fn trim(mut self) -> Self {
+    pub fn current_cookie_info(&self) -> Option<CookieInfo> {
+        if self.cookie_index < self.cookie_array.len() as u32 {
+            Some(self.cookie_array[self.cookie_index as usize].clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn validate(mut self) -> Self {
+        if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() as u32 {
+            self.cookie_index = rng().random_range(0..self.cookie_array.len() as u32);
+        }
         // trim and remove non-ASCII characters from cookie
-        self.cookie = trim_cookie(&self.cookie);
-        self.cookie_array = self
-            .cookie_array
-            .iter()
-            .map(|c| trim_cookie(c))
-            .filter(|c| !c.is_empty())
-            .collect();
-        self.wasted_cookie = self
-            .wasted_cookie
-            .iter()
-            .map(|c| trim_cookie(c))
-            .filter(|c| !c.is_empty())
-            .collect();
         self.unknown_models = self
             .unknown_models
             .iter()
@@ -181,18 +264,4 @@ impl Config {
         self.settings.padtxt = self.settings.padtxt.trim().to_string();
         self
     }
-}
-
-fn trim_cookie(cookie: &str) -> String {
-    let c = cookie
-        .chars()
-        .filter(|c| c.is_ascii())
-        .collect::<String>()
-        .trim()
-        .trim_start_matches("sessionKey=")
-        .to_string();
-    if c == "SET YOUR COOKIE HERE" {
-        return "".to_string();
-    }
-    format!("sessionKey={}", c)
 }
