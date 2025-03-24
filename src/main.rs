@@ -12,10 +12,11 @@ async fn main() -> Result<()> {
     let state = AppState::new(config);
     // TODO: load config from env
 
-    let router = clewdr::api::RouterBuilder::new(state).await.build();
+    let router = clewdr::api::RouterBuilder::new(state.clone()).build();
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .expect("Failed to bind to address");
+    state.on_listen().await;
     axum::serve(listener, router).await.unwrap();
 
     Ok(())

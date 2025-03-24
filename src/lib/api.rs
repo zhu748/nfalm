@@ -84,6 +84,25 @@ impl AppState {
             });
     }
 
+    fn get_cookies(&self) -> String {
+        let cookies = self.0.cookies.read();
+        cookies
+            .iter()
+            .enumerate()
+            .map(|(idx, (name, value))| {
+                format!(
+                    "{}={}{}",
+                    name,
+                    value,
+                    if idx == cookies.len() - 1 { "" } else { ";" }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+            .trim_end()
+            .to_string()
+    }
+
     fn cookie_changer(&self, reset_timer: Option<bool>, cleanup: Option<bool>) -> bool {
         let my_state = self.0.clone();
         let reset_timer = reset_timer.unwrap_or(true);
@@ -136,7 +155,7 @@ impl AppState {
         self.cookie_changer(Some(true), Some(true))
     }
 
-    async fn on_listen(&self) -> bool {
+    pub async fn on_listen(&self) -> bool {
         let istate = self.0.clone();
         let mut config = istate.config.write();
         if istate.first_login.read().clone() {
@@ -182,10 +201,12 @@ impl AppState {
         // drop the lock before the async call
         drop(config);
         let end_point = if rproxy.is_empty() { ENDPOINT } else { &rproxy };
+        let end_point = format!("{}/api/bootstrap", end_point);
         let res = SUPER_CLIENT
-            .get(end_point)
+            .get(end_point.clone())
             .header_append("Origin", ENDPOINT)
             .header_append("Referer", header_ref(""))
+            .header_append("Cookie", self.get_cookies())
             .send()
             .await;
         let Ok(res) = res else {
@@ -197,6 +218,10 @@ impl AppState {
         let Some(bootstrap) = bootstrap else {
             return false;
         };
+        // print bootstrap to out.json
+        let string = serde_json::to_string_pretty(&bootstrap).unwrap_or_default();
+        let mut file = std::fs::File::create("out.json").unwrap();
+        std::io::Write::write_all(&mut file, string.as_bytes()).unwrap();
         if bootstrap["account"].is_null() {
             println!("{}", "Null!".red());
             return self.cookie_cleaner(UselessReason::Null);
@@ -261,8 +286,7 @@ impl AppState {
 }
 
 impl RouterBuilder {
-    pub async fn new(state: AppState) -> Self {
-        state.on_listen().await;
+    pub fn new(state: AppState) -> Self {
         Self {
             inner: Router::new()
                 .route("/v1/models", get(get_models))
