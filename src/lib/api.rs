@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use axum::{
@@ -16,12 +16,13 @@ use const_format::{concatc, formatc};
 use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value, json};
 use tokio::{spawn, time::timeout};
+use tracing::error;
 
 use crate::{
     NORMAL_CLIENT, SUPER_CLIENT,
     completion::completion,
-    config::Config,
-    utils::{ENDPOINT, MODELS, header_ref},
+    config::{Config, CookieInfo, UselessCookie, UselessReason},
+    utils::{ENDPOINT, MODELS, check_res_err, header_ref},
 };
 
 pub struct RouterBuilder {
@@ -39,7 +40,7 @@ pub struct InnerState {
     pub change_flag: RwLock<usize>,
     pub current_index: RwLock<usize>,
     pub first_login: RwLock<bool>,
-    pub timestamp: RwLock<u128>,
+    pub timestamp: RwLock<i64>,
     pub change_times: RwLock<usize>,
     pub total_times: usize,
     pub model: RwLock<Option<String>>,
@@ -107,10 +108,7 @@ impl AppState {
             // set timeout callback
             let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
                 15000 + my_state.timestamp.read().unwrap().clone()
-                    - SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis()
+                    - chrono::Utc::now().timestamp_millis()
             } else {
                 0
             };
@@ -119,15 +117,27 @@ impl AppState {
             spawn(timeout(dur, async move {
                 self_clone.on_listen();
                 if reset_timer {
-                    let now = SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis();
+                    let now = chrono::Utc::now().timestamp_millis();
                     *my_state.timestamp.write().unwrap() = now;
                 }
             }));
             false
         }
+    }
+
+    fn cookie_cleaner(&self, reason: UselessReason) -> bool {
+        let current_index = self.0.current_index.read().unwrap().clone();
+        let mut config = self.0.config.write().unwrap();
+        let current_cookie = config.cookie_array.remove(current_index);
+        config.cookie.clear();
+        config
+            .wasted_cookie
+            .push(UselessCookie::new(current_cookie.cookie, reason));
+        config.save().unwrap_or_else(|e| {
+            println!("Failed to save config: {}", e);
+        });
+        println!("Cleaning Cookie...");
+        self.cookie_changer(Some(true), Some(true))
     }
 
     async fn on_listen(&self) -> bool {
@@ -136,10 +146,7 @@ impl AppState {
         if my_state.first_login.read().unwrap().clone() {
             *my_state.first_login.write().unwrap() = false;
             // get time now
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis();
+            let now = chrono::Utc::now().timestamp_millis();
             *my_state.timestamp.write().unwrap() = now;
             const TITLE: &str = formatc!(
                 "Clewdr v{} by {}",
@@ -186,6 +193,21 @@ impl AppState {
             .header_append("Referer", header_ref(""))
             .send()
             .await;
+        let Ok(res) = res else {
+            error!("Failed to connect to {}: {}", end_point, res.unwrap_err());
+            return false;
+        };
+        let mut json: Option<Value> = None;
+        let _ = check_res_err(res, &mut json).await;
+        let Some(json) = json else {
+            return false;
+        };
+        if json["account"].is_null() {
+            println!("{}", "Null!".red());
+            return self.cookie_cleaner(UselessReason::Null);
+        }
+
+        
         false
     }
 }

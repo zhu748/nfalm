@@ -8,13 +8,25 @@ use tracing::warn;
 const CONFIG_PATH: &str = "config.toml";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum UselessCookie {
-    Null(Cookie),
-    Disabled(Cookie),
-    Unverified(Cookie),
-    Overlap(Cookie),
-    Banned(Cookie),
-    Invalid(Cookie),
+pub enum UselessReason {
+    Null,
+    Disabled,
+    Unverified,
+    Overlap,
+    Banned,
+    Invalid,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UselessCookie {
+    pub cookie: Cookie,
+    pub reason: UselessReason,
+}
+
+impl UselessCookie {
+    pub fn new(cookie: Cookie, reason: UselessReason) -> Self {
+        Self { cookie, reason }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -41,6 +53,11 @@ impl Cookie {
         // Check if the cookie is valid
         let re = regex::Regex::new(r"sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA").unwrap();
         re.is_match(&self.inner)
+    }
+
+    pub fn clear(&mut self) {
+        // Clear the cookie
+        self.inner.clear();
     }
 }
 
