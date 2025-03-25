@@ -9,28 +9,55 @@ use axum::{
     extract::{Request, State},
     http::HeaderMap,
 };
+use bytes::Bytes;
+use futures::pin_mut;
 use serde_json::Value;
-use tokio_stream::Stream;
+use tokio::sync::mpsc;
+use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 pub async fn stream_example(
     State(state): State<AppState>,
     header: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Body {
-    // some work
+    // Create a channel for streaming response chunks to the client
+    let (tx, rx) = mpsc::channel::<Result<Bytes, axum::Error>>(32);
+
+    // Configure the transformer
+    let config = ClewdrConfig::new("xx", "pro", true, 8, true);
+    let trans = ClewdrTransformer::new(config);
+
+    // Perform the external request
     let super_res = SUPER_CLIENT
         .get("https://api.claude.ai")
         .send()
         .await
-        .unwrap();
-    let mut input_stream = super_res.bytes_stream();
-    let cancel = CancellationToken::new();
-    let cancel_clone = cancel.clone();
-    let config = ClewdrConfig::new("xx", "pro", true, 8, cancel, true);
-    let trans = ClewdrTransformer::new(config);
-    let output_stream = trans.transform_stream(input_stream);
-    Body::from_stream(output_stream)
+        .unwrap(); // In production, handle this error gracefully
+    let input_stream = super_res.bytes_stream();
+
+    // Spawn a task to handle the streaming transformation
+    tokio::spawn(async move {
+        let output_stream = trans.transform_stream(input_stream);
+        pin_mut!(output_stream);
+
+        while let Some(result) = output_stream.next().await {
+            // Simulate expensive work (optional, adjust as needed)
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+            // Send the chunk to the client
+            let chunk = Bytes::from(result.unwrap()); // Convert String to Bytes
+            if tx.send(Ok(chunk)).await.is_err() {
+                info!("Client disconnected, cancelling task");
+                break;
+            }
+        }
+    });
+
+    // Return the streaming body
+    let response_stream = ReceiverStream::new(rx);
+    Body::from_stream(response_stream)
 }
 
 pub async fn completion(

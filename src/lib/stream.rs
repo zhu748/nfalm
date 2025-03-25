@@ -18,7 +18,6 @@ pub struct ClewdrConfig {
     model: String,
     streaming: bool,
     min_size: usize,
-    cancel: CancellationToken,
     prevent_imperson: bool,
 }
 
@@ -28,7 +27,6 @@ impl ClewdrConfig {
         model: &str,
         streaming: bool,
         min_size: usize,
-        cancel: CancellationToken,
         prevent_imperson: bool,
     ) -> Self {
         Self {
@@ -36,7 +34,6 @@ impl ClewdrConfig {
             model: model.to_string(),
             streaming,
             min_size,
-            cancel,
             prevent_imperson,
         }
     }
@@ -44,6 +41,7 @@ impl ClewdrConfig {
 
 pub struct ClewdrTransformer {
     config: ClewdrConfig,
+    cancel: CancellationToken,
     ready_string: String,
     raw_string: String,
     completes: Vec<String>,
@@ -58,6 +56,7 @@ impl ClewdrTransformer {
     pub fn new(config: ClewdrConfig) -> Self {
         Self {
             config,
+            cancel: CancellationToken::new(),
             ready_string: String::with_capacity(1024),
             raw_string: String::with_capacity(1024),
             completes: Vec::with_capacity(1024),
@@ -101,7 +100,7 @@ impl ClewdrTransformer {
         if self.config.streaming {
             y.yield_ok("data: [DONE]\n\n".to_string()).await;
         }
-        self.config.cancel.cancel();
+        self.cancel.cancel();
     }
 
     async fn err_json(&self, err: Value, y: &mut Yielder<Result<String, ClewdrError>>) {
@@ -146,7 +145,7 @@ impl ClewdrTransformer {
         if buf.is_empty() {
             return Ok(());
         }
-        if self.config.cancel.is_cancelled() {
+        if self.cancel.is_cancelled() {
             return Ok(());
         }
         let mut parsed = serde_json::from_str::<Value>(buf)?;
@@ -248,7 +247,7 @@ impl ClewdrTransformer {
         if self.completes.first().map(|s|s.contains("I apologize, but I will not provide any responses that violate Anthropic's Acceptable Use Policy or could promote harm.")).unwrap_or(false) {
             self.hard_censor = true;
         }
-        if !self.config.cancel.is_cancelled() && self.completes.is_empty() {
+        if !self.cancel.is_cancelled() && self.completes.is_empty() {
             let err = format!(
                 "## {}\n**error**:\n\n```\nReceived no valid replies at all\n```\n",
                 self.config.version
@@ -276,7 +275,7 @@ impl ClewdrTransformer {
             pin_mut!(input);
             loop {
                 select! {
-                    _ = self.config.cancel.cancelled() => {
+                    _ = self.cancel.cancelled() => {
                         self.end_early(&mut y).await;
                         return Err(ClewdrError::StreamCancelled);
                     }
@@ -308,13 +307,11 @@ mod test {
 
     #[tokio::test]
     async fn stream_test() {
-        let cancel = CancellationToken::new();
         let config = ClewdrConfig {
             version: "1.0".to_string(),
             model: "some-model".to_string(),
             streaming: true,
             min_size: 8,
-            cancel,
             prevent_imperson: false,
         };
 
@@ -335,44 +332,6 @@ mod test {
             results,
             "data: {\"choices\":[{\"delta\":{\"content\":\"Hello wo\"}}]}\n\n\
              data: {\"choices\":[{\"delta\":{\"content\":\"rld\"}}]}\n\n\
-             data: [DONE]\n\n"
-        );
-    }
-
-    #[tokio::test]
-    async fn cancel_test() {
-        let cancel = CancellationToken::new();
-        let cancel_clone = cancel.clone();
-        let config = ClewdrConfig {
-            version: "1.0".to_string(),
-            model: "some-model".to_string(),
-            streaming: true,
-            min_size: 8,
-            cancel,
-            prevent_imperson: false,
-        };
-
-        let input = tokio_stream::iter(vec![
-            Ok(Bytes::from("{\"completion\": \"Hello\"}\n\n")),
-            Ok(Bytes::from("{\"completion\": \" world\"}\n\n")),
-        ]);
-
-        let transformer = ClewdrTransformer::new(config);
-        let stream = transformer.transform_stream(input);
-        pin_mut!(stream);
-
-        let mut results = String::new();
-        while let Some(result) = stream.next().await {
-            if let Ok(res) = result {
-                results += &res;
-                cancel_clone.cancel();
-            } else {
-                break;
-            }
-        }
-        assert_eq!(
-            results,
-            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello wo\"}}]}\n\n\
              data: [DONE]\n\n"
         );
     }
