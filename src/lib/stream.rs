@@ -304,4 +304,38 @@ mod test {
              data: [DONE]\n\n"
         );
     }
+
+    #[tokio::test]
+    async fn cancel_test() {
+        let cancel = CancellationToken::new();
+        let cancel_clone = cancel.clone();
+        let config = ClewdrConfig {
+            version: "1.0".to_string(),
+            model: "some-model".to_string(),
+            streaming: true,
+            min_size: 8,
+            cancel,
+            prevent_imperson: false,
+        };
+
+        let input = tokio_stream::iter(vec![
+            Ok(Bytes::from("{\"completion\": \"Hello\"}\n\n")),
+            Ok(Bytes::from("{\"completion\": \" world\"}\n\n")),
+        ]);
+
+        let transformer = ClewdrTransformer::new(config);
+        let stream = transformer.transform_stream(input);
+        pin_mut!(stream);
+
+        let mut results = String::new();
+        while let Some(result) = stream.next().await {
+            results += &result;
+            cancel_clone.cancel();
+        }
+        assert_eq!(
+            results,
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello wo\"}}]}\n\n\
+             data: [DONE]\n\n"
+        );
+    }
 }
