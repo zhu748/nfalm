@@ -1,3 +1,4 @@
+use const_format::formatc;
 use rquest::{Client, ClientBuilder};
 use rquest_util::Emulation;
 use std::sync::LazyLock;
@@ -5,6 +6,7 @@ use std::sync::LazyLock;
 pub mod api;
 pub mod completion;
 pub mod config;
+pub mod stream;
 pub mod superfetch;
 pub mod utils;
 
@@ -20,3 +22,9 @@ pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
         .build()
         .expect("Failed to create client")
 });
+
+pub const TITLE: &str = formatc!(
+    "Clewdr v{} by {}",
+    env!("CARGO_PKG_VERSION"),
+    env!("CARGO_PKG_AUTHORS")
+);

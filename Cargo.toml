@@ -28,4 +28,6 @@ chrono = "0.4.40"
 parking_lot = { version = "0.12.3", features = ["send_guard"] }
 futures = "0.3"
 thiserror = "2.0.12"
+tokio-stream = "0.1.17"
+transform-stream = "0.3.1"
 

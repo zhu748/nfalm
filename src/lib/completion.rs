@@ -6,11 +6,6 @@ use axum::{
 };
 use serde_json::Value;
 
-fn cookie_changer(reset_timer: Option<bool>, cleanup: Option<bool>) {
-    let reset_timer = reset_timer.unwrap_or(true);
-    let cleanup = cleanup.unwrap_or(false);
-}
-
 pub async fn completion(
     State(state): State<AppState>,
     header: HeaderMap,
