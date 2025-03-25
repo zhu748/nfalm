@@ -12,7 +12,7 @@ use transform_stream::{AsyncTryStream, Yielder};
 use crate::utils::{ClewdrError, DANGER_CHARS, generic_fixes, index_of_any};
 
 #[derive(Clone)]
-pub struct ClewdConfig {
+pub struct ClewdrConfig {
     version: String,
     model: String,
     streaming: bool,
@@ -21,8 +21,8 @@ pub struct ClewdConfig {
     prevent_imperson: bool,
 }
 
-pub struct ClewdTransformer {
-    config: ClewdConfig,
+pub struct ClewdrTransformer {
+    config: ClewdrConfig,
     comp_ok: String,
     comp_raw: String,
     comp_all: Vec<String>,
@@ -33,8 +33,8 @@ pub struct ClewdTransformer {
     comp_model: String,
 }
 
-impl ClewdTransformer {
-    pub fn new(config: ClewdConfig) -> Self {
+impl ClewdrTransformer {
+    pub fn new(config: ClewdrConfig) -> Self {
         Self {
             config,
             comp_ok: String::new(),
@@ -289,7 +289,7 @@ mod test {
     #[tokio::test]
     async fn stream_test() {
         let cancel = CancellationToken::new();
-        let config = ClewdConfig {
+        let config = ClewdrConfig {
             version: "1.0".to_string(),
             model: "some-model".to_string(),
             streaming: true,
@@ -303,7 +303,7 @@ mod test {
             Ok(Bytes::from("{\"completion\": \" world\"}\n\n")),
         ]);
 
-        let transformer = ClewdTransformer::new(config);
+        let transformer = ClewdrTransformer::new(config);
         let stream = transformer.transform_stream(input);
         pin_mut!(stream);
 
