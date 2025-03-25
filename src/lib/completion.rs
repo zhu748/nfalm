@@ -1,10 +1,37 @@
-use crate::api::{AppState, InnerState};
+use crate::{
+    SUPER_CLIENT,
+    api::{AppState, InnerState},
+    stream::{ClewdrConfig, ClewdrTransformer},
+};
 use axum::{
     Json,
+    body::Body,
     extract::{Request, State},
     http::HeaderMap,
 };
 use serde_json::Value;
+use tokio_stream::Stream;
+use tokio_util::sync::CancellationToken;
+
+pub async fn stream_example(
+    State(state): State<AppState>,
+    header: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Body {
+    // some work
+    let super_res = SUPER_CLIENT
+        .get("https://api.claude.ai")
+        .send()
+        .await
+        .unwrap();
+    let mut input_stream = super_res.bytes_stream();
+    let cancel = CancellationToken::new();
+    let cancel_clone = cancel.clone();
+    let config = ClewdrConfig::new("xx", "pro", true, 8, cancel, true);
+    let trans = ClewdrTransformer::new(config);
+    let output_stream = trans.transform_stream(input_stream);
+    Body::from_stream(output_stream)
+}
 
 pub async fn completion(
     State(state): State<AppState>,

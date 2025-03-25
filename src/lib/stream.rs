@@ -8,7 +8,7 @@ use tokio::select;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
-use transform_stream::{AsyncStream, Yielder};
+use transform_stream::{AsyncTryStream, Yielder};
 
 use crate::utils::{ClewdrError, DANGER_CHARS, generic_fixes, index_of_any};
 
@@ -20,6 +20,26 @@ pub struct ClewdrConfig {
     min_size: usize,
     cancel: CancellationToken,
     prevent_imperson: bool,
+}
+
+impl ClewdrConfig {
+    pub fn new(
+        version: &str,
+        model: &str,
+        streaming: bool,
+        min_size: usize,
+        cancel: CancellationToken,
+        prevent_imperson: bool,
+    ) -> Self {
+        Self {
+            version: version.to_string(),
+            model: model.to_string(),
+            streaming,
+            min_size,
+            cancel,
+            prevent_imperson,
+        }
+    }
 }
 
 pub struct ClewdrTransformer {
@@ -77,14 +97,14 @@ impl ClewdrTransformer {
             .collect()
     }
 
-    async fn end_early(&self, y: &mut Yielder<String>) {
+    async fn end_early(&self, y: &mut Yielder<Result<String, ClewdrError>>) {
         if self.config.streaming {
-            y.yield_("data: [DONE]\n\n".to_string()).await;
+            y.yield_ok("data: [DONE]\n\n".to_string()).await;
         }
         self.config.cancel.cancel();
     }
 
-    async fn err_json(&self, err: Value, y: &mut Yielder<String>) {
+    async fn err_json(&self, err: Value, y: &mut Yielder<Result<String, ClewdrError>>) {
         warn!("Error: {}", to_string_pretty(&err).unwrap());
         let code = err
             .get("status")
@@ -102,22 +122,26 @@ impl ClewdrTransformer {
             self.config.version, self.config.model, code, message
         );
         *self.error.write() = Some(message.clone());
-        y.yield_(self.build(&message)).await;
+        y.yield_ok(self.build(&message)).await;
         self.end_early(y).await;
     }
 
-    async fn err(&self, err: ClewdrError, y: &mut Yielder<String>) {
+    async fn err(&self, err: ClewdrError, y: &mut Yielder<Result<String, ClewdrError>>) {
         warn!("Error: {}", err);
         let message = format!(
             "## {}\n**{} error**:\n{}\n\nFAQ: https://rentry.org/teralomaniac_clewd",
             self.config.version, self.config.model, err
         );
         *self.error.write() = Some(message.clone());
-        y.yield_(self.build(&message)).await;
+        y.yield_ok(self.build(&message)).await;
         self.end_early(y).await;
     }
 
-    async fn parse_buf(&mut self, buf: &str, y: &mut Yielder<String>) -> Result<(), ClewdrError> {
+    async fn parse_buf(
+        &mut self,
+        buf: &str,
+        y: &mut Yielder<Result<String, ClewdrError>>,
+    ) -> Result<(), ClewdrError> {
         let mut delay = false;
         if buf.is_empty() {
             return Ok(());
@@ -156,7 +180,7 @@ impl ClewdrTransformer {
             }
             while !delay && self.ready_string.len() >= self.config.min_size {
                 let selection = self.collect_buf();
-                y.yield_(self.build(&selection)).await;
+                y.yield_ok(self.build(&selection)).await;
             }
         } else {
             if delay {
@@ -167,14 +191,14 @@ impl ClewdrTransformer {
         Ok(())
     }
 
-    async fn imperson_check(&self, reply: &str, y: &mut Yielder<String>) {
+    async fn imperson_check(&self, reply: &str, y: &mut Yielder<Result<String, ClewdrError>>) {
         let fake_any = index_of_any(reply, None);
         if fake_any > -1 {
             *self.impersonated.write() = true;
             if self.config.prevent_imperson {
                 let selection = &reply[..fake_any as usize];
                 let build = self.build(&selection);
-                y.yield_(build).await;
+                y.yield_ok(build).await;
                 self.end_early(y).await;
             }
         }
@@ -183,7 +207,7 @@ impl ClewdrTransformer {
     async fn transform(
         &mut self,
         chunk: Result<Bytes, rquest::Error>,
-        y: &mut Yielder<String>,
+        y: &mut Yielder<Result<String, ClewdrError>>,
     ) -> Result<(), ClewdrError> {
         let re = Regex::new(r"event: [\w]+\s*|\r")?;
         let chunk = chunk?;
@@ -203,7 +227,10 @@ impl ClewdrTransformer {
         Ok(())
     }
 
-    async fn flush(&mut self, y: &mut Yielder<String>) -> Result<(), ClewdrError> {
+    async fn flush(
+        &mut self,
+        y: &mut Yielder<Result<String, ClewdrError>>,
+    ) -> Result<(), ClewdrError> {
         // Flush logic
         if !self.raw_string.is_empty() {
             let raw = mem::take(&mut self.raw_string);
@@ -212,10 +239,11 @@ impl ClewdrTransformer {
 
         if self.config.streaming {
             if !self.ready_string.is_empty() {
-                y.yield_(self.build(&self.ready_string)).await;
+                y.yield_ok(self.build(&self.ready_string)).await;
             }
         } else {
-            y.yield_(self.build(self.completes.join("").as_str())).await;
+            y.yield_ok(self.build(self.completes.join("").as_str()))
+                .await;
         }
         if self.completes.first().map(|s|s.contains("I apologize, but I will not provide any responses that violate Anthropic's Acceptable Use Policy or could promote harm.")).unwrap_or(false) {
             self.hard_censor = true;
@@ -225,10 +253,10 @@ impl ClewdrTransformer {
                 "## {}\n**error**:\n\n```\nReceived no valid replies at all\n```\n",
                 self.config.version
             );
-            y.yield_(self.build(&err)).await;
+            y.yield_ok(self.build(&err)).await;
         }
         if self.config.streaming {
-            y.yield_("data: [DONE]\n\n".to_string()).await;
+            y.yield_ok("data: [DONE]\n\n".to_string()).await;
         }
         Ok(())
     }
@@ -236,24 +264,28 @@ impl ClewdrTransformer {
     pub fn transform_stream<S>(
         mut self,
         input: S,
-    ) -> AsyncStream<String, impl std::future::Future<Output = ()>>
+    ) -> AsyncTryStream<
+        String,
+        ClewdrError,
+        impl std::future::Future<Output = Result<(), ClewdrError>> + Send,
+    >
     where
         S: Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
     {
-        AsyncStream::new(move |mut y| async move {
+        AsyncTryStream::new(move |mut y| async move {
             pin_mut!(input);
             loop {
                 select! {
                     _ = self.config.cancel.cancelled() => {
                         self.end_early(&mut y).await;
-                        return;
+                        return Err(ClewdrError::StreamCancelled);
                     }
 
                     chunk = input.next() => {
                         if let Some(chunk) = chunk {
                             if let Err(e) = self.transform(chunk, &mut y).await {
                                 self.err(e, &mut y).await;
-                                return;
+                                return Err(ClewdrError::StreamInternalError);
                             }
                         } else {
                             break;
@@ -263,7 +295,9 @@ impl ClewdrTransformer {
             }
             if let Err(e) = self.flush(&mut y).await {
                 self.err(e, &mut y).await;
+                return Err(ClewdrError::StreamInternalError);
             }
+            Ok(())
         })
     }
 }
@@ -295,7 +329,7 @@ mod test {
 
         let mut results = String::new();
         while let Some(result) = stream.next().await {
-            results += &result;
+            results += &result.unwrap();
         }
         assert_eq!(
             results,
@@ -329,8 +363,12 @@ mod test {
 
         let mut results = String::new();
         while let Some(result) = stream.next().await {
-            results += &result;
-            cancel_clone.cancel();
+            if let Ok(res) = result {
+                results += &res;
+                cancel_clone.cancel();
+            } else {
+                break;
+            }
         }
         assert_eq!(
             results,
