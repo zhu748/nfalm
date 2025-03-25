@@ -83,19 +83,42 @@ pub const MODELS: [&str; 10] = [
     "claude-instant-1.1",
 ];
 
+#[derive(thiserror::Error, Debug)]
+pub enum ClewdrError {
+    #[error("Invalid authorization")]
+    InvalidAuth,
+}
+
 pub const ENDPOINT: &str = "https://api.claude.ai";
 
-pub fn is_invalid_auth(err: Value) -> bool {
-    if let Some(msg) = err.get("message") {
-        if msg
-            .as_str()
-            .map_or(false, |m| m.contains("Invalid authorization"))
-        {
-            return true;
+pub trait InvalidAuth {
+    fn invalid_auth(self) -> Result<Self, ClewdrError>
+    where
+        Self: Sized;
+}
+
+impl InvalidAuth for Option<Value> {
+    fn invalid_auth(self) -> Result<Option<Value>, ClewdrError> {
+        if let Some(json) = self {
+            invalid_auth(json).map(Some)
+        } else {
+            Ok(self)
         }
     }
+}
 
-    false
+pub fn invalid_auth(json: Value) -> Result<Value, ClewdrError> {
+    if let Some(err) = json.get("error") {
+        if let Some(msg) = err.get("message") {
+            if msg
+                .as_str()
+                .map_or(false, |m| m.contains("Invalid authorization"))
+            {
+                return Err(ClewdrError::InvalidAuth);
+            }
+        }
+    }
+    Ok(json)
 }
 
 pub fn header_ref(ref_path: &str) -> String {

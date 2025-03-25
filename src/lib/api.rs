@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use anyhow::Context;
 use axum::{
@@ -13,7 +13,7 @@ use const_format::{concatc, formatc};
 use parking_lot::RwLock;
 use regex::{Regex, RegexBuilder};
 use rquest::Response;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 use tokio::{spawn, time::timeout};
 use tracing::error;
 
@@ -21,7 +21,10 @@ use crate::{
     NORMAL_CLIENT, SUPER_CLIENT,
     completion::completion,
     config::{Config, CookieInfo, UselessCookie, UselessReason},
-    utils::{ENDPOINT, JsBool, MODELS, check_res_err, header_ref, is_invalid_auth, print_out_json},
+    utils::{
+        ClewdrError, ENDPOINT, InvalidAuth, JsBool, MODELS, check_res_err, header_ref,
+        print_out_json,
+    },
 };
 
 pub struct RouterBuilder {
@@ -199,7 +202,9 @@ impl AppState {
             .await?;
         let mut bootstrap: Option<Value> = None;
         let _ = check_res_err(res, &mut bootstrap).await;
-        let bootstrap = bootstrap.context("Failed to get bootstrap")?;
+        let bootstrap = bootstrap
+            .invalid_auth()?
+            .context("Failed to get bootstrap")?;
 
         if bootstrap["account"].is_null() {
             println!("{}", "Null Error, Useless Cookie".red());
@@ -361,7 +366,9 @@ impl AppState {
         self.update_cookie_from_res(&res);
         let mut ret_json: Option<Value> = None;
         let _ = check_res_err(res, &mut ret_json).await;
-        let ret_json = ret_json.context("Failed to get organizations")?;
+        let ret_json = ret_json
+            .invalid_auth()?
+            .context("Failed to get organizations")?;
         // print bootstrap to out.json, if it exists, overwrite it
         let acc_info = ret_json
             .as_array()
@@ -523,6 +530,7 @@ impl AppState {
             .unwrap_or_default();
         let endpoint = format!("{}/api/organizations/{}/chat_conversations", endpoint, uuid);
         let cookies = self.header_cookie();
+        // mess the cookie a bit to see error message
         let res = SUPER_CLIENT
             .get(endpoint.clone())
             .header_append("Origin", ENDPOINT)
@@ -533,7 +541,9 @@ impl AppState {
         self.update_cookie_from_res(&res);
         let mut ret_json: Option<Value> = None;
         let _ = check_res_err(res, &mut ret_json).await;
-        let ret_json = ret_json.context("Failed to get conversations")?;
+        let ret_json = ret_json
+            .invalid_auth()?
+            .context("Failed to get conversations")?;
         let cons = ret_json.as_array().cloned().unwrap_or_default();
         // TODO: Do I need a pool to delete the conversations?
         let futures = cons
@@ -585,7 +595,15 @@ impl AppState {
         match res {
             Ok(b) => b,
             Err(e) => {
-                println!("Error: {}", e);
+                match e.downcast_ref::<ClewdrError>() {
+                    Some(ClewdrError::InvalidAuth) => {
+                        println!("{}", "Invalid authorization".red());
+                        return self.cookie_cleaner(UselessReason::Invalid);
+                    }
+                    _ => {}
+                }
+                error!("CLewdR: {}", e);
+                self.cookie_changer(None, None);
                 false
             }
         }
