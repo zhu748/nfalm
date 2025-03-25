@@ -85,6 +85,19 @@ pub const MODELS: [&str; 10] = [
 
 pub const ENDPOINT: &str = "https://api.claude.ai";
 
+pub fn is_invalid_auth(err: Value) -> bool {
+    if let Some(msg) = err.get("message") {
+        if msg
+            .as_str()
+            .map_or(false, |m| m.contains("Invalid authorization"))
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub fn header_ref(ref_path: &str) -> String {
     if ref_path.is_empty() {
         format!("{}/", ENDPOINT)

@@ -21,8 +21,10 @@ use serde_json::Value;
 #[cfg(test)]
 mod tests {
 
+    use crate::utils::print_out_json;
+
     use super::*;
-    const TEST_COOKIE: &str = "sessionKey=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";
+    const TEST_COOKIE: &str = "sessionKey=sk-ant-sid01-UoCDBg0VQq-riH2djGkiNQxZ88PXeDhBtvR39waNRIV-hPa8vII9XkgSzl6yJaDaz8bCkOVShUHG4RTsbudoQ-dWtAgAAA";
     #[tokio::test]
     async fn test_bootstrap() {
         let client = Client::builder()
@@ -42,6 +44,7 @@ mod tests {
             "application/json"
         );
         let json: Value = resp.json().await.unwrap();
+        print_out_json(&json);
         println!("{}", json["account"].to_string());
     }
 }
