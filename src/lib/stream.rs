@@ -24,9 +24,9 @@ pub struct ClewdrConfig {
 
 pub struct ClewdrTransformer {
     config: ClewdrConfig,
-    comp_ok: String,
-    comp_raw: String,
-    comp_all: Vec<String>,
+    ready_string: String,
+    raw_string: String,
+    completes: Vec<String>,
     recv_length: usize,
     hard_censor: bool,
     impersonated: RwLock<bool>,
@@ -38,9 +38,9 @@ impl ClewdrTransformer {
     pub fn new(config: ClewdrConfig) -> Self {
         Self {
             config,
-            comp_ok: String::new(),
-            comp_raw: String::new(),
-            comp_all: Vec::new(),
+            ready_string: String::with_capacity(1024),
+            raw_string: String::with_capacity(1024),
+            completes: Vec::with_capacity(1024),
             recv_length: 0,
             hard_censor: false,
             impersonated: RwLock::new(false),
@@ -58,7 +58,7 @@ impl ClewdrTransformer {
                     }
                 }]
             });
-            format!("data: {}\n\n", serde_json::to_string(&completion).unwrap())
+            format!("data: {}\n\n", completion)
         } else {
             let completion = json!({
                 "choices": [{
@@ -67,17 +67,14 @@ impl ClewdrTransformer {
                     }
                 }]
             });
-            serde_json::to_string(&completion).unwrap()
+            completion.to_string()
         }
     }
 
     fn collect_buf(&mut self) -> String {
-        let mut valid: Vec<char> = self.comp_ok.chars().collect();
-        let selection: String = valid
-            .drain(..self.config.min_size.min(valid.len()))
-            .collect();
-        self.comp_ok = valid.into_iter().collect();
-        selection
+        self.ready_string
+            .drain(..self.config.min_size.min(self.ready_string.len()))
+            .collect()
     }
 
     async fn end_early(&self, y: &mut Yielder<String>) {
@@ -148,44 +145,39 @@ impl ClewdrTransformer {
             parsed.as_object_mut().map(|o| {
                 o.insert("completion".to_string(), json!(new_completion));
             });
-            self.comp_ok += &new_completion;
-            self.comp_all.push(new_completion.clone());
-            delay = self.comp_ok.ends_with(DANGER_CHARS.as_slice())
+            self.ready_string += &new_completion;
+            self.completes.push(new_completion.clone());
+            delay = self.ready_string.ends_with(DANGER_CHARS.as_slice())
                 || new_completion.starts_with(DANGER_CHARS.as_slice());
         }
         if self.config.streaming {
             if delay {
-                self.impersonation_check(&self.comp_ok, y).await?;
+                self.imperson_check(&self.ready_string, y).await;
             }
-            while !delay && self.comp_ok.len() >= self.config.min_size {
+            while !delay && self.ready_string.len() >= self.config.min_size {
                 let selection = self.collect_buf();
                 y.yield_(self.build(&selection)).await;
             }
         } else {
             if delay {
-                self.impersonation_check(self.comp_all.join("").as_str(), y)
-                    .await?;
+                self.imperson_check(self.completes.join("").as_str(), y)
+                    .await;
             }
         }
         Ok(())
     }
 
-    async fn impersonation_check(
-        &self,
-        reply: &str,
-        y: &mut Yielder<String>,
-    ) -> Result<(), ClewdrError> {
+    async fn imperson_check(&self, reply: &str, y: &mut Yielder<String>) {
         let fake_any = index_of_any(reply, None);
         if fake_any > -1 {
             *self.impersonated.write() = true;
             if self.config.prevent_imperson {
-                let selection = reply[..fake_any as usize].to_string();
+                let selection = &reply[..fake_any as usize];
                 let build = self.build(&selection);
                 y.yield_(build).await;
                 self.end_early(y).await;
             }
         }
-        Ok(())
     }
 
     async fn transform(
@@ -199,11 +191,11 @@ impl ClewdrTransformer {
         self.recv_length += chunk.len();
         // Decode Bytes to String, assuming UTF-8
         let chunk_str = String::from_utf8(chunk.to_vec())?;
-        self.comp_raw += &re.replace_all(&chunk_str, "");
-        let old_raw = mem::take(&mut self.comp_raw);
+        self.raw_string += &re.replace_all(&chunk_str, "");
+        let old_raw = mem::take(&mut self.raw_string);
         let mut substr = old_raw.split("\n\n").collect::<Vec<_>>();
         let last_msg = substr.pop().map(|s| s.to_string());
-        self.comp_raw = last_msg.unwrap_or_default();
+        self.raw_string = last_msg.unwrap_or_default();
 
         for i in substr {
             self.parse_buf(i, y).await?;
@@ -213,22 +205,22 @@ impl ClewdrTransformer {
 
     async fn flush(&mut self, y: &mut Yielder<String>) -> Result<(), ClewdrError> {
         // Flush logic
-        if !self.comp_raw.is_empty() {
-            let raw_clone = self.comp_raw.clone();
-            self.parse_buf(raw_clone.as_str(), y).await?;
+        if !self.raw_string.is_empty() {
+            let raw = mem::take(&mut self.raw_string);
+            self.parse_buf(raw.as_str(), y).await?;
         }
 
         if self.config.streaming {
-            if !self.comp_ok.is_empty() {
-                y.yield_(self.build(&self.comp_ok)).await;
+            if !self.ready_string.is_empty() {
+                y.yield_(self.build(&self.ready_string)).await;
             }
         } else {
-            y.yield_(self.build(self.comp_all.join("").as_str())).await;
+            y.yield_(self.build(self.completes.join("").as_str())).await;
         }
-        if self.comp_all.first().map(|s|s.contains("I apologize, but I will not provide any responses that violate Anthropic's Acceptable Use Policy or could promote harm.")).unwrap_or(false) {
+        if self.completes.first().map(|s|s.contains("I apologize, but I will not provide any responses that violate Anthropic's Acceptable Use Policy or could promote harm.")).unwrap_or(false) {
             self.hard_censor = true;
         }
-        if !self.config.cancel.is_cancelled() && self.comp_all.is_empty() {
+        if !self.config.cancel.is_cancelled() && self.completes.is_empty() {
             let err = format!(
                 "## {}\n**error**:\n\n```\nReceived no valid replies at all\n```\n",
                 self.config.version
