@@ -162,10 +162,10 @@ impl ClewdTransformer {
         if self.config.streaming {
             if delay {
                 self.impersonation_check(&self.comp_ok, y).await?;
-                while !delay && self.comp_ok.len() >= self.config.min_size {
-                    let selection = self.collect_buf();
-                    y.yield_ok(self.build(&selection)).await;
-                }
+            }
+            while !delay && self.comp_ok.len() >= self.config.min_size {
+                let selection = self.collect_buf();
+                y.yield_ok(self.build(&selection)).await;
             }
         } else {
             if delay {
