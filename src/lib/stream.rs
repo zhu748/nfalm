@@ -7,6 +7,8 @@ use tokio_stream::Stream;
 use tokio_util::sync::CancellationToken;
 use transform_stream::AsyncTryStream;
 
+use crate::utils::ClewdrError;
+
 #[derive(Clone)]
 pub struct ClewdConfig {
     version: String,
@@ -45,7 +47,7 @@ impl ClewdTransformer {
         }
     }
 
-    fn build(&self, selection: String) -> String {
+    fn build(&self, selection: String) -> Result<String, ClewdrError> {
         if self.config.streaming {
             let completion = json!({
                 "choices": [{
@@ -54,7 +56,7 @@ impl ClewdTransformer {
                     }
                 }]
             });
-            format!("data: {}\n\n", serde_json::to_string(&completion).unwrap())
+            Ok(format!("data: {}\n\n", serde_json::to_string(&completion)?))
         } else {
             let completion = json!({
                 "choices": [{
@@ -63,7 +65,7 @@ impl ClewdTransformer {
                     }
                 }]
             });
-            serde_json::to_string(&completion).unwrap()
+            Ok(serde_json::to_string(&completion)?)
         }
     }
 
@@ -81,11 +83,11 @@ impl ClewdTransformer {
         input: S,
     ) -> AsyncTryStream<
         String,
-        std::io::Error,
-        impl std::future::Future<Output = Result<(), std::io::Error>> + Send,
+        ClewdrError,
+        impl std::future::Future<Output = Result<(), ClewdrError>> + Send,
     >
     where
-        S: Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
+        S: Stream<Item = Result<Bytes, ClewdrError>> + Send + 'static,
     {
         AsyncTryStream::new(move |mut y| async move {
             let mut transformer = self;
@@ -107,7 +109,7 @@ impl ClewdTransformer {
                         let err_msg = format!("UTF-8 decoding error: {}", e);
                         transformer.error = Some(err_msg.clone());
                         transformer.ended = true;
-                        y.yield_ok(transformer.build(err_msg)).await;
+                        y.yield_ok(transformer.build(err_msg)?).await;
                         return Ok(());
                     }
                 };
@@ -135,7 +137,7 @@ impl ClewdTransformer {
                             );
                             transformer.error = Some(err_msg.clone());
                             transformer.ended = true;
-                            y.yield_ok(transformer.build(err_msg)).await;
+                            y.yield_ok(transformer.build(err_msg)?).await;
                             return Ok(());
                         }
 
@@ -162,7 +164,7 @@ impl ClewdTransformer {
                             if transformer.config.streaming {
                                 while transformer.comp_ok.len() >= transformer.config.min_size {
                                     let selection = transformer.collect_buf();
-                                    y.yield_ok(transformer.build(selection)).await;
+                                    y.yield_ok(transformer.build(selection)?).await;
                                 }
                             }
                         }
@@ -178,7 +180,7 @@ impl ClewdTransformer {
 
             if transformer.config.streaming {
                 if !transformer.comp_ok.is_empty() {
-                    y.yield_ok(transformer.build(transformer.comp_ok.clone()))
+                    y.yield_ok(transformer.build(transformer.comp_ok.clone())?)
                         .await;
                     transformer.comp_ok.clear();
                 }
@@ -193,12 +195,12 @@ impl ClewdTransformer {
                         transformer.config.version
                     );
                     transformer.error = Some(err.clone());
-                    y.yield_ok(transformer.build(err)).await;
+                    y.yield_ok(transformer.build(err)?).await;
                 } else {
                     if full_content.contains("I apologize, but I will not provide") {
                         transformer.hard_censor = true;
                     }
-                    y.yield_ok(transformer.build(full_content)).await;
+                    y.yield_ok(transformer.build(full_content)?).await;
                 }
             }
 
