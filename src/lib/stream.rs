@@ -4,6 +4,7 @@ use parking_lot::RwLock;
 use regex::Regex;
 use serde_json::{Value, json, to_string_pretty};
 use std::mem;
+use tokio::select;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
@@ -80,9 +81,6 @@ impl ClewdrTransformer {
     }
 
     async fn end_early(&self, y: &mut Yielder<String>) {
-        if self.config.cancel.is_cancelled() {
-            return;
-        }
         if self.config.streaming {
             y.yield_("data: [DONE]\n\n".to_string()).await;
         }
@@ -252,11 +250,23 @@ impl ClewdrTransformer {
     {
         AsyncStream::new(move |mut y| async move {
             pin_mut!(input);
+            loop {
+                select! {
+                    _ = self.config.cancel.cancelled() => {
+                        self.end_early(&mut y).await;
+                        return;
+                    }
 
-            while let Some(chunk) = input.next().await {
-                if let Err(e) = self.transform(chunk, &mut y).await {
-                    self.err(e, &mut y).await;
-                    return;
+                    chunk = input.next() => {
+                        if let Some(chunk) = chunk {
+                            if let Err(e) = self.transform(chunk, &mut y).await {
+                                self.err(e, &mut y).await;
+                                return;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
                 }
             }
             if let Err(e) = self.flush(&mut y).await {
