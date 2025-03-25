@@ -1,13 +1,13 @@
 use bytes::Bytes;
-use futures::{StreamExt, pin_mut};
+use futures::pin_mut;
 use parking_lot::RwLock;
 use regex::Regex;
 use serde_json::{Value, json, to_string_pretty};
 use std::mem;
-use tokio_stream::Stream;
+use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
-use transform_stream::{AsyncTryStream, Yielder};
+use transform_stream::{AsyncStream, Yielder};
 
 use crate::utils::{ClewdrError, DANGER_CHARS, generic_fixes, index_of_any};
 
@@ -79,17 +79,17 @@ impl ClewdrTransformer {
         selection
     }
 
-    async fn end_early(&self, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn end_early(&self, y: &mut Yielder<String>) {
         if self.config.cancel.is_cancelled() {
             return;
         }
         if self.config.streaming {
-            y.yield_ok("data: [DONE]\n\n".to_string()).await;
+            y.yield_("data: [DONE]\n\n".to_string()).await;
         }
         self.config.cancel.cancel();
     }
 
-    async fn err_json(&self, err: Value, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn err_json(&self, err: Value, y: &mut Yielder<String>) {
         warn!("Error: {}", to_string_pretty(&err).unwrap());
         let code = err
             .get("status")
@@ -107,26 +107,22 @@ impl ClewdrTransformer {
             self.config.version, self.config.model, code, message
         );
         *self.error.write() = Some(message.clone());
-        y.yield_ok(self.build(&message)).await;
+        y.yield_(self.build(&message)).await;
         self.end_early(y).await;
     }
 
-    async fn err(&self, err: ClewdrError, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn err(&self, err: ClewdrError, y: &mut Yielder<String>) {
         warn!("Error: {}", err);
         let message = format!(
             "## {}\n**{} error**:\n{}\n\nFAQ: https://rentry.org/teralomaniac_clewd",
             self.config.version, self.config.model, err
         );
         *self.error.write() = Some(message.clone());
-        y.yield_ok(self.build(&message)).await;
+        y.yield_(self.build(&message)).await;
         self.end_early(y).await;
     }
 
-    async fn parse_buf(
-        &mut self,
-        buf: &str,
-        y: &mut Yielder<Result<String, ClewdrError>>,
-    ) -> Result<(), ClewdrError> {
+    async fn parse_buf(&mut self, buf: &str, y: &mut Yielder<String>) -> Result<(), ClewdrError> {
         let mut delay = false;
         if buf.is_empty() {
             return Ok(());
@@ -165,7 +161,7 @@ impl ClewdrTransformer {
             }
             while !delay && self.comp_ok.len() >= self.config.min_size {
                 let selection = self.collect_buf();
-                y.yield_ok(self.build(&selection)).await;
+                y.yield_(self.build(&selection)).await;
             }
         } else {
             if delay {
@@ -179,7 +175,7 @@ impl ClewdrTransformer {
     async fn impersonation_check(
         &self,
         reply: &str,
-        y: &mut Yielder<Result<String, ClewdrError>>,
+        y: &mut Yielder<String>,
     ) -> Result<(), ClewdrError> {
         let fake_any = index_of_any(reply, None);
         if fake_any > -1 {
@@ -187,7 +183,7 @@ impl ClewdrTransformer {
             if self.config.prevent_imperson {
                 let selection = reply[..fake_any as usize].to_string();
                 let build = self.build(&selection);
-                y.yield_ok(build).await;
+                y.yield_(build).await;
                 self.end_early(y).await;
             }
         }
@@ -197,87 +193,75 @@ impl ClewdrTransformer {
     async fn transform(
         &mut self,
         chunk: Result<Bytes, rquest::Error>,
-        y: &mut Yielder<Result<String, ClewdrError>>,
+        y: &mut Yielder<String>,
     ) -> Result<(), ClewdrError> {
-        let transformer = self;
         let re = Regex::new(r"event: [\w]+\s*|\r")?;
         let chunk = chunk?;
 
-        transformer.recv_length += chunk.len();
+        self.recv_length += chunk.len();
         // Decode Bytes to String, assuming UTF-8
         let chunk_str = String::from_utf8(chunk.to_vec())?;
-        transformer.comp_raw += &re.replace_all(&chunk_str, "");
-        let old_raw = mem::take(&mut transformer.comp_raw);
+        self.comp_raw += &re.replace_all(&chunk_str, "");
+        let old_raw = mem::take(&mut self.comp_raw);
         let mut substr = old_raw.split("\n\n").collect::<Vec<_>>();
         let last_msg = substr.pop().map(|s| s.to_string());
-        transformer.comp_raw = last_msg.unwrap_or_default();
+        self.comp_raw = last_msg.unwrap_or_default();
 
         for i in substr {
-            transformer.parse_buf(i, y).await?;
+            self.parse_buf(i, y).await?;
         }
         Ok(())
     }
 
-    async fn flush(
-        &mut self,
-        y: &mut Yielder<Result<String, ClewdrError>>,
-    ) -> Result<(), ClewdrError> {
+    async fn flush(&mut self, y: &mut Yielder<String>) -> Result<(), ClewdrError> {
         // Flush logic
-        let transformer = self;
-        if !transformer.comp_raw.is_empty() {
-            let raw_clone = transformer.comp_raw.clone();
-            transformer.parse_buf(raw_clone.as_str(), y).await?;
+        if !self.comp_raw.is_empty() {
+            let raw_clone = self.comp_raw.clone();
+            self.parse_buf(raw_clone.as_str(), y).await?;
         }
 
-        if transformer.config.streaming {
-            if !transformer.comp_ok.is_empty() {
-                y.yield_ok(transformer.build(&transformer.comp_ok)).await;
+        if self.config.streaming {
+            if !self.comp_ok.is_empty() {
+                y.yield_(self.build(&self.comp_ok)).await;
             }
         } else {
-            y.yield_ok(transformer.build(transformer.comp_all.join("").as_str()))
-                .await;
+            y.yield_(self.build(self.comp_all.join("").as_str())).await;
         }
-        if transformer.comp_all.first().map(|s|s.contains("I apologize, but I will not provide any responses that violate Anthropic's Acceptable Use Policy or could promote harm.")).unwrap_or(false) {
-            transformer.hard_censor = true;
+        if self.comp_all.first().map(|s|s.contains("I apologize, but I will not provide any responses that violate Anthropic's Acceptable Use Policy or could promote harm.")).unwrap_or(false) {
+            self.hard_censor = true;
         }
-        if !transformer.config.cancel.is_cancelled() && transformer.comp_all.is_empty() {
+        if !self.config.cancel.is_cancelled() && self.comp_all.is_empty() {
             let err = format!(
                 "## {}\n**error**:\n\n```\nReceived no valid replies at all\n```\n",
-                transformer.config.version
+                self.config.version
             );
-            y.yield_ok(transformer.build(&err)).await;
+            y.yield_(self.build(&err)).await;
         }
-        if transformer.config.streaming {
-            y.yield_ok("data: [DONE]\n\n".to_string()).await;
+        if self.config.streaming {
+            y.yield_("data: [DONE]\n\n".to_string()).await;
         }
         Ok(())
     }
 
     pub fn transform_stream<S>(
-        self,
+        mut self,
         input: S,
-    ) -> AsyncTryStream<
-        String,
-        ClewdrError,
-        impl std::future::Future<Output = Result<(), ClewdrError>> + Send,
-    >
+    ) -> AsyncStream<String, impl std::future::Future<Output = ()>>
     where
         S: Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
     {
-        AsyncTryStream::new(move |mut y| async move {
-            let mut transformer = self;
+        AsyncStream::new(move |mut y| async move {
             pin_mut!(input);
 
             while let Some(chunk) = input.next().await {
-                if let Err(e) = transformer.transform(chunk, &mut y).await {
-                    transformer.err(e, &mut y).await;
-                    return Ok(());
+                if let Err(e) = self.transform(chunk, &mut y).await {
+                    self.err(e, &mut y).await;
+                    return;
                 }
             }
-            if let Err(e) = transformer.flush(&mut y).await {
-                transformer.err(e, &mut y).await;
+            if let Err(e) = self.flush(&mut y).await {
+                self.err(e, &mut y).await;
             }
-            Ok(())
         })
     }
 }
@@ -309,7 +293,7 @@ mod test {
 
         let mut results = String::new();
         while let Some(result) = stream.next().await {
-            results += &result.unwrap();
+            results += &result;
         }
         assert_eq!(
             results,
