@@ -40,7 +40,7 @@ pub async fn completion(
         .contains("--force");
     let api_keys = third_key.split(",").map(|s| s.trim()).collect::<Vec<_>>();
     // TODO: validate api keys
-    let model = if !api_keys.is_empty() || force_model || state.pro.read().is_some() {
+    let model = if !api_keys.is_empty() || force_model || state.is_pro.read().is_some() {
         let m = payload["model"]
             .as_str()
             .unwrap_or_default()
@@ -67,7 +67,7 @@ pub async fn completion(
         panic!("{}", msg);
     } else if !*state.changing.read()
         && !api_keys.is_empty()
-        && state.pro.read().is_none()
+        && state.is_pro.read().is_none()
         && model != *state.cookie_model.read()
     {
         panic!("No cookie available");

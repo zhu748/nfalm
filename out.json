@@ -1,0 +1,30 @@
+{
+  "active_flags": [],
+  "api_disabled_reason": null,
+  "api_disabled_until": null,
+  "billable_usage_paused_until": null,
+  "billing_type": "stripe_subscription",
+  "capabilities": [
+    "claude_pro",
+    "chat"
+  ],
+  "created_at": "2025-02-25T06:43:14.850922Z",
+  "data_retention": "default",
+  "data_retention_periods": null,
+  "free_credits_status": "available",
+  "id": 38408909,
+  "name": "zheshidiyige313@gmail.com's Organization",
+  "parent_organization_uuid": null,
+  "rate_limit_tier": "default_claude_ai",
+  "raven_type": null,
+  "settings": {
+    "allowed_invite_domains": null,
+    "batches_download_ui_enabled_workspace_ids": [],
+    "batches_download_ui_visibility": "all",
+    "claude_ai_completion_feedback_enabled": null,
+    "claude_console_privacy": "default_private",
+    "workbench_completion_feedback_enabled": null
+  },
+  "updated_at": "2025-02-25T07:31:24.250489Z",
+  "uuid": "31e0b709-3b71-42cf-a5e2-82093d614860"
+}

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
 
 use axum::{
     Json, Router,
@@ -11,6 +11,7 @@ use colored::Colorize;
 use const_format::{concatc, formatc};
 use parking_lot::RwLock;
 use regex::{Regex, RegexBuilder};
+use rquest::Response;
 use serde_json::{Map, Value, json};
 use tokio::{spawn, time::timeout};
 use tracing::error;
@@ -19,7 +20,7 @@ use crate::{
     NORMAL_CLIENT, SUPER_CLIENT,
     completion::completion,
     config::{Config, CookieInfo, UselessCookie, UselessReason},
-    utils::{ENDPOINT, MODELS, check_res_err, header_ref},
+    utils::{ENDPOINT, JsBool, MODELS, check_res_err, header_ref, print_out_json},
 };
 
 pub struct RouterBuilder {
@@ -30,7 +31,7 @@ pub struct RouterBuilder {
 pub struct InnerState {
     pub config: RwLock<Config>,
     model_list: RwLock<Vec<String>>,
-    pub pro: RwLock<Option<String>>,
+    pub is_pro: RwLock<Option<String>>,
     pub cookie_model: RwLock<String>,
     pub uuid_org: RwLock<String>,
     pub changing: RwLock<bool>,
@@ -42,6 +43,10 @@ pub struct InnerState {
     pub total_times: usize,
     pub model: RwLock<Option<String>>,
     pub cookies: RwLock<HashMap<String, String>>,
+    pub uuid_org_array: RwLock<Vec<String>>,
+    pub conv_uuid: RwLock<Option<String>>,
+    pub conv_char: RwLock<Option<String>>,
+    pub conv_depth: RwLock<i64>,
 }
 
 #[derive(Clone)]
@@ -58,6 +63,13 @@ impl AppState {
         };
         let m = Arc::new(m);
         AppState(m)
+    }
+
+    fn update_cookie_from_res(&self, res: &Response) {
+        res.headers()
+            .get("set-cookie")
+            .and_then(|h| h.to_str().ok())
+            .map(|s| self.update_cookies(s));
     }
 
     fn update_cookies(&self, str: &str) {
@@ -141,6 +153,10 @@ impl AppState {
     }
 
     fn cookie_cleaner(&self, reason: UselessReason) -> bool {
+        let mut config = self.0.config.write();
+        if config.current_cookie_info().is_none() {
+            return false;
+        }
         let current_index = self.0.current_index.read().clone();
         let mut config = self.0.config.write();
         let current_cookie = config.cookie_array.remove(current_index);
@@ -210,19 +226,16 @@ impl AppState {
             .await;
         let Ok(res) = res else {
             error!("Failed to connect to {}: {}", end_point, res.unwrap_err());
-            return false;
+            return false; // TODO: handle error
         };
         let mut bootstrap: Option<Value> = None;
         let _ = check_res_err(res, &mut bootstrap).await;
         let Some(bootstrap) = bootstrap else {
-            return false;
+            return false; // TODO: handle error
         };
-        // print bootstrap to out.json
-        let string = serde_json::to_string_pretty(&bootstrap).unwrap_or_default();
-        let mut file = std::fs::File::create("out.json").unwrap();
-        std::io::Write::write_all(&mut file, string.as_bytes()).unwrap();
+
         if bootstrap["account"].is_null() {
-            println!("{}", "Null!".red());
+            println!("{}", "Null Error, Useless Cookie".red());
             return self.cookie_cleaner(UselessReason::Null);
         }
         let memberships = bootstrap["account"]["memberships"]
@@ -239,17 +252,18 @@ impl AppState {
             .and_then(|m| m["organization"].as_object())
         else {
             error!("Failed to get account info");
-            return false;
+            return false; // TODO: handle error
         };
         let mut cookie_model = None;
-        if let Some(model) = bootstrap["statsig"]["values"]["layer_configs"]["HPOHwBLNLQLxkj5Yn4bfSkgCQnBX28kPR7h/BNKdVLw="]
-            ["value"]["console_default_model_override"]["model"].as_str()
+        if let Some(model) = bootstrap.pointer("/statsig/values/layer_configs/HPOHwBLNLQLxkj5Yn4bfSkgCQnBX28kPR7h~1BNKdVLw=/value/console_default_model_override/model")
+            .and_then(|m| m.as_str())
         {
             cookie_model = Some(model.to_string());
         }
         if cookie_model.is_none() {
-            if let Some(model) = bootstrap["statsig"]["values"]["dynamic_configs"]["6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq/2o8="]
-            ["value"]["model"].as_str() {
+            if let Some(model) = bootstrap.pointer("/statsig/values/dynamic_configs/6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq~12o8=/value/model")
+                .and_then(|m| m.as_str())
+            {
                 cookie_model = Some(model.to_string());
             }
         }
@@ -264,7 +278,7 @@ impl AppState {
                 is_pro = Some("claude_team_pro".to_string())
             }
         }
-        *istate.pro.write() = is_pro.clone();
+        *istate.is_pro.write() = is_pro.clone();
         *istate.cookie_model.write() = cookie_model.clone().unwrap_or_default();
 
         // Check if cookie model is unknown (not in known models or in config's unknown models)
@@ -308,16 +322,19 @@ impl AppState {
                 .blue()
                 .to_string()
         };
-        let name = boot_acc_info["name"]
-            .as_str()
+        let name = boot_acc_info
+            .get("name")
+            .and_then(|n| n.as_str())
             .and_then(|n| n.split_once("@"))
             .map(|(n, _)| n)
             .unwrap_or_default();
-        let email = bootstrap["account"]["email_address"]
-            .as_str()
+        let email = bootstrap
+            .pointer("/account/email_address")
+            .and_then(|e| e.as_str())
             .unwrap_or_default();
-        let caps = boot_acc_info["capabilities"]
-            .as_array()
+        let caps = boot_acc_info
+            .get("capabilities")
+            .and_then(|c| c.as_array())
             .cloned()
             .unwrap_or_default()
             .iter()
@@ -332,8 +349,300 @@ impl AppState {
             cookie_model.unwrap_or_default().blue(),
             caps.blue()
         );
-        // TODO
-        false
+        let Some(uuid) = boot_acc_info["uuid"].as_str() else {
+            error!("Failed to get uuid");
+            return false; // TODO: handle error
+        };
+        let uuid_included = istate.uuid_org_array.read().clone();
+        let uuid_included = boot_acc_info["uuid"].as_str().map_or(false, |uuid| {
+            uuid_included.iter().any(|u| u.as_str() == uuid)
+        });
+        let api_disabled_reason = boot_acc_info.get("api_disabled_reason").js_bool();
+        let api_disabled_until = boot_acc_info.get("api_disabled_until").js_bool();
+        let completed_verification_at = bootstrap
+            .get("account")
+            .and_then(|a| a.get("completed_verification_at"))
+            .js_bool();
+        if (uuid_included && percentage <= 100.0 && !config.cookie_array.is_empty())
+            || (api_disabled_reason && !api_disabled_until)
+            || !completed_verification_at
+        {
+            let reason = if api_disabled_reason {
+                UselessReason::Disabled
+            } else if !completed_verification_at {
+                UselessReason::Unverified
+            } else {
+                UselessReason::Overlap
+            };
+            println!(
+                "{}",
+                format!("Cookie is useless, reason: {}", reason.to_string().red())
+            );
+            return self.cookie_cleaner(reason);
+        } else {
+            istate.uuid_org_array.write().push(uuid.to_string());
+        }
+
+        // Bootstrap complete
+        let rproxy = config.rproxy.clone();
+        drop(config);
+        let end_point = if rproxy.is_empty() { ENDPOINT } else { &rproxy };
+        let end_point = format!("{}/api/organizations", end_point);
+        let Ok(res) = SUPER_CLIENT
+            .get(end_point.clone())
+            .header_append("Origin", ENDPOINT)
+            .header_append("Referer", header_ref(""))
+            .header_append("Cookie", self.header_cookie())
+            .send()
+            .await
+            .inspect_err(|e| {
+                error!("Failed to connect to {}: {}", end_point, e);
+            })
+        else {
+            return false; // TODO: handle error
+        };
+        self.update_cookie_from_res(&res);
+        let mut ret_json: Option<Value> = None;
+        let _ = check_res_err(res, &mut ret_json).await;
+        let Some(ret_json) = ret_json else {
+            return false; // TODO: handle error
+        };
+        // print bootstrap to out.json, if it exists, overwrite it
+        let Some(acc_info) = ret_json.as_array().and_then(|a| {
+            a.iter().find(|v| {
+                v.get("capabilities")
+                    .and_then(|c| c.as_array())
+                    .map_or(false, |c| c.iter().any(|c| c.as_str() == Some("chat")))
+            })
+        }) else {
+            error!("Failed to get account info");
+            return false; // TODO: handle error
+        };
+
+        acc_info.get("uuid").and_then(|u| u.as_str()).map(|u| {
+            *istate.uuid_org.write() = u.to_string();
+        });
+        let active_flags = acc_info
+            .get("active_flags")
+            .and_then(|a| a.as_array())
+            .cloned()
+            .unwrap_or_default();
+        if !active_flags.is_empty() {
+            let now = chrono::Utc::now();
+            let formatted_flags = active_flags.iter().map(|f| {
+                let expire = f["expires_at"].as_str().unwrap(); // TODO: handle None
+                let expire = chrono::DateTime::parse_from_rfc3339(expire).unwrap();
+                let diff = expire.to_utc() - now;
+                let r#type = f["type"].as_str().unwrap();
+                format!(
+                    "{}: expires in {} hours",
+                    r#type.red(),
+                    diff.num_hours().to_string().red()
+                )
+            });
+            let banned = formatted_flags
+                .clone()
+                .any(|f| f.contains("consumer_banned"));
+            let banned_str = if banned {
+                "[BANNED] ".red().to_string()
+            } else {
+                "".to_string()
+            };
+            println!("{}{}", banned_str, "Your account has warnings:".red());
+            for flag in formatted_flags {
+                println!("{}", flag);
+            }
+            let config = istate.config.read();
+            let endpoint = if config.rproxy.is_empty() {
+                ENDPOINT
+            } else {
+                &config.rproxy
+            };
+            let endpoint = format!("{}/api/organizations/{}", endpoint, istate.uuid_org.read());
+            let cookies = self.header_cookie();
+            if config.settings.clear_flags && !active_flags.is_empty() {
+                // drop the lock before the async call
+                drop(config);
+                let fut = active_flags
+                    .iter()
+                    .map_while(|f| f.get("type").and_then(|t| t.as_str()))
+                    .filter(|&t| t != "consumer_banned" && t != "consumer_restricted_mode")
+                    // .map(|t|())
+                    .map(|t| {
+                        let t = t.to_string();
+                        let endpoint = endpoint.clone();
+                        let cookies = cookies.clone();
+                        async move {
+                            let endpoint =
+                                format!("{}/flags/{}/dismiss", endpoint.clone(), t.clone());
+                            let Ok(res) = SUPER_CLIENT
+                                .post(endpoint.clone())
+                                .header_append("Origin", ENDPOINT)
+                                .header_append("Referer", header_ref(""))
+                                .header_append("Cookie", cookies)
+                                .send()
+                                .await
+                                .inspect_err(|e| {
+                                    error!("Failed to connect to {}: {}", endpoint, e);
+                                })
+                            else {
+                                return;
+                            };
+                            let mut ret_json: Option<Value> = None;
+                            let _ = check_res_err(res, &mut ret_json).await;
+                            let Some(ret_json) = ret_json else {
+                                return;
+                            };
+                            let json_error = ret_json.get("error");
+                            let error_message = json_error.and_then(|e| e.get("message"));
+                            let error_type = json_error.and_then(|e| e.get("type"));
+                            let json_detail = ret_json.get("detail");
+                            let message = if json_error.is_some() {
+                                error_message
+                                    .or(json_detail)
+                                    .or(error_type)
+                                    .and_then(|m| m.as_str())
+                                    .unwrap_or_default()
+                                    .red()
+                                    .to_string()
+                            } else {
+                                "OK".green().to_string()
+                            };
+                            println!("{}: {}", t.blue(), message);
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                futures::future::join_all(fut).await;
+            }
+            if banned {
+                println!(
+                    "{}",
+                    "Your account is banned, please use another account.".red()
+                );
+                return self.cookie_cleaner(UselessReason::Banned);
+            } else {
+                // Restricted
+                println!("{}", "Your account is restricted.".red());
+                if self.0.config.read().settings.skip_restricted {
+                    return self.cookie_changer(None, None);
+                }
+            }
+        }
+        let preview_feature_uses_artifacts = bootstrap
+            .pointer("/account/settings/preview_feature_uses_artifacts")
+            .and_then(|a| a.as_bool())
+            .unwrap_or(false);
+        if preview_feature_uses_artifacts != self.0.config.read().settings.artifacts {
+            let endpoint = self.0.config.read().endpoint();
+            let endpoint = format!("{}/api/account", endpoint);
+            let cookies = self.header_cookie();
+            let mut account_settings = bootstrap
+                .pointer("/account/settings")
+                .and_then(|a| a.as_object())
+                .cloned()
+                .unwrap_or_default();
+            account_settings.insert(
+                "preview_feature_uses_artifacts".to_string(),
+                Value::Bool(!preview_feature_uses_artifacts),
+            );
+            let body = json!({
+                "settings": account_settings,
+            });
+            let Ok(res) = SUPER_CLIENT
+                .post(endpoint.clone())
+                .header_append("Origin", ENDPOINT)
+                .header_append("Referer", header_ref(""))
+                .header_append("Cookie", cookies)
+                .json(&body)
+                .send()
+                .await
+                .inspect_err(|e| {
+                    error!("Failed to connect to {}: {}", endpoint, e);
+                })
+            else {
+                return false; // TODO: handle error
+            };
+
+            self.update_cookie_from_res(&res);
+            let _ = check_res_err(res, &mut None).await;
+        }
+        *self.0.changing.write() = false;
+        let endpoint = self.0.config.read().endpoint();
+        let uuid = acc_info
+            .get("uuid")
+            .and_then(|u| u.as_str())
+            .unwrap_or_default();
+        let endpoint = format!("{}/api/organizations/{}/chat_conversations", endpoint, uuid);
+        let cookies = self.header_cookie();
+        let Ok(res) = SUPER_CLIENT
+            .get(endpoint.clone())
+            .header_append("Origin", ENDPOINT)
+            .header_append("Referer", header_ref(""))
+            .header_append("Cookie", cookies)
+            .send()
+            .await
+            .inspect_err(|e| {
+                error!("Failed to connect to {}: {}", endpoint, e);
+            })
+        else {
+            return false; // TODO: handle error
+        };
+        self.update_cookie_from_res(&res);
+        let mut ret_json: Option<Value> = None;
+        let _ = check_res_err(res, &mut ret_json).await;
+        let Some(ret_json) = ret_json else {
+            return false; // TODO: handle error
+        };
+        let cons = ret_json.as_array().cloned().unwrap_or_default();
+        // TODO: Do I need a pool to delete the conversations?
+        let futures = cons
+            .iter()
+            .filter_map(|c| {
+                c.get("uuid")
+                    .and_then(|u| u.as_str())
+                    .map(|u| u.to_string())
+            })
+            .map(|u| self.delete_chat(u))
+            .collect::<Vec<_>>();
+        futures::future::join_all(futures).await;
+        true
+    }
+
+    async fn delete_chat(&self, uuid: String) -> anyhow::Result<()> {
+        if uuid.is_empty() {
+            return Ok(());
+        }
+        let istate = self.0.clone();
+        let conv_uuid = istate.conv_uuid.read().clone();
+        let Some(conv_uuid) = conv_uuid else {
+            return Ok(());
+        };
+        if uuid == conv_uuid {
+            istate.conv_uuid.write().take();
+            *istate.conv_depth.write() = 0;
+        }
+        if istate.config.read().settings.preserve_chats {
+            return Ok(());
+        }
+        let endpoint = istate.config.read().endpoint();
+        let uuid_org = istate.uuid_org.read().clone();
+        let endpoint = format!(
+            "{}/api/organizations/{}/chat_conversations/{}",
+            endpoint, uuid_org, uuid
+        );
+        let cookies = self.header_cookie();
+        let res = SUPER_CLIENT
+            .delete(endpoint.clone())
+            .header_append("Origin", ENDPOINT)
+            .header_append("Referer", header_ref(""))
+            .header_append("Cookie", cookies)
+            .send()
+            .await
+            .inspect_err(|e| {
+                error!("Failed to connect to {}: {}", endpoint, e);
+            })?;
+        self.update_cookie_from_res(&res);
+        Ok(())
     }
 }
 

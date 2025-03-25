@@ -26,3 +26,5 @@ tracing-subscriber = "0.3"
 rand = "0.9.0"
 chrono = "0.4.40"
 parking_lot = { version = "0.12.3", features = ["send_guard"] }
+futures = "0.3"
+

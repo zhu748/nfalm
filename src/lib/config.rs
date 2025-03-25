@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
 use tracing::warn;
 
+use crate::utils::ENDPOINT;
+
 const CONFIG_PATH: &str = "config.toml";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -15,6 +17,19 @@ pub enum UselessReason {
     Overlap,
     Banned,
     Invalid,
+}
+
+impl Display for UselessReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UselessReason::Null => write!(f, "Null"),
+            UselessReason::Disabled => write!(f, "Disabled"),
+            UselessReason::Unverified => write!(f, "Unverified"),
+            UselessReason::Overlap => write!(f, "Overlap"),
+            UselessReason::Banned => write!(f, "Banned"),
+            UselessReason::Invalid => write!(f, "Invalid"),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -75,10 +90,7 @@ impl From<&str> for Cookie {
             warn!("Invalid cookie format: {}", cookie);
         }
 
-        Self {
-            // filter out non-ASCII characters, whitespace and newlines
-            inner: cookie,
-        }
+        Self { inner: cookie }
     }
 }
 
@@ -246,6 +258,14 @@ impl Config {
                 Ok(default_config)
             }
             Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn endpoint(&self) -> String {
+        if self.rproxy.is_empty() {
+            ENDPOINT.to_string()
+        } else {
+            self.rproxy.clone()
         }
     }
 

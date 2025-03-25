@@ -2,9 +2,61 @@ use anyhow::{Error, Result};
 use chrono::format;
 use figlet_rs::FIGfont;
 use rquest::Response;
-use serde_json::{Value, json};
+use serde_json::{Number, Value, json};
 use std::sync::LazyLock;
 use tracing::error;
+
+pub fn print_out_json(json: &Value) {
+    let string = serde_json::to_string_pretty(json).unwrap_or_default();
+    let mut file = std::fs::File::options()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open("out.json")
+        .unwrap();
+    std::io::Write::write_all(&mut file, string.as_bytes()).unwrap();
+}
+
+pub trait JsBool {
+    fn js_bool(&self) -> bool;
+}
+
+impl JsBool for Option<&Value> {
+    fn js_bool(&self) -> bool {
+        match self {
+            Some(v) => v.js_bool(),
+            None => false,
+        }
+    }
+}
+
+impl JsBool for Value {
+    fn js_bool(&self) -> bool {
+        match self {
+            Value::Null => false,
+            Value::Number(n) => {
+                // '-0'/'0'/NaN => false
+                // other numbers => true
+                if let Some(num) = n.as_f64() {
+                    if num == 0.0 || num.is_nan() {
+                        return false;
+                    }
+                }
+                true
+            }
+            Value::Bool(b) => *b,
+            Value::String(s) => {
+                // empty string => false
+                // other strings => true
+                if s.is_empty() {
+                    return false;
+                }
+                true
+            }
+            _ => true,
+        }
+    }
+}
 
 pub static BANNER: LazyLock<String> = LazyLock::new(|| {
     let standard_font = FIGfont::standard().unwrap();
