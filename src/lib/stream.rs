@@ -1,19 +1,22 @@
-use const_format::Result;
-use futures::{Stream, StreamExt, pin_mut};
+use bytes::Bytes;
+use futures::{StreamExt, pin_mut};
 use regex::Regex;
 use serde_json::{Value, json};
 use std::mem;
+use tokio_stream::Stream;
+use tokio_util::sync::CancellationToken;
 use transform_stream::AsyncTryStream;
 
 #[derive(Clone)]
-struct ClewdConfig {
+pub struct ClewdConfig {
     version: String,
     model: String,
     streaming: bool,
     min_size: usize,
+    cancel: CancellationToken,
 }
 
-struct ClewdTransformer {
+pub struct ClewdTransformer {
     config: ClewdConfig,
     comp_ok: String,
     comp_raw: String,
@@ -27,7 +30,7 @@ struct ClewdTransformer {
 }
 
 impl ClewdTransformer {
-    fn new(config: ClewdConfig) -> Self {
+    pub fn new(config: ClewdConfig) -> Self {
         Self {
             config,
             comp_ok: String::new(),
@@ -73,16 +76,16 @@ impl ClewdTransformer {
         selection
     }
 
-    fn transform_stream<S>(
+    pub fn transform_stream<S>(
         self,
         input: S,
     ) -> AsyncTryStream<
         String,
         std::io::Error,
-        impl Future<Output = Result<(), std::io::Error>> + Send,
+        impl std::future::Future<Output = Result<(), std::io::Error>> + Send,
     >
     where
-        S: Stream<Item = Result<String, std::io::Error>> + Unpin + Send + 'static,
+        S: Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
     {
         AsyncTryStream::new(move |mut y| async move {
             let mut transformer = self;
@@ -92,12 +95,23 @@ impl ClewdTransformer {
 
             while let Some(chunk) = input.next().await {
                 let chunk = chunk?;
-                if transformer.ended {
+                if transformer.ended || transformer.config.cancel.is_cancelled() {
                     continue;
                 }
 
                 transformer.recv_length += chunk.len();
-                transformer.comp_raw += &re.replace_all(&chunk, "");
+                // Decode Bytes to String, assuming UTF-8
+                let chunk_str = match String::from_utf8(chunk.to_vec()) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        let err_msg = format!("UTF-8 decoding error: {}", e);
+                        transformer.error = Some(err_msg.clone());
+                        transformer.ended = true;
+                        y.yield_ok(transformer.build(err_msg)).await;
+                        return Ok(());
+                    }
+                };
+                transformer.comp_raw += &re.replace_all(&chunk_str, "");
                 let old_raw = mem::take(&mut transformer.comp_raw);
                 let mut substr = old_raw.split("\n\n").collect::<Vec<_>>();
                 let last_msg = substr.pop().map(|s| s.to_string());
@@ -122,7 +136,7 @@ impl ClewdTransformer {
                             transformer.error = Some(err_msg.clone());
                             transformer.ended = true;
                             y.yield_ok(transformer.build(err_msg)).await;
-                            return Ok::<(), std::io::Error>(());
+                            return Ok(());
                         }
 
                         if transformer.comp_model.is_empty() {
@@ -168,7 +182,7 @@ impl ClewdTransformer {
                         .await;
                     transformer.comp_ok.clear();
                 }
-                if !transformer.ended {
+                if !transformer.ended && !transformer.config.cancel.is_cancelled() {
                     y.yield_ok("data: [DONE]\n\n".to_string()).await;
                 }
             } else {
@@ -193,52 +207,28 @@ impl ClewdTransformer {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    let config = ClewdConfig {
-        version: "1.0".to_string(),
-        model: "some-model".to_string(),
-        streaming: true,
-        min_size: 8,
-    };
-
-    let input = tokio_stream::iter(vec![
-        Ok("{\"completion\": \"Hello\"}\n\n".to_string()),
-        Ok("{\"completion\": \" world\"}\n\n".to_string()),
-    ]);
-
-    let transformer = ClewdTransformer::new(config);
-    let stream = transformer.transform_stream(input);
-    pin_mut!(stream);
-
-    while let Some(result) = stream.next().await {
-        match result {
-            Ok(output) => println!("Output: {}", output),
-            Err(e) => eprintln!("Error: {}", e),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[tokio::test]
     async fn stream_test() {
+        let cancel = CancellationToken::new();
         let config = ClewdConfig {
             version: "1.0".to_string(),
             model: "some-model".to_string(),
             streaming: true,
             min_size: 8,
+            cancel,
         };
 
         let input = tokio_stream::iter(vec![
-            Ok("{\"completion\": \"Hello\"}\n\n".to_string()),
-            Ok("{\"completion\": \" world\"}\n\n".to_string()),
+            Ok(Bytes::from("{\"completion\": \"Hello\"}\n\n")),
+            Ok(Bytes::from("{\"completion\": \" world\"}\n\n")),
         ]);
 
         let transformer = ClewdTransformer::new(config);
-        let mut stream = transformer.transform_stream(input);
+        let stream = transformer.transform_stream(input);
         pin_mut!(stream);
 
         let mut results = String::new();
