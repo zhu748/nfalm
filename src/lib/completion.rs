@@ -2,6 +2,7 @@ use crate::{
     SUPER_CLIENT,
     api::{AppState, InnerState},
     stream::{ClewdrConfig, ClewdrTransformer},
+    utils::ClewdrError,
 };
 use axum::{
     Json,
@@ -35,7 +36,7 @@ pub async fn stream_example(
         .send()
         .await
         .unwrap(); // In production, handle this error gracefully
-    
+
     // Spawn a task to handle the streaming transformation
     tokio::spawn(async move {
         let input_stream = super_res.bytes_stream();
@@ -61,7 +62,7 @@ pub async fn stream_example(
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct ClientRequestBody {
+pub struct ClientRequestInfo {
     #[serde(default)]
     temperature: Option<f64>,
     #[serde(default)]
@@ -79,19 +80,63 @@ pub struct ClientRequestBody {
     #[serde(default)]
     top_k: Option<i64>,
 }
-
-fn sanitize_client_request(body: &mut ClientRequestBody, state: &InnerState) {
-    if let Some(ref mut temp) = body.temperature {
-        *temp = temp.clamp(0.0, 1.0);
+impl ClientRequestInfo {
+    fn sanitize_client_request(self) -> ClientRequestInfo {
+        if let Some(mut temp) = self.temperature {
+            temp = temp.clamp(0.0, 1.0);
+        }
+        self
     }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct Message {
+    role: String,
+    content: String,
+    customname: Option<String>,
+    name: Option<String>,
+    strip: bool,
+    jailbreak: bool,
+    main: bool,
+    discard: bool,
+    merged: bool,
+    personality: bool,
+    scenario: bool,
 }
 
 pub async fn completion(
     State(state): State<AppState>,
     header: HeaderMap,
-    Json(payload): Json<ClientRequestBody>,
+    Json(payload): Json<ClientRequestInfo>,
 ) {
-    let auth = header.get("Authorization").and_then(|h| h.to_str().ok());
-    println!("{}", serde_json::to_string_pretty(&payload).unwrap());
-    // TODO
+    state.try_completion(payload).await;
+}
+
+impl AppState {
+    async fn try_completion(&self, payload: ClientRequestInfo) -> Result<(), ClewdrError> {
+        // TODO: 3rd key, API key, auth token, etc.
+        let s = self.0.as_ref();
+        let p = payload.sanitize_client_request();
+        *s.model.write() = if s.is_pro.read().is_some() {
+            Some(p.model.replace("--force", "").trim().to_string())
+        } else {
+            s.cookie_model.read().clone()
+        };
+        if s.uuid_org.read().is_empty() {
+            // TODO: more keys
+            return Err(ClewdrError::NoValidKey);
+        }
+        if !*s.changing.read()
+            && s.is_pro.read().is_none()
+            && *s.model.read() != *s.cookie_model.read()
+        {
+            self.cookie_changer(None, None);
+            self.wait_for_change().await;
+        }
+        if p.messages.is_empty() {
+            return Err(ClewdrError::WrongCompletionFormat);
+        }
+
+        Ok(())
+    }
 }

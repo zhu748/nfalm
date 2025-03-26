@@ -162,7 +162,11 @@ pub enum ClewdrError {
     #[error("Invalid authorization")]
     InvalidAuth,
     #[error("Json error: {0}")]
-    SerdeJsonError(#[from] serde_json::Error),
+    JsonError(#[from] serde_json::Error),
+    #[error("TOML Deserialize error: {0}")]
+    TomlDeError(#[from] toml::de::Error),
+    #[error("TOML Serialize error: {0}")]
+    TomlSeError(#[from] toml::ser::Error),
     #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
     #[error("Rquest error: {0}")]
@@ -179,6 +183,12 @@ pub enum ClewdrError {
     JsError(Value),
     #[error("Unexpected None")]
     UnexpectedNone,
+    #[error("No valid key")]
+    NoValidKey,
+    #[error("Please use OpenAI format")]
+    WrongCompletionFormat,
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 pub const ENDPOINT: &str = "https://api.claude.ai";

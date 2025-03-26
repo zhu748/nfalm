@@ -51,7 +51,7 @@ pub struct InnerState {
     pub config: RwLock<Config>,
     model_list: RwLock<Vec<String>>,
     pub is_pro: RwLock<Option<String>>,
-    pub cookie_model: RwLock<String>,
+    pub cookie_model: RwLock<Option<String>>,
     pub uuid_org: RwLock<String>,
     pub changing: RwLock<bool>,
     pub change_flag: RwLock<usize>,
@@ -84,14 +84,14 @@ impl AppState {
         AppState(m)
     }
 
-    fn update_cookie_from_res(&self, res: &Response) {
+    pub fn update_cookie_from_res(&self, res: &Response) {
         res.headers()
             .get("set-cookie")
             .and_then(|h| h.to_str().ok())
             .map(|s| self.update_cookies(s));
     }
 
-    fn update_cookies(&self, str: &str) {
+    pub fn update_cookies(&self, str: &str) {
         let str = str.split("\n").to_owned().collect::<Vec<_>>().join("");
         if str.is_empty() {
             return;
@@ -115,7 +115,7 @@ impl AppState {
             });
     }
 
-    fn header_cookie(&self) -> String {
+    pub fn header_cookie(&self) -> String {
         let cookies = self.0.cookies.read();
         cookies
             .iter()
@@ -134,7 +134,7 @@ impl AppState {
             .to_string()
     }
 
-    fn cookie_changer(&self, reset_timer: Option<bool>, cleanup: Option<bool>) -> bool {
+    pub fn cookie_changer(&self, reset_timer: Option<bool>, cleanup: Option<bool>) -> bool {
         let my_state = self.0.clone();
         let reset_timer = reset_timer.unwrap_or(true);
         let cleanup = cleanup.unwrap_or(false);
@@ -168,6 +168,16 @@ impl AppState {
                 }
             }));
             false
+        }
+    }
+
+    pub fn wait_for_change(&self) -> impl Future<Output = ()> {
+        async {
+            // if changing is true, wait for it to be false
+            let istate = self.0.clone();
+            while *istate.changing.read() {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
         }
     }
 
@@ -261,7 +271,7 @@ impl AppState {
             }
         }
         *istate.is_pro.write() = is_pro.clone();
-        *istate.cookie_model.write() = cookie_model.clone().unwrap_or_default();
+        *istate.cookie_model.write() = cookie_model.clone();
 
         // Check if cookie model is unknown (not in known models or in config's unknown models)
         let mut config = istate.config.write();
