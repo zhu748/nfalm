@@ -81,9 +81,9 @@ pub struct ClientRequestInfo {
     top_k: Option<i64>,
 }
 impl ClientRequestInfo {
-    fn sanitize_client_request(self) -> ClientRequestInfo {
-        if let Some(mut temp) = self.temperature {
-            temp = temp.clamp(0.0, 1.0);
+    fn sanitize_client_request(mut self) -> ClientRequestInfo {
+        if let Some(ref mut temp) = self.temperature {
+            *temp = temp.clamp(0.0, 1.0);
         }
         self
     }
