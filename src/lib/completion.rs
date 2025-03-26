@@ -1,5 +1,5 @@
 use crate::{
-    SUPER_CLIENT,
+    SUPER_CLIENT, TITLE,
     api::{AppState, InnerState},
     stream::{ClewdrConfig, ClewdrTransformer},
     utils::{ClewdrError, TEST_MESSAGE},
@@ -13,7 +13,7 @@ use axum::{
 use bytes::Bytes;
 use futures::pin_mut;
 use serde::{de, ser};
-use serde_json::Value;
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
 use tracing::info;
@@ -89,7 +89,7 @@ impl ClientRequestInfo {
     }
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Message {
     pub role: String,
     pub content: String,
@@ -135,12 +135,13 @@ pub async fn completion(
     State(state): State<AppState>,
     header: HeaderMap,
     Json(payload): Json<ClientRequestInfo>,
-) {
-    let _ = state.try_completion(payload).await;
+) -> Body {
+    let b = state.try_completion(payload).await.unwrap();
+    b
 }
 
 impl AppState {
-    async fn try_completion(&self, payload: ClientRequestInfo) -> Result<(), ClewdrError> {
+    async fn try_completion(&self, payload: ClientRequestInfo) -> Result<Body, ClewdrError> {
         // TODO: 3rd key, API key, auth token, etc.
         let s = self.0.as_ref();
         let p = payload.sanitize_client_request();
@@ -163,7 +164,18 @@ impl AppState {
         if p.messages.is_empty() {
             return Err(ClewdrError::WrongCompletionFormat);
         }
-        // if p.messages.first() == Some(&TEST_MESSAGE) {}
-        Ok(())
+        if p.messages.first() == Some(&TEST_MESSAGE) {
+            let res_json = json!({
+                "choices":[
+                    {
+                        "message":{
+                            "content": TITLE
+                        }
+                    }
+                ]
+            });
+            return Ok(Body::from(res_json.to_string()));
+        }
+        unimplemented!()
     }
 }
