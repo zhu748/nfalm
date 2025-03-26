@@ -11,10 +11,10 @@ use axum::{
 };
 use bytes::Bytes;
 use futures::pin_mut;
+use serde::{de, ser};
 use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
-use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 pub async fn stream_example(
@@ -35,10 +35,10 @@ pub async fn stream_example(
         .send()
         .await
         .unwrap(); // In production, handle this error gracefully
-    let input_stream = super_res.bytes_stream();
-
+    
     // Spawn a task to handle the streaming transformation
     tokio::spawn(async move {
+        let input_stream = super_res.bytes_stream();
         let output_stream = trans.transform_stream(input_stream);
         pin_mut!(output_stream);
 
@@ -60,66 +60,38 @@ pub async fn stream_example(
     Body::from_stream(response_stream)
 }
 
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct ClientRequestBody {
+    #[serde(default)]
+    temperature: Option<f64>,
+    #[serde(default)]
+    messages: Vec<Value>,
+    #[serde(default)]
+    model: String,
+    #[serde(default)]
+    stream: bool,
+    #[serde(default)]
+    max_tokens: Option<i64>,
+    #[serde(default)]
+    stop: Vec<String>,
+    #[serde(default)]
+    top_p: Option<f64>,
+    #[serde(default)]
+    top_k: Option<i64>,
+}
+
+fn sanitize_client_request(body: &mut ClientRequestBody, state: &InnerState) {
+    if let Some(ref mut temp) = body.temperature {
+        *temp = temp.clamp(0.0, 1.0);
+    }
+}
+
 pub async fn completion(
     State(state): State<AppState>,
     header: HeaderMap,
-    Json(payload): Json<Value>,
+    Json(payload): Json<ClientRequestBody>,
 ) {
-    let state = state.0;
-    let temp = payload["temperature"].clone();
-    // if temp is not f64 or within 0.1 to 1.0, set it to Null
-    let temp = if temp.is_f64() && (0.1..=1.0).contains(&temp.as_f64().unwrap()) {
-        temp
-    } else {
-        Value::Null
-    };
-    let message = payload["messages"].clone();
-    let auth = header
-        .get("Authorization")
-        .unwrap()
-        .to_str()
-        .unwrap_or_default();
-    let third_key = auth
-        .trim_start_matches("oaiKey:")
-        .trim_start_matches("3rdKey:");
-    let is_oai_api = auth.matches("oaiKey:").count() > 0;
-    let force_model = payload["model"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("--force");
-    let api_keys = third_key.split(",").map(|s| s.trim()).collect::<Vec<_>>();
-    // TODO: validate api keys
-    let model = if !api_keys.is_empty() || force_model || state.is_pro.read().is_some() {
-        let m = payload["model"]
-            .as_str()
-            .unwrap_or_default()
-            .replace("--force", "");
-        m.trim().to_string()
-    } else {
-        state.cookie_model.read().clone()
-    };
-    let max_tokens_to_sample = payload["max_tokens"].as_u64().unwrap_or(0);
-    let stop_sequence = payload["stop"].as_str().unwrap_or_default();
-    let top_p = payload["top_p"].clone();
-    let top_k = payload["top_k"].clone();
-    let config = &state.config.read();
-    if api_keys.is_empty()
-        && (!config.proxy_password.is_empty()
-            && auth != format!("Bearer {}", config.proxy_password)
-            || state.uuid_org.read().is_empty())
-    {
-        let msg = if state.uuid_org.read().is_empty() {
-            "No cookie available or apiKey format wrong"
-        } else {
-            "proxy_password Wrong"
-        };
-        panic!("{}", msg);
-    } else if !*state.changing.read()
-        && !api_keys.is_empty()
-        && state.is_pro.read().is_none()
-        && model != *state.cookie_model.read()
-    {
-        panic!("No cookie available");
-    }
+    let auth = header.get("Authorization").and_then(|h| h.to_str().ok());
+    println!("{}", serde_json::to_string_pretty(&payload).unwrap());
     // TODO
 }

@@ -1,13 +1,10 @@
-use anyhow::{Error, Result};
-use chrono::format;
 use figlet_rs::FIGfont;
 use rquest::Response;
-use serde_json::{Number, Value, json};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::LazyLock,
-};
+use serde_json::{Value, json};
+use std::{collections::HashMap, str::FromStr, sync::LazyLock};
 use tracing::error;
+
+use crate::stream::ClewdrTransformer;
 
 const R: [(&str, &str); 5] = [
     ("user", "Human"),
@@ -28,7 +25,7 @@ pub static DANGER_CHARS: LazyLock<Vec<char>> = LazyLock::new(|| {
 });
 
 pub fn index_of_any(text: &str, last: Option<bool>) -> i32 {
-    let mut indices = vec![index_of_h(text, last), index_of_a(text, last)]
+    let indices = vec![index_of_h(text, last), index_of_a(text, last)]
         .into_iter()
         .filter(|&idx| idx > -1)
         .collect::<Vec<i32>>();
@@ -157,50 +154,26 @@ pub enum ClewdrError {
     #[error("Invalid authorization")]
     InvalidAuth,
     #[error("Json error: {0}")]
-    Json(#[from] serde_json::Error),
+    SerdeJsonError(#[from] serde_json::Error),
     #[error("Regex error: {0}")]
-    Regex(#[from] regex::Error),
+    RegexError(#[from] regex::Error),
     #[error("Rquest error: {0}")]
-    Rquest(#[from] rquest::Error),
+    RquestError(#[from] rquest::Error),
     #[error("UTF8 error: {0}")]
-    UTF8(#[from] std::string::FromUtf8Error),
+    UTF8Error(#[from] std::string::FromUtf8Error),
     #[error("Stream cancelled")]
-    StreamCancelled,
-    #[error("Stream internal error")]
-    StreamInternalError,
+    StreamCancelled(ClewdrTransformer),
+    #[error("Stream internal error, no further information available")]
+    StreamInternalError(ClewdrTransformer),
+    #[error("Stream end")]
+    StreamEndNormal(ClewdrTransformer),
+    #[error("JavaScript error: {0}")]
+    JsError(Value),
+    #[error("Unexpected None")]
+    UnexpectedNone,
 }
 
 pub const ENDPOINT: &str = "https://api.claude.ai";
-
-pub trait InvalidAuth {
-    fn invalid_auth(self) -> Result<Self, ClewdrError>
-    where
-        Self: Sized;
-}
-
-impl InvalidAuth for Option<Value> {
-    fn invalid_auth(self) -> Result<Option<Value>, ClewdrError> {
-        if let Some(json) = self {
-            invalid_auth(json).map(Some)
-        } else {
-            Ok(self)
-        }
-    }
-}
-
-pub fn invalid_auth(json: Value) -> Result<Value, ClewdrError> {
-    if let Some(err) = json.get("error") {
-        if let Some(msg) = err.get("message") {
-            if msg
-                .as_str()
-                .map_or(false, |m| m.contains("Invalid authorization"))
-            {
-                return Err(ClewdrError::InvalidAuth);
-            }
-        }
-    }
-    Ok(json)
-}
 
 pub fn header_ref(ref_path: &str) -> String {
     if ref_path.is_empty() {
@@ -210,7 +183,10 @@ pub fn header_ref(ref_path: &str) -> String {
     }
 }
 
-pub async fn check_res_err(res: Response, ret_json: &mut Option<Value>) -> Result<Value> {
+pub async fn check_res_err(
+    res: Response,
+    ret_json: &mut Option<Value>,
+) -> Result<Value, ClewdrError> {
     let mut ret = json!({
         "name": "Error",
     });
@@ -227,7 +203,7 @@ pub async fn check_res_err(res: Response, ret_json: &mut Option<Value>) -> Resul
         *ret_json = Some(json.clone());
     }
     let Some(err_api) = json.get("error") else {
-        return Ok(ret);
+        return Err(ClewdrError::JsError(ret));
     };
     ret["status"] = json["status"].clone();
     ret["planned"] = json!(true);
@@ -261,5 +237,62 @@ pub async fn check_res_err(res: Response, ret_json: &mut Option<Value>) -> Resul
                 });
         }
     }
-    Err(Error::msg(ret))
+    Err(ClewdrError::JsError(ret))
+}
+
+pub fn check_json_err(json: &str, throw: Option<bool>) -> Result<Value, ClewdrError> {
+    let throw = throw.unwrap_or(true);
+    let json = Value::from_str(json).inspect_err(|e| {
+        error!("Failed to parse response: {}\n{}", e, json);
+    })?;
+    let err = json.get("error");
+    let status = json
+        .get("status")
+        .and_then(|s| s.as_u64())
+        .map(|s| s as u16)
+        .unwrap_or(200);
+    let err_msg = err.and_then(|e| e.get("message")).and_then(|m| m.as_str());
+    let mut ret = json!({
+        "name": "Error",
+        "message": err_msg.unwrap_or("Unknown error"),
+    });
+    if let Some(err_api) = err {
+        ret["status"] = json["status"].clone();
+        ret["planned"] = json!(true);
+        if !err_api["message"].is_null() {
+            ret["message"] = err_api["message"].clone();
+        }
+        if !err_api["type"].is_null() {
+            ret["type"] = err_api["type"].clone();
+        }
+        if status == 429 {
+            if let Some(time) = err_api["message"]
+                .as_str()
+                .and_then(|m| serde_json::from_str::<Value>(m).ok())
+                .and_then(|m| m["resetAt"].as_str().map(|s| s.to_string()))
+            {
+                let reset_time = chrono::DateTime::parse_from_rfc3339(&time)
+                    .unwrap()
+                    .to_utc();
+                let now = chrono::Utc::now();
+                let diff = reset_time - now;
+                let hours = diff.num_hours();
+                ret.as_object_mut()
+                    .and_then(|obj| obj.get_mut("message"))
+                    .map(|msg| {
+                        let new_msg = format!(", expires in {hours} hours");
+                        if let Some(str) = msg.as_str() {
+                            *msg = format!("{str}{new_msg}").into();
+                        } else {
+                            *msg = new_msg.into();
+                        }
+                    });
+            }
+        }
+    }
+    if throw {
+        Err(ClewdrError::JsError(ret))
+    } else {
+        Ok(ret)
+    }
 }

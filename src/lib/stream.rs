@@ -12,7 +12,7 @@ use transform_stream::{AsyncTryStream, Yielder};
 
 use crate::utils::{ClewdrError, DANGER_CHARS, generic_fixes, index_of_any};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ClewdrConfig {
     version: String,
     model: String,
@@ -39,6 +39,7 @@ impl ClewdrConfig {
     }
 }
 
+#[derive(Debug)]
 pub struct ClewdrTransformer {
     config: ClewdrConfig,
     cancel: CancellationToken,
@@ -277,14 +278,14 @@ impl ClewdrTransformer {
                 select! {
                     _ = self.cancel.cancelled() => {
                         self.end_early(&mut y).await;
-                        return Err(ClewdrError::StreamCancelled);
+                        return Err(ClewdrError::StreamCancelled(self));
                     }
 
                     chunk = input.next() => {
                         if let Some(chunk) = chunk {
                             if let Err(e) = self.transform(chunk, &mut y).await {
                                 self.err(e, &mut y).await;
-                                return Err(ClewdrError::StreamInternalError);
+                                return Err(ClewdrError::StreamInternalError(self));
                             }
                         } else {
                             break;
@@ -294,9 +295,9 @@ impl ClewdrTransformer {
             }
             if let Err(e) = self.flush(&mut y).await {
                 self.err(e, &mut y).await;
-                return Err(ClewdrError::StreamInternalError);
+                return Err(ClewdrError::StreamInternalError(self));
             }
-            Ok(())
+            Err(ClewdrError::StreamEndNormal(self))
         })
     }
 }
