@@ -17,9 +17,9 @@ use tracing::error;
 
 use crate::{
     NORMAL_CLIENT, SUPER_CLIENT,
-    completion::{completion, stream_example},
+    completion::{Message, completion, stream_example},
     config::{Config, UselessCookie, UselessReason},
-    utils::{ClewdrError, ENDPOINT, JsBool, MODELS, check_res_err, header_ref},
+    utils::{ClewdrError, ENDPOINT, JsBool, MODELS, check_res_err, header_ref, print_out_json},
 };
 
 impl RouterBuilder {
@@ -49,7 +49,7 @@ pub struct RouterBuilder {
 #[derive(Default)]
 pub struct InnerState {
     pub config: RwLock<Config>,
-    model_list: RwLock<Vec<String>>,
+    pub model_list: RwLock<Vec<String>>,
     pub is_pro: RwLock<Option<String>>,
     pub cookie_model: RwLock<Option<String>>,
     pub uuid_org: RwLock<String>,
@@ -66,6 +66,8 @@ pub struct InnerState {
     pub conv_uuid: RwLock<Option<String>>,
     pub conv_char: RwLock<Option<String>>,
     pub conv_depth: RwLock<i64>,
+    pub prev_messages: RwLock<Vec<Message>>,
+    pub prev_impersonated: RwLock<bool>,
 }
 
 #[derive(Clone)]
@@ -181,7 +183,7 @@ impl AppState {
         }
     }
 
-    fn cookie_cleaner(&self, reason: UselessReason) -> bool {
+    pub fn cookie_cleaner(&self, reason: UselessReason) -> bool {
         let mut config = self.0.config.write();
         if config.current_cookie_info().is_none() {
             return false;
@@ -228,7 +230,6 @@ impl AppState {
         let mut bootstrap: Option<Value> = None;
         check_res_err(res, &mut bootstrap).await?;
         let bootstrap = bootstrap.ok_or(ClewdrError::UnexpectedNone)?;
-
         if bootstrap["account"].is_null() {
             println!("{}", "Null Error, Useless Cookie".red());
             return Ok(self.cookie_cleaner(UselessReason::Null));
@@ -615,8 +616,8 @@ impl AppState {
         match res {
             Ok(b) => b,
             Err(ClewdrError::JsError(v)) => {
-                if Some("Invalid authorization") == v.get("message").and_then(|m| m.as_str()) {
-                    println!("{}", "Invalid authorization".red());
+                if Some(json!("Invalid authorization")) == v.message {
+                    error!("{}", "Invalid authorization".red());
                     return self.cookie_cleaner(UselessReason::Invalid);
                 } else {
                     false
@@ -630,7 +631,7 @@ impl AppState {
         }
     }
 
-    async fn delete_chat(&self, uuid: String) -> Result<(), ClewdrError> {
+    pub async fn delete_chat(&self, uuid: String) -> Result<(), ClewdrError> {
         if uuid.is_empty() {
             return Ok(());
         }

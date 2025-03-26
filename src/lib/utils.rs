@@ -1,7 +1,7 @@
 use figlet_rs::FIGfont;
 use rquest::Response;
 use serde_json::{Value, json};
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::HashMap, fmt::Display, sync::LazyLock};
 use tracing::error;
 
 use crate::{completion::Message, stream::ClewdrTransformer};
@@ -193,8 +193,8 @@ pub enum ClewdrError {
     StreamInternalError(ClewdrTransformer),
     #[error("Stream end")]
     StreamEndNormal(ClewdrTransformer),
-    #[error("JavaScript error: {0}")]
-    JsError(Value),
+    #[error("JavaScript error {0}")]
+    JsError(JsError),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error("No valid key")]
@@ -203,9 +203,28 @@ pub enum ClewdrError {
     WrongCompletionFormat,
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Invalid model name: {0}")]
+    InvalidModel(String),
 }
 
 pub const ENDPOINT: &str = "https://api.claude.ai";
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct JsError {
+    pub name: String,
+    pub message: Option<Value>,
+    pub status: Option<Value>,
+    pub planned: Option<bool>,
+    pub r#type: Option<Value>,
+}
+
+impl Display for JsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        serde_json::to_string(self)
+            .map_err(|_| std::fmt::Error)?
+            .fmt(f)
+    }
+}
 
 pub fn header_ref(ref_path: &str) -> String {
     if ref_path.is_empty() {
@@ -219,31 +238,36 @@ pub async fn check_res_err(
     res: Response,
     ret_json: &mut Option<Value>,
 ) -> Result<Value, ClewdrError> {
-    let mut ret = json!({
-        "name": "Error",
-    });
+    let mut ret = JsError {
+        name: "Error".to_string(),
+        message: None,
+        status: None,
+        planned: None,
+        r#type: None,
+    };
     let status = res.status();
-    if !status.is_success() {
-        ret["message"] = json!(format!("Unexpected response code: {}", status));
-        error!("Unexpected response code: {}", status);
-    }
-    let text = res.text().await.unwrap_or_default();
-    let json = serde_json::from_str::<Value>(&text).inspect_err(|e| {
-        error!("Failed to parse response: {}\n{}", e, text);
+    let json: Value = res.json().await.inspect_err(|e| {
+        error!("Failed to parse response: {}\n", e);
     })?;
     if !json.is_null() {
         *ret_json = Some(json.clone());
     }
+    if !status.is_success() {
+        ret.message = Some(format!("Unexpected response code: {}", status).into());
+        error!("Unexpected response code: {}", status);
+    } else {
+        return Ok(json!({}));
+    }
     let Some(err_api) = json.get("error") else {
         return Err(ClewdrError::JsError(ret));
     };
-    ret["status"] = json["status"].clone();
-    ret["planned"] = json!(true);
+    ret.status = json.get("status").cloned();
+    ret.planned = true.into();
     if !err_api["message"].is_null() {
-        ret["message"] = err_api["message"].clone();
+        ret.message = err_api.get("message").cloned();
     }
     if !err_api["type"].is_null() {
-        ret["type"] = err_api["type"].clone();
+        ret.r#type = err_api.get("type").cloned();
     }
     if status == 429 {
         if let Some(time) = err_api["message"]
@@ -257,16 +281,14 @@ pub async fn check_res_err(
             let now = chrono::Utc::now();
             let diff = reset_time - now;
             let hours = diff.num_hours();
-            ret.as_object_mut()
-                .and_then(|obj| obj.get_mut("message"))
-                .map(|msg| {
-                    let new_msg = format!(", expires in {hours} hours");
-                    if let Some(str) = msg.as_str() {
-                        *msg = format!("{str}{new_msg}").into();
-                    } else {
-                        *msg = new_msg.into();
-                    }
-                });
+            ret.message.as_mut().map(|msg| {
+                let new_msg = format!(", expires in {hours} hours");
+                if let Some(str) = msg.as_str() {
+                    *msg = format!("{str}{new_msg}").into();
+                } else {
+                    *msg = new_msg.into();
+                }
+            });
         }
     }
     Err(ClewdrError::JsError(ret))

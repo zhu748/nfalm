@@ -31,3 +31,4 @@ tokio-util = "0.7"
 tokio-stream = "0.1"
 transform-stream = "0.3"
 bytes = "1"
+uuid = { version = "1.16.0", features = ["v4"] }
