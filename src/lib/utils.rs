@@ -1,7 +1,7 @@
 use figlet_rs::FIGfont;
 use rquest::Response;
 use serde_json::{Value, json};
-use std::{collections::HashMap, str::FromStr, sync::LazyLock};
+use std::{collections::HashMap, sync::LazyLock};
 use tracing::error;
 
 use crate::stream::ClewdrTransformer;
@@ -23,6 +23,14 @@ pub static DANGER_CHARS: LazyLock<Vec<char>> = LazyLock::new(|| {
         .chain(['\n', ':', '\\'])
         .collect()
 });
+
+pub fn clean_json(json: &str) -> &str {
+    // return after "data: "
+    let Some(json) = json.split("data: ").nth(1) else {
+        return json;
+    };
+    json
+}
 
 pub fn index_of_any(text: &str, last: Option<bool>) -> i32 {
     let indices = vec![index_of_h(text, last), index_of_a(text, last)]
@@ -240,11 +248,7 @@ pub async fn check_res_err(
     Err(ClewdrError::JsError(ret))
 }
 
-pub fn check_json_err(json: &str, throw: Option<bool>) -> Result<Value, ClewdrError> {
-    let throw = throw.unwrap_or(true);
-    let json = Value::from_str(json).inspect_err(|e| {
-        error!("Failed to parse response: {}\n{}", e, json);
-    })?;
+pub fn check_json_err(json: &Value) -> Value {
     let err = json.get("error");
     let status = json
         .get("status")
@@ -290,9 +294,5 @@ pub fn check_json_err(json: &str, throw: Option<bool>) -> Result<Value, ClewdrEr
             }
         }
     }
-    if throw {
-        Err(ClewdrError::JsError(ret))
-    } else {
-        Ok(ret)
-    }
+    ret
 }
