@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::{collections::HashMap, sync::LazyLock};
 use tracing::error;
 
-use crate::stream::ClewdrTransformer;
+use crate::{completion::Message, stream::ClewdrTransformer};
 
 const R: [(&str, &str); 5] = [
     ("user", "Human"),
@@ -31,6 +31,20 @@ pub fn clean_json(json: &str) -> &str {
     };
     json
 }
+
+pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| Message {
+    role: "user".to_string(),
+    content: "Hi".to_string(),
+    customname: None,
+    name: None,
+    strip: None,
+    jailbreak: None,
+    main: None,
+    discard: None,
+    merged: None,
+    personality: None,
+    scenario: None,
+});
 
 pub fn index_of_any(text: &str, last: Option<bool>) -> i32 {
     let indices = vec![index_of_h(text, last), index_of_a(text, last)]

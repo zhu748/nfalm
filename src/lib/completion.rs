@@ -2,7 +2,7 @@ use crate::{
     SUPER_CLIENT,
     api::{AppState, InnerState},
     stream::{ClewdrConfig, ClewdrTransformer},
-    utils::ClewdrError,
+    utils::{ClewdrError, TEST_MESSAGE},
 };
 use axum::{
     Json,
@@ -66,7 +66,7 @@ pub struct ClientRequestInfo {
     #[serde(default)]
     temperature: Option<f64>,
     #[serde(default)]
-    messages: Vec<Value>,
+    messages: Vec<Message>,
     #[serde(default)]
     model: String,
     #[serde(default)]
@@ -91,17 +91,44 @@ impl ClientRequestInfo {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Message {
-    role: String,
-    content: String,
-    customname: Option<String>,
-    name: Option<String>,
-    strip: bool,
-    jailbreak: bool,
-    main: bool,
-    discard: bool,
-    merged: bool,
-    personality: bool,
-    scenario: bool,
+    pub role: String,
+    pub content: String,
+    #[serde(default)]
+    pub customname: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub strip: Option<bool>,
+    #[serde(default)]
+    pub jailbreak: Option<bool>,
+    #[serde(default)]
+    pub main: Option<bool>,
+    #[serde(default)]
+    pub discard: Option<bool>,
+    #[serde(default)]
+    pub merged: Option<bool>,
+    #[serde(default)]
+    pub personality: Option<bool>,
+    #[serde(default)]
+    pub scenario: Option<bool>,
+}
+
+impl Default for Message {
+    fn default() -> Self {
+        Self {
+            role: "user".to_string(),
+            content: "".to_string(),
+            customname: None,
+            name: None,
+            strip: None,
+            jailbreak: None,
+            main: None,
+            discard: None,
+            merged: None,
+            personality: None,
+            scenario: None,
+        }
+    }
 }
 
 pub async fn completion(
@@ -109,7 +136,7 @@ pub async fn completion(
     header: HeaderMap,
     Json(payload): Json<ClientRequestInfo>,
 ) {
-    state.try_completion(payload).await;
+    let _ = state.try_completion(payload).await;
 }
 
 impl AppState {
@@ -136,7 +163,7 @@ impl AppState {
         if p.messages.is_empty() {
             return Err(ClewdrError::WrongCompletionFormat);
         }
-
+        // if p.messages.first() == Some(&TEST_MESSAGE) {}
         Ok(())
     }
 }
