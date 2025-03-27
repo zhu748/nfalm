@@ -17,6 +17,7 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio_stream::{StreamExt, wrappers::ReceiverStream};
 use tracing::{debug, info};
+use tracing_subscriber::field::debug;
 
 pub async fn stream_example(
     State(state): State<AppState>,
@@ -327,6 +328,7 @@ impl AppState {
                 .unwrap();
             re.is_match(&p.model)
         };
+        debug!("Legacy model: {}", legacy);
         let messages_api = {
             // TODO: third key
             let re = RegexBuilder::new(r"<\|completeAPI\|>")
@@ -336,14 +338,17 @@ impl AppState {
             let re2 = Regex::new(r"<\|messagesAPI\|>").unwrap();
             !(legacy || re.is_match(&prompt)) || re2.is_match(&prompt)
         };
+        debug!("Messages API: {}", messages_api);
         let messages_log = {
             let re = Regex::new(r"<\|messagesLog\|>").unwrap();
             re.is_match(&prompt)
         };
+        debug!("Messages log: {}", messages_log);
         let fusion = {
             let re = Regex::new(r"<\|Fusion Mode\|>").unwrap();
             messages_api && re.is_match(&prompt)
         };
+        debug!("Fusion mode: {}", fusion);
         let wedge = "\r";
         let stop_set = {
             let re = Regex::new(r"<\|stopSet *(\[.*?\]) *\|>").unwrap();
@@ -356,9 +361,11 @@ impl AppState {
         let stop_set: Vec<String> = stop_set
             .and_then(|s| serde_json::from_str(s.as_str()).ok())
             .unwrap_or_default();
+        debug!("Stop set: {:?}", stop_set);
         let stop_revoke: Vec<String> = stop_revoke
             .and_then(|s| serde_json::from_str(s.as_str()).ok())
             .unwrap_or_default();
+        debug!("Stop revoke: {:?}", stop_revoke);
         let stop = stop_set
             .into_iter()
             .chain(p.stop.unwrap_or_default().into_iter())
@@ -368,6 +375,7 @@ impl AppState {
                 !s.is_empty() && !stop_revoke.iter().any(|r| r.eq_ignore_ascii_case(s))
             })
             .collect::<Vec<_>>();
+        debug!("Stop seq: {:?}", stop);
         // TODO: Api key
         let prompt = if s.config.read().settings.xml_plot {
             self.xml_plot(

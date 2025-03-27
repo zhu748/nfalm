@@ -222,7 +222,7 @@ impl ClewdrTransformer {
 
         self.recv_length += chunk.len();
         // Decode Bytes to String, assuming UTF-8
-        let chunk_str = String::from_utf8(chunk.to_vec())?;
+        let chunk_str = String::from_utf8_lossy(chunk.as_ref());
         self.raw_string += &re.replace_all(&chunk_str, "");
         let old_raw = mem::take(&mut self.raw_string);
         let mut substr = old_raw.split("\n\n").collect::<Vec<_>>();
