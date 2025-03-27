@@ -378,15 +378,18 @@ impl AppState {
         };
         let placeholder_tokens = count_tokens(placeholder.as_str()).unwrap_or_default();
         let re = fancy_regex::Regex::new(r"<\|padtxt.*?(\d+)t.*?\|>").unwrap();
-        while let [m1, m2, ..] = re
-            .find_iter(content.as_str())
-            .map_while(|m| m.ok().map(|m| m.as_str().to_string()))
-            .collect::<Vec<_>>()
-            .as_slice()
+        for cs in re
+            .captures_iter(content.clone().as_str())
+            .map_while(|c| c.ok().map(|c| c.iter().collect::<Vec<_>>()))
         {
+            let (Some(Some(m1)), Some(Some(m2))) = (cs.get(1), cs.get(2)) else {
+                continue;
+            };
+            let m1 = m1.as_str();
+            let m2 = m2.as_str();
             tokens += m1.parse::<usize>().unwrap_or_default();
             content = content.replace(
-                m1.as_str(),
+                m1,
                 &placeholder.repeat(m2.parse::<usize>().unwrap_or_default() / placeholder_tokens),
             );
         }
