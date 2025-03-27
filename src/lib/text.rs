@@ -1,4 +1,8 @@
-use regex::RegexBuilder;
+use std::borrow::Cow;
+
+use colored::Colorize;
+use regex::{Regex, RegexBuilder, Replacer};
+use tracing::warn;
 
 use crate::{
     api::AppState,
@@ -193,4 +197,131 @@ impl AppState {
         }
         None
     }
+
+    pub fn xml_plot(&self, content: String, non_sys: Option<bool>) {
+        let non_sys = non_sys.unwrap_or_default();
+        self.0.regex_log.write().clear();
+        let content = self.xml_plot_regex(content, 1);
+    }
+
+    fn xml_plot_regex(&self, content: String, order: i64) -> String {
+        let re = RegexBuilder::new(
+            format!(
+                "<regex(?: +order *= *{}){}> *\"(/?)(.*)\\1(.*?)\" *: *\"(.*?)\" *</regex>",
+                order,
+                if order == 2 { "?" } else { "" }
+            )
+            .as_str(),
+        )
+        .multi_line(true)
+        .build()
+        .unwrap();
+        let mut content = Cow::from(content);
+        let res = re
+            .find_iter(content.as_ref())
+            .map(|m| m.as_str().to_string())
+            .collect::<Vec<_>>();
+        for m in res {
+            let re = Regex::new(
+                r##"<regex(?: +order *= *\d)?> *"(/?)(.*)\1(.*?)" *: *"(.*?)" *</regex>"##,
+            )
+            .unwrap();
+            if let Some(caps) = re.captures(m.as_str()) {
+                if caps.len() < 5 {
+                    warn!("{}", "Regex capture group is less than 5".yellow());
+                    continue;
+                }
+                *self.0.regex_log.write() += "\n";
+                let ecma_re = caps[2].to_string();
+                let flags = caps[3].to_string();
+                let to = caps[4].to_string();
+                let Ok(ecma_re) = regress::Regex::with_flags(&ecma_re, flags.as_str()) else {
+                    warn!("{}", "ECMA regex is invalid".yellow());
+                    continue;
+                };
+                let to = to.replace("\\?\"", "\\\"')}\"");
+                ecma_re.replace_all(content.as_ref(), to.as_str());
+            }
+        }
+        content.into()
+    }
+}
+
+trait Replace {
+    fn replace_all(&self, content: &str, to: &str) -> String;
+}
+
+impl Replace for regress::Regex {
+    fn replace_all(&self, content: &str, to: &str) -> String {
+        let mut new_content = Cow::from(content);
+        // find capture groups in to
+        let re = regex::Regex::new(r"\$([1-9]+\d*)").unwrap();
+        let to = to.to_string();
+        let captures = re
+            .find_iter(to.as_str())
+            .map_while(|m| m.as_str()[1..].parse::<usize>().ok())
+            .collect::<Vec<_>>();
+        // find all matches in content
+        let mut offset: isize = 0;
+        for m in self.find_iter(content) {
+            let range_len = m.range().end - m.range().start;
+            let range = (m.range().start as isize + offset) as usize
+                ..(m.range().end as isize + offset) as usize;
+            let grp = m.captures;
+            if grp.is_empty() {
+                continue;
+            }
+            let mut to = to.clone();
+            for cap in &captures {
+                if cap == &0 {
+                    continue;
+                }
+                if let Some(capture) = grp.get(*cap - 1).and_then(|o| o.clone()) {
+                    let capture_str = content[capture].to_string();
+                    to = to.replace(&format!("${}", cap), &capture_str);
+                }
+            }
+            new_content.to_mut().replace_range(range.clone(), &to);
+            offset += to.len() as isize - range_len as isize;
+        }
+        new_content.into_owned()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_replace_all() {
+        let re = regress::Regex::with_flags(r"(\d+)", "gs").unwrap();
+        let content = "123 456 789";
+        let to = "$1kkk";
+        let result = re.replace_all(content, to);
+        assert_eq!(result, "123kkk 456kkk 789kkk");
+    }
+}
+
+fn xml_plot_merge(content: &str, merge_tag: &MergeTag, non_sys: bool) -> String {
+    let re_check = regex::Regex::new(r"(\n\n|^\s*)xmlPlot:\s*").unwrap();
+    let mut content = content.to_string();
+
+    if re_check.is_match(&content) {
+        if !non_sys {
+            let re_remove = regress::Regex::with_flags(
+                r"(\n\n|^\s*)(?<!\n\n(Human|Assistant):.*?)xmlPlot:\s*",
+                "s",
+            )
+            .unwrap();
+            content = re_remove.replace_all(&content, "$1").to_string();
+        }
+    }
+    content
+}
+
+struct MergeTag {
+    all: bool,
+    system: bool,
+    human: bool,
+    assistant: bool,
 }

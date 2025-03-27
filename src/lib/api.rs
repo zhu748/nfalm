@@ -68,6 +68,7 @@ pub struct InnerState {
     pub conv_depth: RwLock<i64>,
     pub prev_messages: RwLock<Vec<Message>>,
     pub prev_impersonated: RwLock<bool>,
+    pub regex_log: RwLock<String>,
 }
 
 #[derive(Clone)]

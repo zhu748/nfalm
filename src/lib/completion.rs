@@ -76,7 +76,7 @@ pub struct ClientRequestInfo {
     #[serde(default)]
     max_tokens: Option<i64>,
     #[serde(default)]
-    stop: Vec<String>,
+    stop: Option<Vec<String>>,
     #[serde(default)]
     top_p: Option<f64>,
     #[serde(default)]
@@ -186,7 +186,7 @@ pub async fn completion(
 }
 
 impl AppState {
-    async fn try_completion(&self, payload: ClientRequestInfo) -> Result<Body, ClewdrError> {
+    async fn try_completion(&self, mut payload: ClientRequestInfo) -> Result<Body, ClewdrError> {
         // TODO: 3rd key, API key, auth token, etc.
         let s = self.0.as_ref();
         let p = payload.sanitize_client_request();
@@ -335,6 +335,27 @@ impl AppState {
             let re = Regex::new(r"<\|stopSet *(\[.*?\]) *\|>").unwrap();
             re.find_iter(&prompt).nth(1)
         };
+        let stop_revoke = {
+            let re = Regex::new(r"<\|stopRevoke *(\[.*?\]) *\|>").unwrap();
+            re.find_iter(&prompt).nth(1)
+        };
+        let stop_set: Vec<String> = stop_set
+            .and_then(|s| serde_json::from_str(s.as_str()).ok())
+            .unwrap_or_default();
+        let stop_revoke: Vec<String> = stop_revoke
+            .and_then(|s| serde_json::from_str(s.as_str()).ok())
+            .unwrap_or_default();
+        let stop = stop_set
+            .into_iter()
+            .chain(p.stop.unwrap_or_default().into_iter())
+            .chain(["\n\nHuman:".into(), "\n\nAssistant:".into()])
+            .filter(|s| {
+                let s = s.trim();
+                !s.is_empty() && !stop_revoke.iter().any(|r| r.eq_ignore_ascii_case(s))
+            })
+            .collect::<Vec<_>>();
+        // TODO: Api key
+        
         unimplemented!()
     }
 }
