@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
+use claude_tokenizer::count_tokens;
 use colored::Colorize;
+use rand::{Rng, RngCore};
 use regex::{Regex, RegexBuilder, Replacer};
 use serde_json::Value;
-use tracing::warn;
+use tracing::{error, warn};
 
 use crate::{
     api::AppState,
@@ -199,7 +201,7 @@ impl AppState {
         None
     }
 
-    pub fn xml_plot(&self, content: String, non_sys: Option<bool>) {
+    pub fn xml_plot(&self, content: String, non_sys: Option<bool>) -> String {
         let non_sys = non_sys.unwrap_or_default();
         self.0.regex_log.write().clear();
         let content = self.xml_plot_regex(content, 1);
@@ -301,7 +303,7 @@ impl AppState {
         .trim()
         .to_string();
         let c = re3.replace_all(c.as_str(), "").to_string();
-        re4.replace_all(c.as_str(), "").to_string();
+        re4.replace_all(c.as_str(), "").to_string()
     }
 
     fn xml_plot_regex(&self, mut content: String, order: i64) -> String {
@@ -343,6 +345,116 @@ impl AppState {
             }
         }
         content
+    }
+
+    pub fn pad_txt(&self, mut content: String) -> String {
+        let Ok(mut tokens) = count_tokens(content.as_str()) else {
+            error!("Failed to count tokens");
+            return content;
+        };
+        let pad_txt = self.0.config.read().settings.padtxt.clone();
+        let pad_txt = pad_txt.split(",").collect::<Vec<_>>();
+        let pad_txt = pad_txt.iter().rev().collect::<Vec<_>>();
+        let pad_txt = pad_txt
+            .iter()
+            .map(|s| s.parse::<usize>().unwrap_or(1000))
+            .collect::<Vec<_>>();
+        let [max_tokens, extra_tokens, min_tokens, ..] = pad_txt.as_slice() else {
+            error!("Failed to parse pad_txt");
+            return content;
+        };
+        let placeholder = {
+            let h = if tokens > max_tokens - extra_tokens && min_tokens > &0 {
+                self.0.config.read().placeholder_byte.clone()
+            } else {
+                self.0.config.read().placeholder_token.clone()
+            };
+            if h.is_empty() {
+                // random size
+                let mut rng = rand::rng();
+                let rand_size = rng.random_range(5..15);
+                let mut vec = vec![0; rand_size];
+                rand::rng().fill_bytes(&mut vec);
+                // to hex
+                return vec.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+            }
+            h
+        };
+        let placeholder_tokens = count_tokens(placeholder.as_str()).unwrap_or_default();
+        let re = Regex::new(r"<\|padtxt.*?(\d+)t.*?\|>").unwrap();
+        let matches = re
+            .find_iter(content.as_str())
+            .map(|m| m.as_str().to_string())
+            .collect::<Vec<_>>();
+        while let [m1, m2, ..] = re
+            .find_iter(content.as_str())
+            .map(|m| m.as_str().to_string())
+            .collect::<Vec<_>>()
+            .as_slice()
+        {
+            tokens += m1.parse::<usize>().unwrap_or_default();
+            content = content.replace(
+                m1.as_str(),
+                &placeholder.repeat(m2.parse::<usize>().unwrap_or_default() / placeholder_tokens),
+            );
+        }
+        let re = Regex::new(r"<\|padtxt off.*?\|>").unwrap();
+        if re.is_match(content.as_str()) {
+            let re = Regex::new(r"\s*<\|padtxt.*?\|>\s*").unwrap();
+            return re.replace_all(content.as_str(), "\n\n").to_string();
+        }
+        let padding = placeholder.repeat(
+            max_tokens
+                .clone()
+                .min(if tokens <= max_tokens - extra_tokens {
+                    max_tokens - tokens
+                } else if min_tokens > &0 {
+                    min_tokens.clone()
+                } else {
+                    extra_tokens.clone()
+                })
+                / placeholder_tokens,
+        );
+        let re = Regex::new(r"<\|padtxt.*?\|>").unwrap();
+        if re.is_match(content.as_str()) {
+            content = re.replace(content.as_str(), padding).to_string();
+            let re2 = Regex::new(r"\s*<\|padtxt.*?\|>\s*").unwrap();
+            content = re2.replace_all(content.as_str(), "\n\n").to_string();
+        } else {
+            // TODO: api key logic
+            content = format!("{}\n\n\n{}", padding, content.trim());
+        }
+        content
+    }
+
+    pub fn handle_full_colon(
+        &self,
+        mut prompt: String,
+        legacy: bool,
+        fusion: bool,
+        wedge: String,
+    ) -> String {
+        if !self.0.config.read().settings.full_colon {
+            return prompt;
+        }
+        if !legacy {
+            let re = if fusion {
+                Regex::new(r"(?s)\n(?!\nAssistant:\s*$)(?=\n(Human|Assistant):)").unwrap()
+            } else {
+                Regex::new(r"\n(?=\n(Human|Assistant):)").unwrap()
+            };
+            prompt = re
+                .replace_all(prompt.as_str(), format!("\n{}", wedge))
+                .to_string();
+        } else {
+            let re = if fusion {
+                Regex::new(r"(?s)(?<=\n\nAssistant):(?!\s*$)|(?<=\n\nHuman):").unwrap()
+            } else {
+                Regex::new(r"(?<=\n\n(Human|Assistant)):").unwrap()
+            };
+            prompt = re.replace_all(prompt.as_str(), "﹕").to_string();
+        }
+        prompt
     }
 }
 
