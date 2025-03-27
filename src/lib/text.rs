@@ -516,9 +516,8 @@ fn xml_plot_merge(content: &str, merge_tag: &MergeTag, non_sys: bool) -> String 
 
     if re_check.is_match(&content) {
         if !non_sys {
-            let re_remove = regress::Regex::with_flags(
-                r"(\n\n|^\s*)(?<!\n\n(Human|Assistant):.*?)xmlPlot:\s*",
-                "s",
+            let re_remove = fancy_regex::Regex::new(
+                r"(?s)(\n\n|^\s*)(?<!\n\n(Human|Assistant):.*?)xmlPlot:\s*",
             )
             .unwrap();
             content = re_remove.replace_all(&content, "$1").to_string();
@@ -536,7 +535,7 @@ fn xml_plot_merge(content: &str, merge_tag: &MergeTag, non_sys: bool) -> String 
         let re =
             fancy_regex::Regex::new(r"(?s)(?:\n\n|^\s*)Human:(.*?(?:\n\nAssistant:|$))").unwrap();
         let replacer = |caps: &fancy_regex::Captures| {
-            let re = regex::Regex::new(r"\n\nHuman:\s*").unwrap();
+            let re = fancy_regex::Regex::new(r"\n\nHuman:\s*").unwrap();
             if caps.len() < 2 {
                 return caps[0].to_string();
             }
@@ -551,7 +550,7 @@ fn xml_plot_merge(content: &str, merge_tag: &MergeTag, non_sys: bool) -> String 
             .build()
             .unwrap();
         let replacer = |caps: &fancy_regex::Captures| {
-            let re = regex::Regex::new(r"\n\nAssistant:\s*").unwrap();
+            let re = fancy_regex::Regex::new(r"\n\nAssistant:\s*").unwrap();
             if caps.len() < 2 {
                 return caps[0].to_string();
             }
