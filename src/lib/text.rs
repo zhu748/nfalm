@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use colored::Colorize;
 use regex::{Regex, RegexBuilder, Replacer};
+use serde_json::Value;
 use tracing::warn;
 
 use crate::{
@@ -202,9 +203,108 @@ impl AppState {
         let non_sys = non_sys.unwrap_or_default();
         self.0.regex_log.write().clear();
         let content = self.xml_plot_regex(content, 1);
+        let merge_tag = MergeTag {
+            all: !content.contains("<|Merge Disable|>"),
+            system: !content.contains("<|Merge System Disable|>"),
+            human: !content.contains("<|Merge Human Disable|>"),
+            assistant: !content.contains("<|Merge Assistant Disable|>"),
+        };
+        let mut content = xml_plot_merge(&content, &merge_tag, non_sys);
+        let mut split_content = {
+            let re = Regex::new(r"\n\n(?=Assistant:|Human:)").unwrap();
+            re.split(&content)
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+        };
+        let re = RegexBuilder::new(r"<@(\d+)>(.*?)</@\1>")
+            .dot_matches_new_line(true)
+            .build()
+            .unwrap();
+        while let Some(caps) = re.captures(&content) {
+            let index = split_content.len() as isize - caps[1].parse::<isize>().unwrap() - 1;
+            if index < 0 {
+                warn!("{}", "Invalid index".yellow());
+            } else {
+                split_content[index as usize] +=
+                    &("\n\n".to_string() + caps[2].to_string().as_str());
+                content = content.replace(caps[0].to_string().as_str(), "");
+            }
+        }
+        let content = split_content.join("\n\n");
+        let re = Regex::new(r"(?s)<@(\d+)>.*?</@\1>").unwrap();
+        let content = re.replace_all(&content, "").to_string();
+        let content = self.xml_plot_regex(content, 2);
+        let mut content = xml_plot_merge(&content, &merge_tag, non_sys);
+        let split_human = content
+            .split("\n\nHuman:")
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
+        // TODO: handle api key
+        if split_human.len() > 2
+            && split_content
+                .last()
+                .unwrap()
+                .contains("<|Plain Prompt Enable|>")
+            && !content.contains("\n\nPlainPrompt:")
+        {
+            let split = split_human
+                .iter()
+                .rev()
+                .skip(1)
+                .rev()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n\nHuman:");
+            let re = Regex::new(r"\n\nHuman: *PlainPrompt:").unwrap();
+            content = split.clone()
+                + "\n\nPlainPrompt:"
+                + re.replace_all(split.as_str(), "\n\nPlainPrompt:")
+                    .to_string()
+                    .as_str();
+        }
+        let c = self.xml_plot_regex(content, 3);
+        let re1 = Regex::new(r"(?m)<regex( +order *= *\d)?>.*?</regex>").unwrap();
+        let re2 = Regex::new(r"(?m)\r\n|\r").unwrap();
+        let re3 = Regex::new(r"\s*<\|curtail\|>\s*").unwrap();
+        let re4 = Regex::new(r"\s*<\|join\|>\s*").unwrap();
+        let re5 = Regex::new(r"\s*<\|space\|>\s*").unwrap();
+        let re6 = Regex::new(r"\s*\n\n(H(uman)?|A(ssistant)?): +").unwrap();
+        let re7 = Regex::new(r"<\|(\\.*?)\|>").unwrap();
+        let replacer = |caps: &regex::Captures| {
+            let re = regex::Regex::new(r##"\\?""##).unwrap();
+            let Some(p1) = caps.get(1).map(|o| o.as_str()) else {
+                return caps[0].to_string();
+            };
+            let p1 = re.replace_all(p1, "\\\"").to_string();
+            let Ok(json) = serde_json::from_str::<Value>(p1.as_str()) else {
+                return caps[0].to_string();
+            };
+            return json.to_string();
+        };
+        let content = re1.replace_all(c.as_str(), "").to_string();
+        let content = re2.replace_all(content.as_str(), "\n").to_string();
+        let content = re3.replace_all(content.as_str(), "\n").to_string();
+        let content = re4.replace_all(content.as_str(), "").to_string();
+        let content = re5.replace_all(content.as_str(), " ").to_string();
+        let content = re6.replace_all(content.as_str(), "\n\n$1: ").to_string();
+        let content = re7.replace_all(content.as_str(), replacer).to_string();
+        // TODO: api key logic
+        let re1 = Regex::new(r"\s*<\|(?!padtxt).*?\|>\s*").unwrap();
+        let re2 = Regex::new(r"\s*<\|.*?\|>\s*").unwrap();
+        let re3 = Regex::new(r"^Human: *|\n\nAssistant: *$").unwrap();
+        let re4 = Regex::new(r"(?<=\n)\n(?=\n)").unwrap();
+        let c = if !self.0.config.read().settings.padtxt.is_empty() {
+            re1.replace_all(content.as_str(), "\n\n").to_string()
+        } else {
+            re2.replace_all(content.as_str(), "\n\n").to_string()
+        }
+        .trim()
+        .to_string();
+        let c = re3.replace_all(c.as_str(), "").to_string();
+        re4.replace_all(c.as_str(), "").to_string();
     }
 
-    fn xml_plot_regex(&self, content: String, order: i64) -> String {
+    fn xml_plot_regex(&self, mut content: String, order: i64) -> String {
         let re = RegexBuilder::new(
             format!(
                 "<regex(?: +order *= *{}){}> *\"(/?)(.*)\\1(.*?)\" *: *\"(.*?)\" *</regex>",
@@ -216,7 +316,6 @@ impl AppState {
         .multi_line(true)
         .build()
         .unwrap();
-        let mut content = Cow::from(content);
         let res = re
             .find_iter(content.as_ref())
             .map(|m| m.as_str().to_string())
@@ -240,19 +339,19 @@ impl AppState {
                     continue;
                 };
                 let to = to.replace("\\?\"", "\\\"')}\"");
-                ecma_re.replace_all(content.as_ref(), to.as_str());
+                content = ecma_re.replace_all(content.as_ref(), to.as_str()).into();
             }
         }
-        content.into()
+        content
     }
 }
 
-trait Replace {
-    fn replace_all(&self, content: &str, to: &str) -> String;
+trait Replace<'h> {
+    fn replace_all(&self, content: &'h str, to: &str) -> Cow<'h, str>;
 }
 
-impl Replace for regress::Regex {
-    fn replace_all(&self, content: &str, to: &str) -> String {
+impl<'h> Replace<'h> for regress::Regex {
+    fn replace_all(&self, content: &'h str, to: &str) -> Cow<'h, str> {
         let mut new_content = Cow::from(content);
         // find capture groups in to
         let re = regex::Regex::new(r"\$([1-9]+\d*)").unwrap();
@@ -284,7 +383,7 @@ impl Replace for regress::Regex {
             new_content.to_mut().replace_range(range.clone(), &to);
             offset += to.len() as isize - range_len as isize;
         }
-        new_content.into_owned()
+        new_content
     }
 }
 
@@ -315,6 +414,46 @@ fn xml_plot_merge(content: &str, merge_tag: &MergeTag, non_sys: bool) -> String 
             .unwrap();
             content = re_remove.replace_all(&content, "$1").to_string();
         }
+        let re = regex::Regex::new(r"(\n\n|^\s*)xmlPlot: *").unwrap();
+        let to = if merge_tag.system && merge_tag.human && merge_tag.all {
+            "\n\nHuman: "
+        } else {
+            "$1"
+        };
+        content = re.replace_all(&content, to).to_string();
+    }
+
+    if merge_tag.all && merge_tag.human {
+        let re = RegexBuilder::new(r"(?:\n\n|^\s*)Human:(.*?(?:\n\nAssistant:|$))")
+            .dot_matches_new_line(true)
+            .build()
+            .unwrap();
+        let replacer = |caps: &regex::Captures| {
+            let re = regex::Regex::new(r"\n\nHuman:\s*").unwrap();
+            if caps.len() < 2 {
+                return caps[0].to_string();
+            }
+            let p1 = caps.get(1).unwrap().as_str();
+            let p1 = re.replace_all(p1, "\n\n");
+            return format!("\n\nHuman:{}", p1);
+        };
+        content = re.replace_all(&content, replacer).to_string();
+    }
+    if merge_tag.all && merge_tag.assistant {
+        let re = RegexBuilder::new(r"\n\nAssistant:(.*?(?:\n\nHuman:|$))")
+            .dot_matches_new_line(true)
+            .build()
+            .unwrap();
+        let replacer = |caps: &regex::Captures| {
+            let re = regex::Regex::new(r"\n\nAssistant:\s*").unwrap();
+            if caps.len() < 2 {
+                return caps[0].to_string();
+            }
+            let p1 = caps.get(1).unwrap().as_str();
+            let p1 = re.replace_all(p1, "\n\n");
+            return format!("\n\nAssistant:{}", p1);
+        };
+        content = re.replace_all(&content, replacer).to_string();
     }
     content
 }
