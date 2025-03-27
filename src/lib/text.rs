@@ -516,8 +516,9 @@ fn xml_plot_merge(content: &str, merge_tag: &MergeTag, non_sys: bool) -> String 
 
     if re_check.is_match(&content) {
         if !non_sys {
-            let re_remove = fancy_regex::Regex::new(
-                r"(?s)(\n\n|^\s*)(?<!\n\n(Human|Assistant):.*?)xmlPlot:\s*",
+            let re_remove = regress::Regex::with_flags(
+                r"(\n\n|^\s*)(?<!\n\n(Human|Assistant):.*?)xmlPlot:\s*",
+                "s",
             )
             .unwrap();
             content = re_remove.replace_all(&content, "$1").to_string();
