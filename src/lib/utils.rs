@@ -14,13 +14,13 @@ const R: [(&str, &str); 5] = [
     ("example_assistant", "A"),
 ];
 
-static REPLACEMENT: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| HashMap::from(R));
+pub static REPLACEMENT: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| HashMap::from(R));
 pub static DANGER_CHARS: LazyLock<Vec<char>> = LazyLock::new(|| {
     REPLACEMENT
         .iter()
         .map(|(_, v)| v.chars())
         .flatten()
-        .chain(['\n', ':', '\\'])
+        .chain(['\n', ':', '\\', 'n'])
         .collect()
 });
 

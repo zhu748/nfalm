@@ -95,7 +95,7 @@ pub struct Message {
     pub role: String,
     pub content: String,
     #[serde(default)]
-    pub customname: Option<String>,
+    pub customname: Option<bool>,
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
@@ -122,6 +122,20 @@ pub struct PromptsGroup {
     pub last_user: Option<Message>,
     pub last_system: Option<Message>,
     pub last_assistant: Option<Message>,
+}
+
+pub enum RetryStrategy {
+    Api,
+    Renew,
+    RetryRegen,
+    CurrentRenew,
+    CurrentContinue,
+}
+
+impl RetryStrategy {
+    pub fn is_current(&self) -> bool {
+        matches!(self, Self::CurrentRenew | Self::CurrentContinue)
+    }
 }
 
 impl PromptsGroup {
@@ -256,7 +270,7 @@ impl AppState {
         if !same_prompts {
             *s.prev_messages.write() = p.messages.clone();
         }
-        let mut r#type = String::new();
+        let r#type;
         // TODO: handle api key
         //TODO: handle retry regeneration and not same prompts
         if let Some(uuid) = s.conv_uuid.read().clone() {
@@ -288,7 +302,7 @@ impl AppState {
             .await?;
         self.update_cookie_from_res(&res);
         check_res_err(res, &mut None).await?;
-        r#type = "r".to_string();
+        r#type = RetryStrategy::Renew;
         // TODO: generate prompts
         unimplemented!()
     }
