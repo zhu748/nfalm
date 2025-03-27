@@ -12,6 +12,7 @@ use axum::{
 };
 use bytes::Bytes;
 use futures::pin_mut;
+use regex::{Regex, RegexBuilder};
 use rquest::header::{COOKIE, ORIGIN, REFERER};
 use serde::{de, ser};
 use serde_json::{Value, json};
@@ -304,6 +305,36 @@ impl AppState {
         check_res_err(res, &mut None).await?;
         r#type = RetryStrategy::Renew;
         // TODO: generate prompts
+        let (prompt, systems) = self.handle_messages(&p.messages, r#type);
+        let legacy = {
+            let re = RegexBuilder::new(r"claude-([12]|instant)")
+                .case_insensitive(true)
+                .build()
+                .unwrap();
+            re.is_match(&p.model)
+        };
+        let messages_api = {
+            // TODO: third key
+            let re = RegexBuilder::new(r"<\|completeAPI\|>")
+                .case_insensitive(true)
+                .build()
+                .unwrap();
+            let re2 = Regex::new(r"<\|messagesAPI\|>").unwrap();
+            !(legacy || re.is_match(&prompt)) || re2.is_match(&prompt)
+        };
+        let messages_log = {
+            let re = Regex::new(r"<\|messagesLog\|>").unwrap();
+            re.is_match(&prompt)
+        };
+        let fusion = {
+            let re = Regex::new(r"<\|Fusion Mode\|>").unwrap();
+            messages_api && re.is_match(&prompt)
+        };
+        let wedge = "\r";
+        let stop_set = {
+            let re = Regex::new(r"<\|stopSet *(\[.*?\]) *\|>").unwrap();
+            re.find_iter(&prompt).nth(1)
+        };
         unimplemented!()
     }
 }
