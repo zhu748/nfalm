@@ -303,7 +303,7 @@ impl AppState {
             .send()
             .await?;
         self.update_cookie_from_res(&api_res);
-        check_res_err(api_res, &mut None).await?;
+        check_res_err(api_res).await?;
         r#type = RetryStrategy::Renew;
         // TODO: generate prompts
         let (prompt, systems) = self.handle_messages(&p.messages, r#type);
@@ -432,7 +432,7 @@ impl AppState {
             .send()
             .await?;
         self.update_cookie_from_res(&api_res);
-        let api_res = check_res_err(api_res, &mut None).await?;
+        let api_res = check_res_err(api_res).await?;
         let status = api_res.status();
         let trans = ClewdrTransformer::new(ClewdrConfig::new(
             TITLE,

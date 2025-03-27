@@ -240,10 +240,7 @@ pub fn header_ref(ref_path: &str) -> String {
     }
 }
 
-pub async fn check_res_err(
-    res: Response,
-    ret_json: &mut Option<Value>,
-) -> Result<Response, ClewdrError> {
+pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     let mut ret = JsError {
         name: "Error".to_string(),
         message: None,
@@ -261,9 +258,6 @@ pub async fn check_res_err(
     let json: Value = res.json().await.inspect_err(|e| {
         error!("Failed to parse response: {}\n", e);
     })?;
-    if !json.is_null() {
-        *ret_json = Some(json.clone());
-    }
     let Some(err_api) = json.get("error") else {
         return Err(ClewdrError::JsError(ret));
     };
