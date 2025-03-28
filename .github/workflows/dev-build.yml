@@ -212,7 +212,7 @@ jobs:
       - name: Archive build artifacts
         shell: pwsh
         run: |
-          Compress-Archive -Path 'target\${{ matrix.target_triple }}\release\clewdr' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
+          Compress-Archive -Path 'target\${{ matrix.target_triple }}\release\clewdr.exe' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact

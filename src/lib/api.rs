@@ -16,6 +16,7 @@ use rquest::{
 use serde_json::{Value, json};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{spawn, time::timeout};
+use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
 
 use crate::{
@@ -35,6 +36,7 @@ impl RouterBuilder {
                 .route("/v1", options(api_options))
                 .route("/", options(api_options))
                 .fallback(api_fallback)
+                .layer(TraceLayer::new_for_http())
                 .with_state(state),
         }
     }
