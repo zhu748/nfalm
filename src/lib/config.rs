@@ -6,7 +6,7 @@ use tracing::warn;
 
 use crate::utils::{ClewdrError, ENDPOINT};
 
-const CONFIG_NAME: &str = "config.toml";
+pub const CONFIG_NAME: &str = "config.toml";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UselessReason {
@@ -51,9 +51,9 @@ pub struct CookieInfo {
 
 impl CookieInfo {
     pub fn is_pro(&self) -> bool {
-        self.model.as_ref().map_or(false, |model| {
-            model.contains("claude") && model.contains("_pro")
-        })
+        self.model
+            .as_ref()
+            .is_some_and(|model| model.contains("claude") && model.contains("_pro"))
     }
 }
 
@@ -125,7 +125,7 @@ impl<'de> Deserialize<'de> for Cookie {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     // Cookie configurations
     pub cookie: Cookie,
@@ -164,7 +164,7 @@ pub struct Config {
     pub settings: Settings,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub renew_always: bool,
     pub retry_regenerate: bool,
@@ -253,7 +253,7 @@ impl Config {
                 let config_path = config_dir.join(CONFIG_NAME);
                 std::fs::read_to_string(config_path)
             } else {
-                Err(e.into())
+                Err(e)
             }
         });
         match file_string {

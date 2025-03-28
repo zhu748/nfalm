@@ -2,10 +2,10 @@ use eventsource_stream::EventStreamError;
 use figlet_rs::FIGfont;
 use rquest::Response;
 use serde_json::{Value, json};
-use std::{collections::HashMap, fmt::Display, sync::LazyLock};
+use std::{collections::HashMap, fmt::Display, path::PathBuf, sync::LazyLock};
 use tracing::{error, warn};
 
-use crate::{completion::Message, stream::ClewdrTransformer};
+use crate::{completion::Message, config::CONFIG_NAME, stream::ClewdrTransformer};
 
 const R: [(&str, &str); 5] = [
     ("user", "Human"),
@@ -21,8 +21,7 @@ pub static REPLACEMENT: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| HashMap
 pub static DANGER_CHARS: LazyLock<Vec<char>> = LazyLock::new(|| {
     let mut r: Vec<char> = REPLACEMENT
         .iter()
-        .map(|(_, v)| v.chars())
-        .flatten()
+        .flat_map(|(_, v)| v.chars())
         .chain(['\n', ':', '\\', 'n'])
         .filter(|&c| c != ' ')
         .collect();
@@ -101,7 +100,33 @@ pub fn generic_fixes(text: &str) -> String {
     re.replace_all(text, "\n").to_string()
 }
 
+fn cwd_or_exec() -> Result<PathBuf, ClewdrError> {
+    let cwd = std::env::current_dir().map_err(|_| ClewdrError::PathNotFound("cwd".to_string()))?;
+    let cwd_config = cwd.join(CONFIG_NAME);
+    if cwd_config.exists() {
+        return Ok(cwd);
+    }
+    let exec_path =
+        std::env::current_exe().map_err(|_| ClewdrError::PathNotFound("exec".to_string()))?;
+    let exec_dir = exec_path
+        .parent()
+        .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
+        .join(CONFIG_NAME);
+    let exec_config = exec_dir.join(CONFIG_NAME);
+    if exec_config.exists() {
+        return Ok(exec_dir);
+    }
+    Err(ClewdrError::PathNotFound(
+        "No config found in cwd or exec dir".to_string(),
+    ))
+}
+
 pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
+    let Ok(dir) = cwd_or_exec() else {
+        error!("No config found in cwd or exec dir");
+        return;
+    };
+    let file_name = dir.join(file_name);
     let string = serde_json::to_string_pretty(json).unwrap_or_default();
     let mut file = std::fs::File::options()
         .write(true)
@@ -113,6 +138,11 @@ pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
 }
 
 pub fn print_out_text(text: &str, file_name: &str) {
+    let Ok(dir) = cwd_or_exec() else {
+        error!("No config found in cwd or exec dir");
+        return;
+    };
+    let file_name = dir.join(file_name);
     let mut file = std::fs::File::options()
         .write(true)
         .create(true)
@@ -305,14 +335,14 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             let now = chrono::Utc::now();
             let diff = reset_time - now;
             let hours = diff.num_hours();
-            ret.message.as_mut().map(|msg| {
+            if let Some(msg) = ret.message.as_mut() {
                 let new_msg = format!(", expires in {hours} hours");
                 if let Some(str) = msg.as_str() {
                     *msg = format!("{str}{new_msg}").into();
                 } else {
                     *msg = new_msg.into();
                 }
-            });
+            }
             warn!("Rate limit exceeded, expires in {} hours", hours);
         }
     }
@@ -352,16 +382,14 @@ pub fn check_json_err(json: &Value) -> Value {
                 let now = chrono::Utc::now();
                 let diff = reset_time - now;
                 let hours = diff.num_hours();
-                ret.as_object_mut()
-                    .and_then(|obj| obj.get_mut("message"))
-                    .map(|msg| {
-                        let new_msg = format!(", expires in {hours} hours");
-                        if let Some(str) = msg.as_str() {
-                            *msg = format!("{str}{new_msg}").into();
-                        } else {
-                            *msg = new_msg.into();
-                        }
-                    });
+                if let Some(msg) = ret.as_object_mut().and_then(|obj| obj.get_mut("message")) {
+                    let new_msg = format!(", expires in {hours} hours");
+                    if let Some(str) = msg.as_str() {
+                        *msg = format!("{str}{new_msg}").into();
+                    } else {
+                        *msg = new_msg.into();
+                    }
+                }
             }
         }
     }

@@ -139,10 +139,10 @@ pub async fn completion(
     Json(payload): Json<ClientRequestInfo>,
 ) -> Response {
     match state.try_completion(payload).await {
-        Ok(b) => return b.into_response(),
+        Ok(b) => b.into_response(),
         Err(e) => {
             info!("Error: {:?}", e);
-            return e.to_string().into_response();
+            e.to_string().into_response()
         }
     }
 }
@@ -238,7 +238,7 @@ impl AppState {
             *s.prev_messages.write() = p.messages.clone();
         }
         debug!("Previous prompts processed");
-        let r#type;
+        
         // TODO: handle api key
         //TODO: handle retry regeneration and not same prompts
         let uuid = s.conv_uuid.read().clone();
@@ -273,7 +273,7 @@ impl AppState {
         debug!("New conversation created");
         self.update_cookie_from_res(&api_res);
         check_res_err(api_res).await?;
-        r#type = RetryStrategy::Renew;
+        let r#type = RetryStrategy::Renew;
         // TODO: generate prompts
         let (prompt, _systems) = self.handle_messages(&p.messages, r#type);
         print_out_text(&prompt, "log/1.prompt.txt");
@@ -371,7 +371,7 @@ impl AppState {
                 "extracted_content": new_p,
                 "file_name": "paste.txt",
                 "file_type": "txt",
-                "file_size": new_p.as_bytes().len(),
+                "file_size": new_p.len(),
             }]);
             pr = if r#type == RetryStrategy::Renew {
                 s.config.read().prompt_experiment_first.clone()

@@ -26,7 +26,8 @@ async fn main() -> Result<(), ClewdrError> {
     // TODO: load config from env
 
     let router = clewdr::api::RouterBuilder::new(state.clone()).build();
-    let listener = tokio::net::TcpListener::bind(state.0.config.read().address())
+    let addr = state.0.config.read().address().to_string();
+    let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("Failed to bind to address");
     state.on_listen().await;

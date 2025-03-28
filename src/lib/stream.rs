@@ -214,9 +214,7 @@ impl ClewdrTransformer {
             .map(|c| c.to_string());
         if let Some(content) = completion {
             let new_completion = generic_fixes(&content);
-            parsed.as_object_mut().map(|o| {
-                o.insert("completion".to_string(), json!(new_completion));
-            });
+            if let Some(o) = parsed.as_object_mut() { o.insert("completion".to_string(), json!(new_completion)); }
             self.ready_string += &new_completion;
             self.completes.push(new_completion.clone());
             delay = self.ready_string.ends_with(DANGER_CHARS.as_slice())
@@ -230,11 +228,9 @@ impl ClewdrTransformer {
                 let selection = self.collect_buf();
                 y.yield_ok(self.build(&selection)).await;
             }
-        } else {
-            if delay {
-                self.imperson_check(self.completes.join("").as_str(), y)
-                    .await;
-            }
+        } else if delay {
+            self.imperson_check(self.completes.join("").as_str(), y)
+                .await;
         }
     }
 
@@ -244,7 +240,7 @@ impl ClewdrTransformer {
             self.impersonated.store(true, Ordering::Release);
             if self.config.prevent_imperson {
                 let selection = &reply[..fake_any as usize];
-                let build = self.build(&selection);
+                let build = self.build(selection);
                 y.yield_ok(build).await;
                 self.end_early(y).await;
             }
@@ -256,7 +252,7 @@ impl ClewdrTransformer {
         chunk: Result<eventsource_stream::Event, EventStreamError<rquest::Error>>,
         y: &mut Yielder<Result<Event, ClewdrError>>,
     ) -> Result<(), ClewdrError> {
-        let event = chunk.map_err(|e| ClewdrError::EventSourceError(e))?;
+        let event = chunk.map_err(ClewdrError::EventSourceError)?;
         let data = event.data;
         self.recv_length += data.len();
         self.parse_buf(&data, y).await;
