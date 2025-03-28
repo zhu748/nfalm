@@ -14,12 +14,9 @@ use axum::{
     response::{IntoResponse, Response, Sse},
 };
 use eventsource_stream::EventStream;
-use futures::{Stream, TryStreamExt};
 use regex::{Regex, RegexBuilder};
 use rquest::header::{ACCEPT, COOKIE, ORIGIN, REFERER};
 use serde_json::json;
-use tokio_stream::StreamExt;
-use tokio_util::io::StreamReader;
 use tracing::{debug, info};
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]

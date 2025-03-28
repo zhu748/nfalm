@@ -3,10 +3,7 @@ use eventsource_stream::EventStreamError;
 use futures::pin_mut;
 use parking_lot::RwLock;
 use serde_json::{Value, json, to_string_pretty};
-use std::{
-    mem,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use std::sync::atomic::{AtomicU32, Ordering};
 use tokio::select;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
