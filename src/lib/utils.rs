@@ -122,24 +122,8 @@ fn cwd_or_exec() -> Result<PathBuf, ClewdrError> {
 }
 
 pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
-    let Ok(dir) = cwd_or_exec() else {
-        error!("No config found in cwd or exec dir");
-        return;
-    };
-    let file_name = dir.join(file_name);
-    let string = serde_json::to_string_pretty(json).unwrap_or_default();
-    let Ok(mut file) = std::fs::File::options()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&file_name)
-    else {
-        error!("Failed to open file: {}", file_name.display());
-        return;
-    };
-    if let Err(e) = std::io::Write::write_all(&mut file, string.as_bytes()) {
-        error!("Failed to write to file: {}\n", e);
-    }
+    let text = serde_json::to_string_pretty(json).unwrap_or_default();
+    print_out_text(&text, file_name);
 }
 
 pub fn print_out_text(text: &str, file_name: &str) {
@@ -147,6 +131,13 @@ pub fn print_out_text(text: &str, file_name: &str) {
         error!("No config found in cwd or exec dir");
         return;
     };
+    let log_dir = dir.join("log");
+    if !log_dir.exists() {
+        if let Err(e) = std::fs::create_dir_all(&log_dir) {
+            error!("Failed to create log dir: {}\n", e);
+            return;
+        }
+    }
     let file_name = dir.join(file_name);
     let Ok(mut file) = std::fs::File::options()
         .write(true)

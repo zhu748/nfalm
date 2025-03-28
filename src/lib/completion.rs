@@ -171,7 +171,7 @@ impl AppState {
         if p.messages.is_empty() {
             return Err(ClewdrError::WrongCompletionFormat);
         }
-        print_out_json(&p, "log/0.messages.json");
+        print_out_json(&p, "0.messages.json");
         debug!("Messages processed");
         if !p.stream && p.messages.len() == 1 && p.messages.first() == Some(&TEST_MESSAGE) {
             return Ok(json!({
@@ -276,7 +276,7 @@ impl AppState {
         let r#type = RetryStrategy::Renew;
         // TODO: generate prompts
         let (prompt, _systems) = self.handle_messages(&p.messages, r#type);
-        print_out_text(&prompt, "log/1.prompt.txt");
+        print_out_text(&prompt, "1.prompt.txt");
         debug!("Prompt processed");
         let legacy = {
             let re = RegexBuilder::new(r"claude-([12]|instant)")
@@ -351,10 +351,10 @@ impl AppState {
             // TODO: handle api key
             unimplemented!()
         };
-        print_out_text(&prompt, "log/2.xml.txt");
+        print_out_text(&prompt, "2.xml.txt");
         debug!("XML regex processed");
         let mut pr = self.pad_txt(prompt);
-        print_out_text(&pr, "log/3.pad.txt");
+        print_out_text(&pr, "3.pad.txt");
         debug!("Pad txt processed");
         // TODO: 我 log 你的吗，log 都写那么难看
         // panic!("log");
@@ -409,7 +409,7 @@ impl AppState {
             // body["stop_sequences"] = json!(stop);
             // body["temperature"] = json!(p.temperature);
         }
-        print_out_json(&body, "log/4.req.json");
+        print_out_json(&body, "4.req.json");
         debug!("Req body processed");
         let endpoint = if s.config.read().api_rproxy.is_empty() {
             ENDPOINT.to_string()
