@@ -1,7 +1,7 @@
 use crate::{
     SUPER_CLIENT, TITLE,
     api::AppState,
-    stream::{StreamConfig, ClewdrTransformer},
+    stream::{ClewdrTransformer, StreamConfig},
     utils::{
         ClewdrError, ENDPOINT, TEST_MESSAGE, TIME_ZONE, check_res_err, header_ref, print_out_json,
         print_out_text,
@@ -238,7 +238,7 @@ impl AppState {
             *s.prev_messages.write() = p.messages.clone();
         }
         debug!("Previous prompts processed");
-        
+
         // TODO: handle api key
         //TODO: handle retry regeneration and not same prompts
         let uuid = s.conv_uuid.read().clone();
@@ -397,10 +397,15 @@ impl AppState {
             "timezone": TIME_ZONE,
         });
         if s.config.read().settings.pass_params {
-            p.max_tokens
-                .map(|mt| body["max_tokens_to_sample"] = json!(mt));
-            p.top_k.map(|tk| body["top_k"] = json!(tk));
-            p.top_p.map(|tp| body["top_p"] = json!(tp));
+            if let Some(mt) = p.max_tokens {
+                body["max_tokens_to_sample"] = json!(mt)
+            }
+            if let Some(tk) = p.max_tokens {
+                body["top_k"] = json!(tk)
+            }
+            if let Some(tp) = p.top_p {
+                body["top_p"] = json!(tp)
+            }
             // body["stop_sequences"] = json!(stop);
             // body["temperature"] = json!(p.temperature);
         }

@@ -276,31 +276,34 @@ impl AppState {
         *istate.cookie_model.write() = cookie_model.clone();
 
         // Check if cookie model is unknown (not in known models or in config's unknown models)
-        let mut config = istate.config.write();
-        if let Some(cookie_model) = &cookie_model {
-            if !MODELS.contains(&cookie_model.as_str())
-                && !config.unknown_models.contains(cookie_model)
-            {
-                config.unknown_models.push(cookie_model.clone());
-                config.save().unwrap_or_else(|e| {
-                    println!("Failed to save config: {}", e);
-                });
+        {
+            // drop lock by using a new scope
+            let mut config = istate.config.write();
+            if let Some(cookie_model) = &cookie_model {
+                if !MODELS.contains(&cookie_model.as_str())
+                    && !config.unknown_models.contains(cookie_model)
+                {
+                    config.unknown_models.push(cookie_model.clone());
+                    config.save().unwrap_or_else(|e| {
+                        println!("Failed to save config: {}", e);
+                    });
+                }
             }
-        }
 
-        let model_name = if is_pro.is_some() {
-            is_pro.clone().unwrap()
-        } else if cookie_model.is_some() {
-            cookie_model.clone().unwrap().clone()
-        } else {
-            String::new()
-        };
-        if let Some(current_cookie) = config.current_cookie_info() {
-            if !model_name.is_empty() {
-                current_cookie.model = Some(model_name);
-                config.save().unwrap_or_else(|e| {
-                    println!("Failed to save config: {}", e);
-                });
+            let model_name = if is_pro.is_some() {
+                is_pro.clone().unwrap()
+            } else if cookie_model.is_some() {
+                cookie_model.clone().unwrap().clone()
+            } else {
+                String::new()
+            };
+            if let Some(current_cookie) = config.current_cookie_info() {
+                if !model_name.is_empty() {
+                    current_cookie.model = Some(model_name);
+                    config.save().unwrap_or_else(|e| {
+                        println!("Failed to save config: {}", e);
+                    });
+                }
             }
         }
         if is_pro.is_none()
@@ -368,10 +371,7 @@ impl AppState {
             } else {
                 UselessReason::Overlap
             };
-            println!(
-                "{}",
-                format!("Cookie is useless, reason: {}", reason.to_string().red())
-            );
+            println!("Cookie is useless, reason: {}", reason.to_string().red());
             return Ok(self.cookie_cleaner(reason));
         } else {
             istate.uuid_org_array.write().push(uuid.to_string());
@@ -436,7 +436,7 @@ impl AppState {
             for flag in formatted_flags {
                 println!("{}", flag);
             }
-            let config = istate.config.read();
+            let config = istate.config.read().clone();
             let endpoint = if config.rproxy.is_empty() {
                 ENDPOINT
             } else {
@@ -582,36 +582,38 @@ impl AppState {
 
     pub async fn on_listen(&self) -> bool {
         let istate = self.0.clone();
-        let mut config = istate.config.write();
-        if *istate.first_login.read() {
-            *istate.first_login.write() = false;
-            // get time now
-            let now = chrono::Utc::now().timestamp_millis();
-            *istate.timestamp.write() = now;
-            const TITLE: &str = formatc!(
-                "Clewdr v{} by {}",
-                env!("CARGO_PKG_VERSION"),
-                env!("CARGO_PKG_AUTHORS")
-            );
-            println!("{}", TITLE.blue());
-            println!("Listening on {}", config.address().green());
-            // println!("Config:\n{:?}", config);
-            // TODO: Local tunnel
-        }
-        if !config.cookie_array.is_empty() {
-            let current_cookie = config.current_cookie_info().unwrap().clone();
-            config.cookie = current_cookie.cookie.clone();
+        {
+            let mut config = istate.config.write();
+            if *istate.first_login.read() {
+                *istate.first_login.write() = false;
+                // get time now
+                let now = chrono::Utc::now().timestamp_millis();
+                *istate.timestamp.write() = now;
+                const TITLE: &str = formatc!(
+                    "Clewdr v{} by {}",
+                    env!("CARGO_PKG_VERSION"),
+                    env!("CARGO_PKG_AUTHORS")
+                );
+                println!("{}", TITLE.blue());
+                println!("Listening on {}", config.address().green());
+                // println!("Config:\n{:?}", config);
+                // TODO: Local tunnel
+            }
+            if !config.cookie_array.is_empty() {
+                let current_cookie = config.current_cookie_info().unwrap().clone();
+                config.cookie = current_cookie.cookie.clone();
 
-            *istate.change_times.write() += 1;
-            if istate.model.read().is_some()
-                && current_cookie.model.is_some()
-                && !current_cookie.is_pro()
-                && istate.model.read().as_ref().unwrap() != &current_cookie.model.unwrap()
-            {
-                return self.cookie_changer(Some(false), None);
+                *istate.change_times.write() += 1;
+                if istate.model.read().is_some()
+                    && current_cookie.model.is_some()
+                    && !current_cookie.is_pro()
+                    && istate.model.read().as_ref().unwrap() != &current_cookie.model.unwrap()
+                {
+                    return self.cookie_changer(Some(false), None);
+                }
             }
         }
-        drop(config);
+
         let res = self.on_listen_catch().await;
         match res {
             Ok(b) => b,
