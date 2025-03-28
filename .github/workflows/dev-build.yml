@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
   workflow_dispatch:
 
 env:
@@ -55,14 +55,68 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../build-linux-${{ matrix.target }}.zip *
+          zip -r ../../../clewdr-linux-${{ matrix.target }}.zip *
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-linux-${{ matrix.target }}
-          path: build-linux-${{ matrix.target }}.zip
+          name: clewdr-linux-${{ matrix.target }}
+          path: clewdr-linux-${{ matrix.target }}.zip
+          retention-days: 1
+
+  android:
+    name: Build Android (NDK)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: aarch64
+            target_triple: aarch64-linux-android
+            apt_packages: ""
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nttld/setup-ndk@v1.5.0
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+          add-to-path: true
+
+      - name: Install base dependencies on Ubuntu
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools
+
+      - name: Install target-specific APT dependencies
+        if: ${{ matrix.apt_packages != '' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt_packages }}
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target_triple }}
+
+      - name: Build for ${{ matrix.target }}
+        run: |
+          cargo install cargo-ndk
+          cargo ndk --target ${{ matrix.target_triple }} build --release
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
+  
+      - name: Archive build artifacts
+        run: |
+          cd target/${{ matrix.target_triple }}/release
+          zip -r ../../../clewdr-android-${{ matrix.target }}.zip *
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clewdr-android-${{ matrix.target }}
+          path: clewdr-android-${{ matrix.target }}.zip
           retention-days: 1
 
   musllinux:
@@ -120,14 +174,14 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../build-musllinux-${{ matrix.target }}.zip *
+          zip -r ../../../clewdr-musllinux-${{ matrix.target }}.zip *
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-musllinux-${{ matrix.target }}
-          path: build-musllinux-${{ matrix.target }}.zip
+          name: clewdr-musllinux-${{ matrix.target }}
+          path: clewdr-musllinux-${{ matrix.target }}.zip
           retention-days: 1
 
   windows:
@@ -158,14 +212,14 @@ jobs:
       - name: Archive build artifacts
         shell: pwsh
         run: |
-          Compress-Archive -Path 'target\${{ matrix.target_triple }}\release\*' -DestinationPath "build-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
+          Compress-Archive -Path 'target\${{ matrix.target_triple }}\release\*' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-windows-${{ matrix.target }}
-          path: build-windows-${{ matrix.target }}.zip
+          name: clewdr-windows-${{ matrix.target }}
+          path: clewdr-windows-${{ matrix.target }}.zip
           retention-days: 1
 
   macos:
@@ -197,12 +251,12 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../build-macos-${{ matrix.target }}.zip *
+          zip -r ../../../clewdr-macos-${{ matrix.target }}.zip *
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-macos-${{ matrix.target }}
-          path: build-macos-${{ matrix.target }}.zip
+          name: clewdr-macos-${{ matrix.target }}
+          path: clewdr-macos-${{ matrix.target }}.zip
           retention-days: 1
