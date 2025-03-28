@@ -232,6 +232,8 @@ pub enum ClewdrError {
     UnknownStreamError(ClewdrTransformer, String),
     #[error("Input stream error: {0}")]
     EventSourceError(EventStreamError<rquest::Error>),
+    #[error("Config error: {0}")]
+    PathNotFound(String),
 }
 
 pub const ENDPOINT: &str = "https://api.claude.ai";
