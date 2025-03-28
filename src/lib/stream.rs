@@ -3,7 +3,10 @@ use futures::pin_mut;
 use parking_lot::RwLock;
 use regex::Regex;
 use serde_json::{Value, json, to_string_pretty};
-use std::mem;
+use std::{
+    mem,
+    sync::atomic::{AtomicU32, Ordering},
+};
 use tokio::select;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
@@ -49,6 +52,7 @@ pub struct ClewdrTransformer {
     raw_string: String,
     completes: Vec<String>,
     recv_length: usize,
+    build_chunks: AtomicU32,
     hard_censor: bool,
     impersonated: RwLock<bool>,
     error: RwLock<Option<String>>,
@@ -64,6 +68,7 @@ impl ClewdrTransformer {
             raw_string: String::with_capacity(1024),
             completes: Vec::with_capacity(1024),
             recv_length: 0,
+            build_chunks: AtomicU32::new(0),
             hard_censor: false,
             impersonated: RwLock::new(false),
             error: RwLock::new(None),
@@ -72,6 +77,7 @@ impl ClewdrTransformer {
     }
 
     fn build(&self, selection: &str) -> String {
+        self.build_chunks.fetch_add(1, Ordering::SeqCst);
         if self.config.streaming {
             let completion = json!({
                 "choices": [{
@@ -301,9 +307,9 @@ impl ClewdrTransformer {
             }
             self.flush(&mut y).await;
             info!(
-                "Stream finished. Input length: {}, Output length: {}",
+                "Stream finished. Input length: {}, Built output length: {}",
                 self.recv_length,
-                self.completes.len()
+                self.build_chunks.load(Ordering::Acquire)
             );
             if self.hard_censor {
                 error!("Stream hard censored");
