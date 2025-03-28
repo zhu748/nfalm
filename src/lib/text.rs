@@ -534,9 +534,8 @@ fn xml_plot_merge(content: &str, merge_tag: &MergeTag, non_sys: bool) -> String 
     debug!("XML Plot Merge: started, non_sys: {}", non_sys);
     if re_check.is_match(&content) {
         if !non_sys {
-            let re_remove = regress::Regex::with_flags(
-                r"(\n\n|^\s*)(?<!\n\n(Human|Assistant):.*?)xmlPlot:\s*", // TODO: not correct
-                "gs",
+            let re_remove = Regex::new(
+                r"(?s)(\n\n|^\s*)xmlPlot:\s*", // TODO: not correct
             )
             .unwrap();
             let re_first_human_assistant = Regex::new(r"(?s)(\n\n(Human|Assistant):.)").unwrap();

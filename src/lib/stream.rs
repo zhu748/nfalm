@@ -98,7 +98,7 @@ impl ClewdrTransformer {
         while !&self.ready_string.is_char_boundary(upper) {
             upper += 1;
         }
-        self.ready_string.drain(0..upper).collect()
+        self.ready_string.drain(..upper).collect()
     }
 
     async fn end_early(&self, y: &mut Yielder<Result<String, ClewdrError>>) {
