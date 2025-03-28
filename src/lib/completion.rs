@@ -7,60 +7,16 @@ use crate::{
         print_out_text,
     },
 };
-use axum::{Json, body::Body, extract::State, http::HeaderMap};
-use bytes::Bytes;
-use futures::pin_mut;
+use axum::{
+    Json,
+    extract::State,
+    http::HeaderMap,
+    response::{IntoResponse, Response, Sse},
+};
 use regex::{Regex, RegexBuilder};
 use rquest::header::{ACCEPT, COOKIE, ORIGIN, REFERER};
-use serde::de;
-use serde_json::{Value, json};
-use tokio::sync::mpsc;
-use tokio_stream::{StreamExt, wrappers::ReceiverStream};
+use serde_json::json;
 use tracing::{debug, info};
-use tracing_subscriber::field::debug;
-
-pub async fn stream_example(
-    State(state): State<AppState>,
-    header: HeaderMap,
-    Json(payload): Json<Value>,
-) -> Body {
-    // Create a channel for streaming response chunks to the client
-    let (tx, rx) = mpsc::channel::<Result<Bytes, axum::Error>>(32);
-
-    // Configure the transformer
-    let config = ClewdrConfig::new("xx", "pro", true, 8, true);
-    let trans = ClewdrTransformer::new(config);
-
-    // Perform the external request
-    let super_res = SUPER_CLIENT
-        .get("https://api.claude.ai")
-        .send()
-        .await
-        .unwrap(); // In production, handle this error gracefully
-
-    // Spawn a task to handle the streaming transformation
-    tokio::spawn(async move {
-        let input_stream = super_res.bytes_stream();
-        let output_stream = trans.transform_stream(input_stream);
-        pin_mut!(output_stream);
-
-        while let Some(result) = output_stream.next().await {
-            // Simulate expensive work (optional, adjust as needed)
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-            // Send the chunk to the client
-            let chunk = Bytes::from(result.unwrap()); // Convert String to Bytes
-            if tx.send(Ok(chunk)).await.is_err() {
-                info!("Client disconnected, cancelling task");
-                break;
-            }
-        }
-    });
-
-    // Return the streaming body
-    let response_stream = ReceiverStream::new(rx);
-    Body::from_stream(response_stream)
-}
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ClientRequestInfo {
@@ -180,18 +136,18 @@ pub async fn completion(
     State(state): State<AppState>,
     header: HeaderMap,
     Json(payload): Json<ClientRequestInfo>,
-) -> Body {
+) -> Response {
     match state.try_completion(payload).await {
-        Ok(b) => b,
+        Ok(b) => return b.into_response(),
         Err(e) => {
             info!("Error: {:?}", e);
-            Body::from(e.to_string())
+            return e.to_string().into_response();
         }
     }
 }
 
 impl AppState {
-    async fn try_completion(&self, payload: ClientRequestInfo) -> Result<Body, ClewdrError> {
+    async fn try_completion(&self, payload: ClientRequestInfo) -> Result<Response, ClewdrError> {
         // TODO: 3rd key, API key, auth token, etc.
         let s = self.0.as_ref();
         let p = payload.sanitize_client_request();
@@ -217,8 +173,7 @@ impl AppState {
         print_out_json(&p, "log/0.messages.json");
         debug!("Messages processed");
         if !p.stream && p.messages.len() == 1 && p.messages.first() == Some(&TEST_MESSAGE) {
-            return Ok(Body::from(
-                json!({
+            return Ok(json!({
                     "choices":[
                         {
                             "message":{
@@ -226,12 +181,13 @@ impl AppState {
                             }
                         }
                     ]
-                })
-                .to_string(),
-            ));
+                }
+            )
+            .to_string()
+            .into_response());
         }
         if !p.stream && p.messages.first().map(|f|f.content.starts_with("From the list below, choose a word that best represents a character's outfit description, action, or emotion in their dialogue")).unwrap_or_default() {
-            return Ok(Body::from(
+            return Ok(
                 json!({
                     "choices":[
                         {
@@ -241,8 +197,8 @@ impl AppState {
                         }
                     ]
                 })
-                .to_string(),
-            ));
+                .to_string().into_response(),
+            );
         }
         //  TODO: warn sample config
         if !s.model_list.read().contains(&p.model) && !p.model.contains("claude-") {
@@ -486,6 +442,6 @@ impl AppState {
         ));
         let input_stream = api_res.bytes_stream();
         let output_stream = trans.transform_stream(input_stream);
-        Ok(Body::from_stream(output_stream))
+        Ok(Sse::new(output_stream).into_response())
     }
 }

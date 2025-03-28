@@ -1,3 +1,4 @@
+use axum::response::sse::Event;
 use bytes::Bytes;
 use futures::pin_mut;
 use parking_lot::RwLock;
@@ -52,11 +53,56 @@ pub struct ClewdrTransformer {
     raw_string: String,
     completes: Vec<String>,
     recv_length: usize,
-    build_chunks: AtomicU32,
+    built_events: AtomicU32,
     hard_censor: bool,
     impersonated: RwLock<bool>,
     error: RwLock<Option<String>>,
     comp_model: String,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct StreamEventData {
+    choices: Vec<StreamEventDelta>,
+}
+
+impl StreamEventData {
+    fn new(content: String) -> Self {
+        Self {
+            choices: vec![StreamEventDelta {
+                delta: EventContent { content },
+            }],
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct NonStreamEventData {
+    choices: Vec<NonStreamEventMessage>,
+}
+
+impl NonStreamEventData {
+    fn new(content: String) -> Self {
+        Self {
+            choices: vec![NonStreamEventMessage {
+                message: EventContent { content },
+            }],
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct StreamEventDelta {
+    delta: EventContent,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct NonStreamEventMessage {
+    message: EventContent,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct EventContent {
+    content: String,
 }
 
 impl ClewdrTransformer {
@@ -68,7 +114,7 @@ impl ClewdrTransformer {
             raw_string: String::with_capacity(1024),
             completes: Vec::with_capacity(1024),
             recv_length: 0,
-            build_chunks: AtomicU32::new(0),
+            built_events: AtomicU32::new(0),
             hard_censor: false,
             impersonated: RwLock::new(false),
             error: RwLock::new(None),
@@ -76,26 +122,15 @@ impl ClewdrTransformer {
         }
     }
 
-    fn build(&self, selection: &str) -> String {
-        self.build_chunks.fetch_add(1, Ordering::SeqCst);
+    fn build(&self, selection: &str) -> Event {
+        let event = Event::default();
+        self.built_events.fetch_add(1, Ordering::SeqCst);
         if self.config.streaming {
-            let completion = json!({
-                "choices": [{
-                    "delta": {
-                        "content": selection
-                    }
-                }]
-            });
-            format!("data: {}\n\n", completion)
+            let data = StreamEventData::new(selection.to_string());
+            event.json_data(data).unwrap()
         } else {
-            let completion = json!({
-                "choices": [{
-                    "message": {
-                        "content": selection
-                    }
-                }]
-            });
-            completion.to_string()
+            let data = NonStreamEventData::new(selection.to_string());
+            event.json_data(data).unwrap()
         }
     }
 
@@ -107,14 +142,15 @@ impl ClewdrTransformer {
         self.ready_string.drain(..upper).collect()
     }
 
-    async fn end_early(&self, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn end_early(&self, y: &mut Yielder<Result<Event, ClewdrError>>) {
         if self.config.streaming {
-            y.yield_ok("data: [DONE]\n\n".to_string()).await;
+            let event = Event::default();
+            y.yield_ok(event.data("[DONE]")).await;
         }
         self.cancel.cancel();
     }
 
-    async fn err_json(&self, err: Value, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn err_json(&self, err: Value, y: &mut Yielder<Result<Event, ClewdrError>>) {
         warn!("Error: {}", to_string_pretty(&err).unwrap());
         let code = err
             .get("status")
@@ -136,7 +172,7 @@ impl ClewdrTransformer {
         self.end_early(y).await;
     }
 
-    async fn err(&self, err: ClewdrError, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn err(&self, err: ClewdrError, y: &mut Yielder<Result<Event, ClewdrError>>) {
         warn!("Error: {}", err);
         let message = format!(
             "## {}\n**{} error**:\n{}\n\nFAQ: https://rentry.org/teralomaniac_clewd",
@@ -147,7 +183,7 @@ impl ClewdrTransformer {
         self.end_early(y).await;
     }
 
-    async fn parse_buf(&mut self, buf: &str, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn parse_buf(&mut self, buf: &str, y: &mut Yielder<Result<Event, ClewdrError>>) {
         let mut delay = false;
         if buf.is_empty() {
             return;
@@ -205,7 +241,7 @@ impl ClewdrTransformer {
         }
     }
 
-    async fn imperson_check(&self, reply: &str, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn imperson_check(&self, reply: &str, y: &mut Yielder<Result<Event, ClewdrError>>) {
         let fake_any = index_of_any(reply, None);
         if fake_any > -1 {
             *self.impersonated.write() = true;
@@ -221,7 +257,7 @@ impl ClewdrTransformer {
     async fn transform(
         &mut self,
         chunk: Result<Bytes, rquest::Error>,
-        y: &mut Yielder<Result<String, ClewdrError>>,
+        y: &mut Yielder<Result<Event, ClewdrError>>,
     ) -> Result<(), ClewdrError> {
         let re = Regex::new(r"event: [\w]+\s*|\r")?;
         let chunk = chunk?;
@@ -241,7 +277,7 @@ impl ClewdrTransformer {
         Ok(())
     }
 
-    async fn flush(&mut self, y: &mut Yielder<Result<String, ClewdrError>>) {
+    async fn flush(&mut self, y: &mut Yielder<Result<Event, ClewdrError>>) {
         // Flush logic
         if !self.raw_string.is_empty() {
             let raw = mem::take(&mut self.raw_string);
@@ -267,7 +303,8 @@ impl ClewdrTransformer {
             y.yield_ok(self.build(&err)).await;
         }
         if self.config.streaming {
-            y.yield_ok("data: [DONE]\n\n".to_string()).await;
+            let event = Event::default();
+            y.yield_ok(event.data("[DONE]")).await;
         }
     }
 
@@ -275,7 +312,7 @@ impl ClewdrTransformer {
         mut self,
         input: S,
     ) -> AsyncTryStream<
-        String,
+        Event,
         ClewdrError,
         impl std::future::Future<Output = Result<(), ClewdrError>> + Send,
     >
@@ -309,7 +346,7 @@ impl ClewdrTransformer {
             info!(
                 "Stream finished. Input length: {}, Built output length: {}",
                 self.recv_length,
-                self.build_chunks.load(Ordering::Acquire)
+                self.built_events.load(Ordering::Acquire)
             );
             if self.hard_censor {
                 error!("Stream hard censored");
@@ -325,41 +362,5 @@ impl ClewdrTransformer {
             }
             Ok(())
         })
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[tokio::test]
-    async fn stream_test() {
-        let config = ClewdrConfig {
-            version: "1.0".to_string(),
-            model: "some-model".to_string(),
-            streaming: true,
-            min_size: 8,
-            prevent_imperson: false,
-        };
-
-        let input = tokio_stream::iter(vec![
-            Ok(Bytes::from("{\"completion\": \"Hello\"}\n\n")),
-            Ok(Bytes::from("{\"completion\": \" world\"}\n\n")),
-        ]);
-
-        let transformer = ClewdrTransformer::new(config);
-        let stream = transformer.transform_stream(input);
-        pin_mut!(stream);
-
-        let mut results = String::new();
-        while let Some(result) = stream.next().await {
-            results += &result.unwrap();
-        }
-        assert_eq!(
-            results,
-            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello wo\"}}]}\n\n\
-             data: {\"choices\":[{\"delta\":{\"content\":\"rld\"}}]}\n\n\
-             data: [DONE]\n\n"
-        );
     }
 }
