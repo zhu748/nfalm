@@ -1,8 +1,7 @@
 use axum::response::sse::Event;
-use bytes::Bytes;
+use eventsource_stream::EventStreamError;
 use futures::pin_mut;
 use parking_lot::RwLock;
-use regex::Regex;
 use serde_json::{Value, json, to_string_pretty};
 use std::{
     mem,
@@ -50,7 +49,6 @@ pub struct ClewdrTransformer {
     config: ClewdrConfig,
     cancel: CancellationToken,
     ready_string: String,
-    raw_string: String,
     completes: Vec<String>,
     recv_length: usize,
     built_events: AtomicU32,
@@ -111,7 +109,6 @@ impl ClewdrTransformer {
             config,
             cancel: CancellationToken::new(),
             ready_string: String::with_capacity(1024),
-            raw_string: String::with_capacity(1024),
             completes: Vec::with_capacity(1024),
             recv_length: 0,
             built_events: AtomicU32::new(0),
@@ -256,34 +253,18 @@ impl ClewdrTransformer {
 
     async fn transform(
         &mut self,
-        chunk: Result<Bytes, rquest::Error>,
+        chunk: Result<eventsource_stream::Event, EventStreamError<rquest::Error>>,
         y: &mut Yielder<Result<Event, ClewdrError>>,
     ) -> Result<(), ClewdrError> {
-        let re = Regex::new(r"event: [\w]+\s*|\r")?;
-        let chunk = chunk?;
-
-        self.recv_length += chunk.len();
-        // Decode Bytes to String, assuming UTF-8
-        let chunk_str = String::from_utf8_lossy(chunk.as_ref());
-        self.raw_string += &re.replace_all(&chunk_str, "");
-        let old_raw = mem::take(&mut self.raw_string);
-        let mut substr = old_raw.split("\n\n").collect::<Vec<_>>();
-        let last_msg = substr.pop().map(|s| s.to_string());
-        self.raw_string = last_msg.unwrap_or_default();
-
-        for i in substr {
-            self.parse_buf(i, y).await;
-        }
+        let event = chunk.map_err(|e| ClewdrError::EventSourceError(e))?;
+        let data = event.data;
+        self.recv_length += data.len();
+        self.parse_buf(&data, y).await;
         Ok(())
     }
 
     async fn flush(&mut self, y: &mut Yielder<Result<Event, ClewdrError>>) {
         // Flush logic
-        if !self.raw_string.is_empty() {
-            let raw = mem::take(&mut self.raw_string);
-            self.parse_buf(raw.as_str(), y).await;
-        }
-
         if self.config.streaming {
             if !self.ready_string.is_empty() {
                 y.yield_ok(self.build(&self.ready_string)).await;
@@ -317,7 +298,9 @@ impl ClewdrTransformer {
         impl std::future::Future<Output = Result<(), ClewdrError>> + Send,
     >
     where
-        S: Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
+        S: Stream<Item = Result<eventsource_stream::Event, EventStreamError<rquest::Error>>>
+            + Send
+            + 'static,
     {
         AsyncTryStream::new(move |mut y| async move {
             pin_mut!(input);
