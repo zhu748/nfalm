@@ -1,10 +1,7 @@
 use colored::Colorize;
 use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{Debug, Display},
-    path::Path,
-};
+use std::fmt::{Debug, Display};
 use tracing::warn;
 
 use crate::utils::{ClewdrError, ENDPOINT};

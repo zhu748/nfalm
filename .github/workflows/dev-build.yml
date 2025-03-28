@@ -55,7 +55,7 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../clewdr-linux-${{ matrix.target }}.zip *
+          zip -r ../../../clewdr-linux-${{ matrix.target }}.zip clewdr
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
@@ -109,7 +109,7 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../clewdr-android-${{ matrix.target }}.zip *
+          zip -r ../../../clewdr-android-${{ matrix.target }}.zip clewdr
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
@@ -174,7 +174,7 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../clewdr-musllinux-${{ matrix.target }}.zip *
+          zip -r ../../../clewdr-musllinux-${{ matrix.target }}.zip clewdr
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
@@ -212,7 +212,7 @@ jobs:
       - name: Archive build artifacts
         shell: pwsh
         run: |
-          Compress-Archive -Path 'target\${{ matrix.target_triple }}\release\*' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
+          Compress-Archive -Path 'target\${{ matrix.target_triple }}\release\clewdr' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
@@ -251,7 +251,7 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../clewdr-macos-${{ matrix.target }}.zip *
+          zip -r ../../../clewdr-macos-${{ matrix.target }}.zip clewdr
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact

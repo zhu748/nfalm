@@ -1,7 +1,7 @@
 use crate::{
     SUPER_CLIENT, TITLE,
     api::AppState,
-    stream::{ClewdrConfig, ClewdrTransformer},
+    stream::{StreamConfig, ClewdrTransformer},
     utils::{
         ClewdrError, ENDPOINT, TEST_MESSAGE, TIME_ZONE, check_res_err, header_ref, print_out_json,
         print_out_text,
@@ -135,7 +135,7 @@ impl Default for Message {
 
 pub async fn completion(
     State(state): State<AppState>,
-    header: HeaderMap,
+    _header: HeaderMap,
     Json(payload): Json<ClientRequestInfo>,
 ) -> Response {
     match state.try_completion(payload).await {
@@ -226,12 +226,12 @@ impl AppState {
                 == previous_prompts.first_system.map(|s| s.content)
             && current_prompts.first_user.map(|s| s.content)
                 == previous_prompts.first_user.map(|s| s.content);
-        let should_renew = s.config.read().settings.renew_always
+        let _should_renew = s.config.read().settings.renew_always
             || s.conv_uuid.read().is_none()
             || *s.prev_impersonated.read()
             || (!s.config.read().settings.renew_always && same_prompts)
             || same_char_diff_chat;
-        let retry_regen = s.config.read().settings.retry_regenerate
+        let _retry_regen = s.config.read().settings.retry_regenerate
             && same_prompts
             && s.conv_char.read().is_some();
         if !same_prompts {
@@ -275,7 +275,7 @@ impl AppState {
         check_res_err(api_res).await?;
         r#type = RetryStrategy::Renew;
         // TODO: generate prompts
-        let (prompt, systems) = self.handle_messages(&p.messages, r#type);
+        let (prompt, _systems) = self.handle_messages(&p.messages, r#type);
         print_out_text(&prompt, "log/1.prompt.txt");
         debug!("Prompt processed");
         let legacy = {
@@ -306,7 +306,7 @@ impl AppState {
             messages_api && re.is_match(&prompt)
         };
         debug!("Fusion mode: {}", fusion);
-        let wedge = "\r";
+        let _wedge = "\r";
         let stop_set = {
             let re = Regex::new(r"<\|stopSet *(\[.*?\]) *\|>").unwrap();
             re.find_iter(&prompt).nth(1)
@@ -429,7 +429,7 @@ impl AppState {
             .await?;
         self.update_cookie_from_res(&api_res);
         let api_res = check_res_err(api_res).await?;
-        let trans = ClewdrTransformer::new(ClewdrConfig::new(
+        let trans = ClewdrTransformer::new(StreamConfig::new(
             TITLE,
             s.model
                 .read()
