@@ -138,7 +138,7 @@ pub fn print_out_text(text: &str, file_name: &str) {
             return;
         }
     }
-    let file_name = dir.join(file_name);
+    let file_name = log_dir.join(file_name);
     let Ok(mut file) = std::fs::File::options()
         .write(true)
         .create(true)
