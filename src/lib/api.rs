@@ -292,13 +292,7 @@ impl AppState {
                 }
             }
 
-            let model_name = if is_pro.is_some() {
-                is_pro.clone().unwrap()
-            } else if cookie_model.is_some() {
-                cookie_model.clone().unwrap().clone()
-            } else {
-                String::new()
-            };
+            let model_name = is_pro.clone().or(cookie_model.clone()).unwrap_or_default();
             if let Some(current_cookie) = config.current_cookie_info() {
                 if !model_name.is_empty() {
                     current_cookie.model = Some(model_name);
@@ -415,16 +409,22 @@ impl AppState {
             .unwrap_or_default();
         if !active_flags.is_empty() {
             let now = chrono::Utc::now();
-            let formatted_flags = active_flags.iter().map(|f| {
-                let expire = f["expires_at"].as_str().unwrap(); // TODO: handle None
-                let expire = chrono::DateTime::parse_from_rfc3339(expire).unwrap();
+            let formatted_flags = active_flags.iter().map_while(|f| {
+                let Some(expire) = f["expires_at"].as_str() else {
+                    return None;
+                };
+                let Ok(expire) = chrono::DateTime::parse_from_rfc3339(expire) else {
+                    return None;
+                };
                 let diff = expire.to_utc() - now;
-                let r#type = f["type"].as_str().unwrap();
-                format!(
+                let Some(r#type) = f["type"].as_str() else {
+                    return None;
+                };
+                Some(format!(
                     "{}: expires in {} hours",
                     r#type.red(),
                     diff.num_hours().to_string().red()
-                )
+                ))
             });
             let banned = formatted_flags
                 .clone()

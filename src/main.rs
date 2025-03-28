@@ -31,7 +31,6 @@ async fn main() -> Result<(), ClewdrError> {
         .await
         .expect("Failed to bind to address");
     state.on_listen().await;
-    axum::serve(listener, router).await.unwrap();
-
+    axum::serve(listener, router).await?;
     Ok(())
 }
