@@ -414,7 +414,7 @@ impl AppState {
                 &placeholder.repeat(m2.parse::<usize>().unwrap_or_default() / placeholder_tokens),
             );
         }
-        print_out_text(&content, "log/2.1.placeholder.txt");
+        print_out_text(&content, "2.1.placeholder.txt");
         let re = fancy_regex::Regex::new(r"<\|padtxt off.*?\|>").unwrap();
         if re.is_match(content.as_str()).unwrap_or_default() {
             let re = fancy_regex::Regex::new(r"\s*<\|padtxt.*?\|>\s*").unwrap();
