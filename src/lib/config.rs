@@ -50,6 +50,12 @@ pub struct CookieInfo {
 }
 
 impl CookieInfo {
+    pub fn new(cookie: &str, model: Option<&str>) -> Self {
+        Self {
+            cookie: Cookie::from(cookie),
+            model: model.map(|m| m.to_string()),
+        }
+    }
     pub fn is_pro(&self) -> bool {
         self.model
             .as_ref()
@@ -187,11 +193,18 @@ pub struct Settings {
     pub superfetch: bool,
 }
 
+const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";
+
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cookie: Cookie::from("sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA"),
-            cookie_array: Vec::new(),
+            cookie: Cookie::from(
+                "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA",
+            ),
+            cookie_array: vec![
+                CookieInfo::new(PLACEHOLDER_COOKIE, None),
+                CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro")),
+            ],
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
             cookie_counter: 3,
