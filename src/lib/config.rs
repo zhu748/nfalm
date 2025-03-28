@@ -190,7 +190,7 @@ pub struct Settings {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cookie: Cookie::from("SET_YOUR_COOKIE_HERE"),
+            cookie: Cookie::from("sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA"),
             cookie_array: Vec::new(),
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
