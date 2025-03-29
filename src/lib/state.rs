@@ -144,12 +144,9 @@ impl AppState {
     }
 
     fn cookie_cleaner(&self, reason: UselessReason) {
-        match reason {
-            UselessReason::Temporary(_) => {
-                warn!("Temporary useless cookie, not cleaning");
-                return;
-            }
-            _ => {}
+        if let UselessReason::Temporary(_) = reason {
+            warn!("Temporary useless cookie, not cleaning");
+            return;
         }
         let mut config = self.0.config.write();
         if config.current_cookie_info().is_none() {

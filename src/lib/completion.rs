@@ -16,7 +16,7 @@ use eventsource_stream::EventStream;
 use regex::{Regex, RegexBuilder};
 use rquest::header::{ACCEPT, COOKIE, ORIGIN, REFERER};
 use serde_json::json;
-use tracing::{debug, info};
+use tracing::{debug, warn};
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ClientRequestInfo {
@@ -140,7 +140,7 @@ pub async fn completion(
     match state.try_completion(payload).await {
         Ok(b) => b.into_response(),
         Err(e) => {
-            info!("Error: {:?}", e);
+            warn!("Error: {:?}", e);
             e.to_string().into_response()
         }
     }
@@ -429,11 +429,10 @@ impl AppState {
             .send()
             .await?;
         self.update_cookie_from_res(&api_res);
-        let api_res = check_res_err(api_res).await.inspect_err(|e| match e {
-            ClewdrError::TooManyRequest(_, i) => {
+        let api_res = check_res_err(api_res).await.inspect_err(|e| {
+            if let ClewdrError::TooManyRequest(_, i) = e {
                 self.cookie_shifter(UselessReason::Temporary(*i));
             }
-            _ => {}
         })?;
         let trans = ClewdrTransformer::new(StreamConfig::new(
             TITLE,

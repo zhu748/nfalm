@@ -32,14 +32,11 @@ impl AppState {
         }
 
         let res = self.try_bootstrap().await;
-        match res {
-            Err(ClewdrError::JsError(v)) => {
-                if Some(json!("Invalid authorization")) == v.message {
-                    error!("{}", "Invalid authorization".red());
-                    self.cookie_shifter(UselessReason::Invalid);
-                }
+        if let Err(ClewdrError::JsError(v)) = res {
+            if Some(json!("Invalid authorization")) == v.message {
+                error!("{}", "Invalid authorization".red());
+                self.cookie_shifter(UselessReason::Invalid);
             }
-            _ => {}
         }
     }
 
