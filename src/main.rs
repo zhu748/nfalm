@@ -1,9 +1,4 @@
-use clewdr::{
-    self,
-    api::AppState,
-    config::Config,
-    utils::{BANNER, ClewdrError},
-};
+use clewdr::{self, config::Config, error::ClewdrError, router::AppState, utils::BANNER};
 
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {
@@ -25,12 +20,10 @@ async fn main() -> Result<(), ClewdrError> {
     let state = AppState::new(config);
     // TODO: load config from env
 
-    let router = clewdr::api::RouterBuilder::new(state.clone()).build();
+    let router = clewdr::router::RouterBuilder::new(state.clone()).build();
     let addr = state.0.config.read().address().to_string();
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .expect("Failed to bind to address");
-    state.on_listen().await;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    state.bootstrap().await;
     axum::serve(listener, router).await?;
     Ok(())
 }

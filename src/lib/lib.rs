@@ -3,12 +3,14 @@ use rquest::{Client, ClientBuilder};
 use rquest_util::Emulation;
 use std::sync::LazyLock;
 
-pub mod api;
+pub mod router;
 pub mod completion;
 pub mod config;
+pub mod error;
 pub mod stream;
-pub mod utils;
 pub mod text;
+pub mod utils;
+pub mod bootstrap;
 
 pub static NORMAL_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()

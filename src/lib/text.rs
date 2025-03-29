@@ -8,7 +8,7 @@ use serde_json::Value;
 use tracing::{debug, error, warn};
 
 use crate::{
-    api::AppState,
+    router::AppState,
     completion::{Message, RetryStrategy},
     utils::{REPLACEMENT, print_out_text},
 };

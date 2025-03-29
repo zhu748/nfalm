@@ -2,9 +2,9 @@ use colored::Colorize;
 use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
-use tracing::warn;
+use tracing::{info, warn};
 
-use crate::utils::{ClewdrError, ENDPOINT};
+use crate::{error::ClewdrError, utils::ENDPOINT};
 
 pub const CONFIG_NAME: &str = "config.toml";
 
@@ -45,15 +45,42 @@ impl UselessCookie {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CookieInfo {
-    pub model: Option<String>,
     pub cookie: Cookie,
+    pub model: Option<String>,
+    #[serde(deserialize_with = "validate_reset")]
+    #[serde(default)]
+    pub reset_time: Option<i64>,
+}
+
+fn validate_reset<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let Ok(value) = Option::<i64>::deserialize(deserializer) else {
+        return Ok(None);
+    };
+    if let Some(v) = value {
+        let Some(time) = chrono::DateTime::from_timestamp(v, 0) else {
+            warn!("Invalid reset time: {}", v);
+            return Ok(None);
+        };
+        let now = chrono::Utc::now();
+        if time < now {
+            info!("Cookie reset time is in the past: {}", time);
+            return Ok(None);
+        }
+        let remaining_time = time - now;
+        info!("Cookie reset in {} hours", remaining_time.num_hours());
+    }
+    Ok(value)
 }
 
 impl CookieInfo {
-    pub fn new(cookie: &str, model: Option<&str>) -> Self {
+    pub fn new(cookie: &str, model: Option<&str>, reset_time: Option<i64>) -> Self {
         Self {
             cookie: Cookie::from(cookie),
             model: model.map(|m| m.to_string()),
+            reset_time,
         }
     }
     pub fn is_pro(&self) -> bool {
@@ -90,12 +117,11 @@ impl From<&str> for Cookie {
             .collect::<String>()
             .trim_start_matches("sessionKey=")
             .to_string();
-        let re = regex::Regex::new(r"sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA").unwrap();
-        if !re.is_match(&cookie) {
+        let cookie = Self { inner: cookie };
+        if !cookie.validate() {
             warn!("Invalid cookie format: {}", cookie);
         }
-
-        Self { inner: cookie }
+        cookie
     }
 }
 
@@ -190,7 +216,6 @@ pub struct Settings {
     pub xml_plot: bool,
     pub skip_restricted: bool,
     pub artifacts: bool,
-    pub superfetch: bool,
 }
 
 const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";
@@ -198,12 +223,10 @@ const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YO
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cookie: Cookie::from(
-                "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA",
-            ),
+            cookie: Cookie::from(PLACEHOLDER_COOKIE),
             cookie_array: vec![
-                CookieInfo::new(PLACEHOLDER_COOKIE, None),
-                CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro")),
+                CookieInfo::new(PLACEHOLDER_COOKIE, None, None),
+                CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro"), None),
             ],
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
@@ -249,7 +272,6 @@ impl Default for Settings {
             xml_plot: true,
             skip_restricted: false,
             artifacts: false,
-            superfetch: true,
         }
     }
 }
