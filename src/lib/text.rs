@@ -1,5 +1,6 @@
 use claude_tokenizer::count_tokens;
 use rand::{Rng, RngCore};
+use regex::Regex;
 use std::fmt::Write;
 use tracing::error;
 
@@ -152,10 +153,10 @@ impl AppState {
             }
         };
         let placeholder_tokens = count_tokens(placeholder.as_str()).unwrap_or_default();
-        let re = fancy_regex::Regex::new(r"<\|padtxt.*?(\d+)t.*?\|>").unwrap();
+        let re = Regex::new(r"<\|padtxt.*?(\d+)t.*?\|>").unwrap();
         for cs in re
             .captures_iter(content.clone().as_str())
-            .map_while(|c| c.ok().map(|c| c.iter().collect::<Vec<_>>()))
+            .map(|c| c.iter().collect::<Vec<_>>())
         {
             let (Some(Some(m1)), Some(Some(m2))) = (cs.get(1), cs.get(2)) else {
                 continue;
@@ -169,9 +170,9 @@ impl AppState {
             );
         }
         print_out_text(&content, "2.1.placeholder.txt");
-        let re = fancy_regex::Regex::new(r"<\|padtxt off.*?\|>").unwrap();
-        if re.is_match(content.as_str()).unwrap_or_default() {
-            let re = fancy_regex::Regex::new(r"\s*<\|padtxt.*?\|>\s*").unwrap();
+        let re = Regex::new(r"<\|padtxt off.*?\|>").unwrap();
+        if re.is_match(content.as_str()) {
+            let re = Regex::new(r"\s*<\|padtxt.*?\|>\s*").unwrap();
             return re.replace_all(content.as_str(), "\n\n").to_string();
         }
         let padding = placeholder.repeat(
@@ -183,10 +184,10 @@ impl AppState {
                 *extra_tokens
             }) / placeholder_tokens,
         );
-        let re = fancy_regex::Regex::new(r"<\|padtxt.*?\|>").unwrap();
-        if re.is_match(content.as_str()).unwrap_or_default() {
+        let re = Regex::new(r"<\|padtxt.*?\|>").unwrap();
+        if re.is_match(content.as_str()) {
             content = re.replace(content.as_str(), padding).to_string();
-            let re2 = fancy_regex::Regex::new(r"\s*<\|padtxt.*?\|>\s*").unwrap();
+            let re2 = Regex::new(r"\s*<\|padtxt.*?\|>\s*").unwrap();
             content = re2.replace_all(content.as_str(), "\n\n").to_string();
         } else {
             content = format!("{}\n\n\n{}", padding, content.trim());
