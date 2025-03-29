@@ -42,7 +42,7 @@ impl AppState {
         let config = istate.config.read().clone();
         if !config.cookie.validate() {
             error!("{}", "Invalid Cookie, enter apiKey-only mode.".red());
-            return Ok(());
+            return Err(ClewdrError::InvalidAuth);
         }
         self.update_cookies(&config.cookie.to_string());
         let end_point = config.endpoint("api/bootstrap");
@@ -56,7 +56,7 @@ impl AppState {
         if bootstrap["account"].is_null() {
             println!("{}", "Null Error, Useless Cookie".red());
             self.cookie_rotate(UselessReason::Null);
-            return Ok(());
+            return Err(ClewdrError::InvalidAuth);
         }
         let memberships = bootstrap["account"]["memberships"]
             .as_array()
@@ -128,7 +128,7 @@ impl AppState {
             && istate.model.read().as_ref() != cookie_model.as_ref()
         {
             self.cookie_rotate(UselessReason::Null);
-            return Ok(());
+            return Err(ClewdrError::InvalidAuth);
         }
         let config = istate.config.read().clone();
         let index = if config.index() < 0 {
@@ -189,7 +189,7 @@ impl AppState {
             };
             println!("Cookie is useless, reason: {}", reason.to_string().red());
             self.cookie_rotate(reason);
-            return Ok(());
+            return Err(ClewdrError::InvalidAuth);
         } else {
             istate.uuid_org_array.write().push(uuid.to_string());
         }
@@ -265,8 +265,6 @@ impl AppState {
             };
             let endpoint = format!("{}/api/organizations/{}", endpoint, istate.uuid_org.read());
             if config.settings.clear_flags && !active_flags.is_empty() {
-                // drop the lock before the async call
-                drop(config);
                 let fut = active_flags
                     .iter()
                     .map_while(|f| f.get("type").and_then(|t| t.as_str()))
@@ -327,7 +325,7 @@ impl AppState {
                     "Your account is banned, please use another account.".red()
                 );
                 self.cookie_rotate(UselessReason::Banned);
-                return Ok(());
+                return Err(ClewdrError::InvalidAuth);
             } else {
                 // Restricted
                 println!("{}", "Your account is restricted.".red());

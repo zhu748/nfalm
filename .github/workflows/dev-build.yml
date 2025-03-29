@@ -66,6 +66,7 @@ jobs:
           name: clewdr-linux-${{ matrix.target }}
           path: clewdr-linux-${{ matrix.target }}.zip
           retention-days: 1
+          compression-level: 0
 
   android:
     name: Build Android (NDK)
@@ -108,13 +109,14 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../clewdr-android-${{ matrix.target }}.zip clewdr libc++_shared.so
+          zip -r ../../../clewdr-android-${{ matrix.target }}.zip clewdr $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so
         working-directory: ${{ github.workspace }}
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -122,6 +124,7 @@ jobs:
           name: clewdr-android-${{ matrix.target }}
           path: clewdr-android-${{ matrix.target }}.zip
           retention-days: 1
+          compression-level: 0
 
   musllinux:
     name: Build Linux (musl)
@@ -189,6 +192,7 @@ jobs:
           name: clewdr-musllinux-${{ matrix.target }}
           path: clewdr-musllinux-${{ matrix.target }}.zip
           retention-days: 1
+          compression-level: 0
 
   windows:
     name: Build Windows
@@ -229,6 +233,7 @@ jobs:
           name: clewdr-windows-${{ matrix.target }}
           path: clewdr-windows-${{ matrix.target }}.zip
           retention-days: 1
+          compression-level: 0
 
   macos:
     name: Build macOS
@@ -270,3 +275,4 @@ jobs:
           name: clewdr-macos-${{ matrix.target }}
           path: clewdr-macos-${{ matrix.target }}.zip
           retention-days: 1
+          compression-level: 0

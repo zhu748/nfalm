@@ -402,8 +402,8 @@ impl AppState {
             if let Some(tp) = p.top_p {
                 body["top_p"] = json!(tp)
             }
-            // body["stop_sequences"] = json!(stop);
-            // body["temperature"] = json!(p.temperature);
+            body["stop_sequences"] = json!(stop);
+            body["temperature"] = json!(p.temperature);
         }
         print_out_json(&body, "4.req.json");
         debug!("Req body processed");
