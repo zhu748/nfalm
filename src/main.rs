@@ -7,6 +7,7 @@ async fn main() -> Result<(), ClewdrError> {
     // construct a subscriber that prints formatted traces to stdout
     let timer = tracing_subscriber::fmt::time::ChronoLocal::new("%H:%M:%S%.3f".to_string());
     let filter = tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(tracing::Level::DEBUG.into())
         .from_env()
         .unwrap_or_default();
     tracing_subscriber::fmt()
