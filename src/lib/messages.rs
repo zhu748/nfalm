@@ -12,7 +12,6 @@ use serde_json::{Value, json};
 use tracing::{debug, warn};
 
 use crate::{
-    TITLE,
     client::{AppendHeaders, SUPER_CLIENT},
     config::UselessReason,
     error::{ClewdrError, check_res_err},
@@ -28,7 +27,10 @@ pub struct ReqMessage {
 
 pub static TEST_MESSAGE: LazyLock<ReqMessage> = LazyLock::new(|| ReqMessage {
     role: "user".to_string(),
-    content: Content::Raw("Hi".to_string()),
+    content: Content::Array(vec![ContentType::Text {
+        text: "Hi".to_string(),
+        r#type: "text".to_string(),
+    }]),
 });
 
 #[derive(Debug, PartialEq, Eq)]
@@ -183,18 +185,17 @@ pub async fn api_messages(State(state): State<AppState>, Json(p): Json<ResponseB
 impl AppState {
     async fn try_message(&self, p: ResponseBody) -> Result<Response, ClewdrError> {
         let s = self.0.clone();
-        debug!("Messages processed");
+        debug!("Messages processed: {:?}", p);
         if !p.stream && p.messages.len() == 1 && p.messages.first() == Some(&TEST_MESSAGE) {
             return Ok(json!({
-                    "choices":[
-                        {
-                            "message":{
-                                "content": TITLE
-                            }
-                        }
-                    ]
+              "content": [
+                {
+                  "text": "Hi! My name is Doge.",
+                  "type": "text"
                 }
-            )
+              ],
+            }
+                        )
             .to_string()
             .into_response());
         }
@@ -256,21 +257,6 @@ impl AppState {
             }
         })?;
         let input_stream = api_res.bytes_stream();
-        // let trans = ClewdrTransformer::new(StreamConfig::new(
-        //     TITLE,
-        //     s.model
-        //         .read()
-        //         .as_ref()
-        //         .cloned()
-        //         .unwrap_or_default()
-        //         .as_str(),
-        //     stream,
-        //     s.config.read().buffer_size as usize,
-        //     s.config.read().settings.prevent_imperson,
-        // ));
-        // let event_stream = EventStream::new(input_stream);
-        // let output_stream = trans.transform_stream(event_stream);
-        // Ok(Sse::new(output_stream).into_response())
         Ok(Body::from_stream(input_stream).into_response())
     }
 }

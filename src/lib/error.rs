@@ -1,6 +1,6 @@
-use std::fmt::Display;
 use rquest::Response;
 use serde_json::{Value, json};
+use std::fmt::Display;
 use tracing::{error, warn};
 
 #[derive(thiserror::Error, Debug)]
