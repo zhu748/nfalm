@@ -142,9 +142,9 @@ impl AppState {
         spawn(async move {
             self_clone.0.rotating.store(true, Ordering::Relaxed);
             sleep(dur).await;
-            self_clone.bootstrap().await;
             warn!("Cookie rotating complete");
             self_clone.0.rotating.store(false, Ordering::Relaxed);
+            self_clone.bootstrap().await;
         });
     }
 

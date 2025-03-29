@@ -1,6 +1,6 @@
 use colored::Colorize;
 use serde_json::{Value, json};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT},
@@ -332,7 +332,7 @@ impl AppState {
                 // Restricted
                 println!("{}", "Your account is restricted.".red());
                 if self.0.config.read().settings.skip_restricted && restrict_until > 0 {
-                    println!("skip_restricted is enabled, skipping...");
+                    warn!("skip_restricted is enabled, skipping...");
                     self.cookie_rotate(UselessReason::Temporary(restrict_until));
                     return Ok(());
                 }

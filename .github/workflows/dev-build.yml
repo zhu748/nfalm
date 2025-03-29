@@ -113,7 +113,7 @@ jobs:
       - name: Archive build artifacts
         run: |
           cd target/${{ matrix.target_triple }}/release
-          zip -r ../../../clewdr-android-${{ matrix.target }}.zip clewdr
+          zip -r ../../../clewdr-android-${{ matrix.target }}.zip clewdr libc++_shared.so
         working-directory: ${{ github.workspace }}
 
       - name: Upload build artifact
