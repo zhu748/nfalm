@@ -14,7 +14,7 @@ use axum::{
     response::{IntoResponse, Response, Sse},
 };
 use eventsource_stream::EventStream;
-use regex::{Regex, RegexBuilder};
+use regex::Regex;
 use rquest::header::ACCEPT;
 use serde_json::json;
 use tracing::{debug, warn};
@@ -182,8 +182,6 @@ impl AppState {
         if !s.model_list.read().contains(&p.model) && !p.model.contains("claude-") {
             return Err(ClewdrError::InvalidModel(p.model));
         }
-        let current_prompts = PromptsGroup::find(&p.messages);
-        let previous_prompts = PromptsGroup::find(&s.prev_messages.read());
         debug!("Raw prompts processed");
         let same_prompts = {
             let mut a = p
@@ -198,16 +196,6 @@ impl AppState {
             a == b
         };
         debug!("Same prompts: {}", same_prompts);
-        let same_char_diff_chat = !same_prompts
-            && current_prompts.first_system.map(|s| s.content)
-                == previous_prompts.first_system.map(|s| s.content)
-            && current_prompts.first_user.map(|s| s.content)
-                == previous_prompts.first_user.map(|s| s.content);
-        let _should_renew = s.config.read().settings.renew_always
-            || s.conv_uuid.read().is_none()
-            || *s.prev_impersonated.read()
-            || (!s.config.read().settings.renew_always && same_prompts)
-            || same_char_diff_chat;
         if !same_prompts {
             *s.prev_messages.write() = p.messages.clone();
         }
@@ -242,37 +230,9 @@ impl AppState {
         debug!("New conversation created");
         self.update_cookie_from_res(&api_res);
         check_res_err(api_res).await?;
-        let prompt = self.handle_messages(&p.messages);
+        let prompt = self.merge_messages(&p.messages);
         print_out_text(&prompt, "1.prompt.txt");
         debug!("Prompt processed");
-        let legacy = {
-            let re = RegexBuilder::new(r"claude-([12]|instant)")
-                .case_insensitive(true)
-                .build()
-                .unwrap();
-            re.is_match(&p.model)
-        };
-        debug!("Legacy model: {}", legacy);
-        let messages_api = {
-            let re = RegexBuilder::new(r"<\|completeAPI\|>")
-                .case_insensitive(true)
-                .build()
-                .unwrap();
-            let re2 = Regex::new(r"<\|messagesAPI\|>").unwrap();
-            !(legacy || re.is_match(&prompt)) || re2.is_match(&prompt)
-        };
-        debug!("Messages API: {}", messages_api);
-        let messages_log = {
-            let re = Regex::new(r"<\|messagesLog\|>").unwrap();
-            re.is_match(&prompt)
-        };
-        debug!("Messages log: {}", messages_log);
-        let fusion = {
-            let re = Regex::new(r"<\|Fusion Mode\|>").unwrap();
-            messages_api && re.is_match(&prompt)
-        };
-        debug!("Fusion mode: {}", fusion);
-        let _wedge = "\r";
         let stop_set = {
             let re = Regex::new(r"<\|stopSet *(\[.*?\]) *\|>").unwrap();
             re.find_iter(&prompt).nth(1)
@@ -284,11 +244,9 @@ impl AppState {
         let stop_set: Vec<String> = stop_set
             .and_then(|s| serde_json::from_str(s.as_str()).ok())
             .unwrap_or_default();
-        debug!("Stop set: {:?}", stop_set);
         let stop_revoke: Vec<String> = stop_revoke
             .and_then(|s| serde_json::from_str(s.as_str()).ok())
             .unwrap_or_default();
-        debug!("Stop revoke: {:?}", stop_revoke);
         let stop = stop_set
             .into_iter()
             .chain(p.stop.unwrap_or_default().into_iter())
@@ -298,7 +256,6 @@ impl AppState {
                 !s.is_empty() && !stop_revoke.iter().any(|r| r.eq_ignore_ascii_case(s))
             })
             .collect::<Vec<_>>();
-        debug!("Stop seq: {:?}", stop);
         let prompt = generic_fixes(&prompt).trim().to_string();
         print_out_text(&prompt, "2.xml.txt");
         debug!("XML regex processed");

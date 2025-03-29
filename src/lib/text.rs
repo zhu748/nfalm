@@ -11,7 +11,7 @@ use crate::{
 };
 
 impl AppState {
-    pub fn handle_messages(&self, messages: &[Message]) -> String {
+    pub fn merge_messages(&self, messages: &[Message]) -> String {
         let real_logs = messages
             .iter()
             .filter(|m| ["assistant", "user"].contains(&m.role.as_str()))
