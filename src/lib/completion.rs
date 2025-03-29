@@ -1,5 +1,6 @@
 use crate::{
     SUPER_CLIENT, TITLE,
+    config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
     stream::{ClewdrTransformer, StreamConfig},
@@ -159,12 +160,9 @@ impl AppState {
             // TODO: more keys
             return Err(ClewdrError::NoValidKey);
         }
-        if !*s.changing.read()
-            && s.is_pro.read().is_none()
-            && *s.model.read() != *s.cookie_model.read()
-        {
-            self.cookie_changer(None, None);
-            self.wait_for_change().await;
+        if s.is_pro.read().is_none() && *s.model.read() != *s.cookie_model.read() {
+            self.cookie_shifter(UselessReason::Null);
+            return Err(ClewdrError::NoValidKey);
         }
         if p.messages.is_empty() {
             return Err(ClewdrError::WrongCompletionFormat);
@@ -431,7 +429,12 @@ impl AppState {
             .send()
             .await?;
         self.update_cookie_from_res(&api_res);
-        let api_res = check_res_err(api_res).await?;
+        let api_res = check_res_err(api_res).await.inspect_err(|e| match e {
+            ClewdrError::TooManyRequest(_, i) => {
+                self.cookie_shifter(UselessReason::Temporary(*i));
+            }
+            _ => {}
+        })?;
         let trans = ClewdrTransformer::new(StreamConfig::new(
             TITLE,
             s.model

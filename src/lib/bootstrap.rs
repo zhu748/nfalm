@@ -1,5 +1,4 @@
 use colored::Colorize;
-use const_format::formatc;
 use rquest::header::{COOKIE, ORIGIN, REFERER};
 use serde_json::{Value, json};
 use tracing::error;
@@ -17,21 +16,6 @@ impl AppState {
         let istate = self.0.clone();
         {
             let mut config = istate.config.write();
-            if *istate.first_login.read() {
-                *istate.first_login.write() = false;
-                // get time now
-                let now = chrono::Utc::now().timestamp_millis();
-                *istate.timestamp.write() = now;
-                const TITLE: &str = formatc!(
-                    "Clewdr v{} by {}",
-                    env!("CARGO_PKG_VERSION"),
-                    env!("CARGO_PKG_AUTHORS")
-                );
-                println!("{}", TITLE.blue());
-                println!("Listening on {}", config.address().green());
-                // println!("Config:\n{:?}", config);
-                // TODO: Local tunnel
-            }
             if let Some(current_cookie) = config.current_cookie_info().cloned() {
                 config.cookie = current_cookie.cookie.clone();
 
@@ -41,7 +25,7 @@ impl AppState {
                     && !current_cookie.is_pro()
                     && istate.model.read().as_ref().unwrap() != &current_cookie.model.unwrap()
                 {
-                    self.cookie_changer(Some(false), None);
+                    self.cookie_shifter(UselessReason::Null);
                     return;
                 }
             }
@@ -52,12 +36,8 @@ impl AppState {
             Err(ClewdrError::JsError(v)) => {
                 if Some(json!("Invalid authorization")) == v.message {
                     error!("{}", "Invalid authorization".red());
-                    self.cookie_cleaner(UselessReason::Invalid);
+                    self.cookie_shifter(UselessReason::Invalid);
                 }
-            }
-            Err(e) => {
-                error!("CLewdR: {}", e);
-                self.cookie_changer(None, None);
             }
             _ => {}
         }
@@ -71,7 +51,6 @@ impl AppState {
             / (istate.total_times as f32)
             * 100.0;
         if !config.cookie.validate() {
-            *istate.changing.write() = false;
             error!("{}", "Invalid Cookie, enter apiKey-only mode.".red());
             return Ok(());
         }
@@ -88,7 +67,7 @@ impl AppState {
         let bootstrap = res.json::<Value>().await?;
         if bootstrap["account"].is_null() {
             println!("{}", "Null Error, Useless Cookie".red());
-            self.cookie_cleaner(UselessReason::Null);
+            self.cookie_shifter(UselessReason::Null);
             return Ok(());
         }
         let memberships = bootstrap["account"]["memberships"]
@@ -160,7 +139,7 @@ impl AppState {
             && istate.model.read().is_some()
             && istate.model.read().as_ref() != cookie_model.as_ref()
         {
-            self.cookie_changer(None, None);
+            self.cookie_shifter(UselessReason::Null);
             return Ok(());
         }
         let config = istate.config.read().clone();
@@ -223,7 +202,7 @@ impl AppState {
                 UselessReason::Overlap
             };
             println!("Cookie is useless, reason: {}", reason.to_string().red());
-            self.cookie_cleaner(reason);
+            self.cookie_shifter(reason);
             return Ok(());
         } else {
             istate.uuid_org_array.write().push(uuid.to_string());
@@ -265,20 +244,26 @@ impl AppState {
             .unwrap_or_default();
         if !active_flags.is_empty() {
             let now = chrono::Utc::now();
-            let formatted_flags = active_flags.iter().map_while(|f| {
-                let expire = f["expires_at"].as_str()?;
-                let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;
-                let diff = expire.to_utc() - now;
-                let r#type = f["type"].as_str()?;
-                Some(format!(
-                    "{}: expires in {} hours",
-                    r#type.red(),
-                    diff.num_hours().to_string().red()
-                ))
-            });
-            let banned = formatted_flags
-                .clone()
-                .any(|f| f.contains("consumer_banned"));
+            let mut restrict_until = 0;
+            let formatted_flags = active_flags
+                .iter()
+                .map_while(|f| {
+                    let expire = f["expires_at"].as_str()?;
+                    let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;
+                    let timestamp = expire.timestamp();
+                    restrict_until = timestamp.max(restrict_until);
+                    let diff = expire.to_utc() - now;
+                    let r#type = f["type"].as_str()?;
+                    Some(format!(
+                        "{}: expires in {} hours",
+                        r#type.red(),
+                        diff.num_hours().to_string().red()
+                    ))
+                })
+                .collect::<Vec<_>>();
+            let banned = active_flags
+                .iter()
+                .any(|f| f["type"].as_str() == Some("consumer_banned"));
             let banned_str = if banned {
                 "[BANNED] ".red().to_string()
             } else {
@@ -358,13 +343,14 @@ impl AppState {
                     "{}",
                     "Your account is banned, please use another account.".red()
                 );
-                self.cookie_cleaner(UselessReason::Banned);
+                self.cookie_shifter(UselessReason::Banned);
                 return Ok(());
             } else {
                 // Restricted
                 println!("{}", "Your account is restricted.".red());
-                if self.0.config.read().settings.skip_restricted {
-                    self.cookie_changer(None, None);
+                if self.0.config.read().settings.skip_restricted && restrict_until > 0 {
+                    println!("skip_restricted is enabled, skipping...");
+                    self.cookie_shifter(UselessReason::Temporary(restrict_until));
                     return Ok(());
                 }
             }
@@ -401,7 +387,6 @@ impl AppState {
             self.update_cookie_from_res(&res);
             check_res_err(res).await?;
         }
-        *self.0.changing.write() = false;
         let endpoint = self.0.config.read().endpoint("api/organizations");
         let uuid = acc_info
             .get("uuid")

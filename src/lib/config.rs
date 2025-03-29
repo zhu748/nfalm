@@ -8,7 +8,7 @@ use crate::{error::ClewdrError, utils::ENDPOINT};
 
 pub const CONFIG_NAME: &str = "config.toml";
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum UselessReason {
     Null,
     Disabled,
@@ -16,6 +16,7 @@ pub enum UselessReason {
     Overlap,
     Banned,
     Invalid,
+    Temporary(i64),
 }
 
 impl Display for UselessReason {
@@ -27,6 +28,7 @@ impl Display for UselessReason {
             UselessReason::Overlap => write!(f, "Overlap"),
             UselessReason::Banned => write!(f, "Banned"),
             UselessReason::Invalid => write!(f, "Invalid"),
+            UselessReason::Temporary(i) => write!(f, "Temporary {}", i),
         }
     }
 }

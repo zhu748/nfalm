@@ -328,9 +328,9 @@ impl ClewdrTransformer {
             self.flush(&mut y).await;
             info!(
                 "Stream finished. Event received: {}, Input length: {}, Event emit: {}",
-                self.recv_events.load(Ordering::Acquire),
+                self.recv_events.load(Ordering::Acquire).to_string().blue(),
                 format!("{} Chars", self.recv_length).blue(),
-                self.emit_events.load(Ordering::Acquire)
+                self.emit_events.load(Ordering::Acquire).to_string().blue()
             );
             if self.hard_censor {
                 error!("Stream hard censored");

@@ -8,11 +8,11 @@ use rquest::Response;
 use rquest::header::COOKIE;
 use rquest::header::ORIGIN;
 use rquest::header::REFERER;
-use tokio::{
-    spawn,
-    time::{Duration, timeout},
-};
+use tokio::time::sleep;
+use tokio::{spawn, time::Duration};
 use tracing::debug;
+use tracing::error;
+use tracing::warn;
 
 use crate::SUPER_CLIENT;
 use crate::config::UselessCookie;
@@ -28,11 +28,6 @@ pub struct InnerState {
     pub is_pro: RwLock<Option<String>>,
     pub cookie_model: RwLock<Option<String>>,
     pub uuid_org: RwLock<String>,
-    pub changing: RwLock<bool>,
-    pub change_flag: RwLock<usize>,
-    pub current_index: RwLock<usize>,
-    pub first_login: RwLock<bool>,
-    pub timestamp: RwLock<i64>,
     pub change_times: RwLock<usize>,
     pub total_times: usize,
     pub model: RwLock<Option<String>>,
@@ -54,7 +49,6 @@ impl AppState {
         let total_times = config.cookie_array.len();
         let m = InnerState {
             config: RwLock::new(config),
-            first_login: RwLock::new(true),
             total_times,
             ..Default::default()
         };
@@ -100,72 +94,69 @@ impl AppState {
         let cookies = self.0.cookies.read();
         cookies
             .iter()
-            .enumerate()
-            .map(|(idx, (name, value))| {
-                format!(
-                    "{}={}{}",
-                    name,
-                    value,
-                    if idx == cookies.len() - 1 { "" } else { ";" }
-                )
-            })
+            .map(|(name, value)| format!("{}={}", name, value))
             .collect::<Vec<_>>()
-            .join(" ")
-            .trim_end()
+            .join("; ")
+            .trim()
             .to_string()
     }
 
-    pub fn cookie_changer(&self, reset_timer: Option<bool>, cleanup: Option<bool>) -> bool {
-        let my_state = self.0.clone();
-        let reset_timer = reset_timer.unwrap_or(true);
-        let cleanup = cleanup.unwrap_or(false);
-        let config = self.0.config.read();
-        if config.cookie_array.is_empty() {
-            *my_state.changing.write() = false;
-            false
-        } else {
-            *my_state.change_flag.write() = 0;
-            *my_state.changing.write() = true;
-            if !cleanup {
-                // rotate the cookie
-                let mut index = my_state.current_index.write();
-                let array_len = config.cookie_array.len();
-                *index = (*index + 1) % array_len;
-                println!("{}", "Changing cookie".green());
-            }
-            // set timeout callback
-            let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
-                15000 + *my_state.timestamp.read() - chrono::Utc::now().timestamp_millis()
-            } else {
-                0
-            };
-            let dur = Duration::from_millis(dur as u64);
-            let self_clone = self.clone();
-            spawn(timeout(dur, async move {
-                spawn(async move { self_clone.bootstrap().await });
-                if reset_timer {
-                    let now = chrono::Utc::now().timestamp_millis();
-                    *my_state.timestamp.write() = now;
-                }
-            }));
-            false
-        }
-    }
-
-    pub async fn wait_for_change(&self) {
-        // if changing is true, wait for it to be false
-        let istate = self.0.clone();
-        while *istate.changing.read() {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    }
-
-    pub fn cookie_cleaner(&self, reason: UselessReason) -> bool {
+    pub fn cookie_shifter(&self, reason: UselessReason) {
         let mut config = self.0.config.write();
         if config.current_cookie_info().is_none() {
-            return false;
+            return;
         }
-        let current_index = *self.0.current_index.read();
+        match reason {
+            UselessReason::Temporary(i) => {
+                warn!("Temporary useless cookie, not cleaning");
+                config.current_cookie_info().unwrap().reset_time = Some(i);
+                config.save().unwrap_or_else(|e| {
+                    error!("Failed to save config: {}", e);
+                });
+            }
+            _ => {
+                // if reason is not temporary, clean cookie
+                self.cookie_cleaner(reason);
+            }
+        }
+        // rotate the cookie
+        let array_len = config.cookie_array.len();
+        let index = &mut config.cookie_index;
+        *index = (*index + 1) % array_len as i32;
+        println!("{}", "Changing cookie".green());
+        config.save().unwrap_or_else(|e| {
+            error!("Failed to save config: {}", e);
+        });
+        // set timeout callback
+        let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
+            warn!("Waiting 15 seconds to change cookie");
+            15
+        } else {
+            0
+        };
+        let dur = Duration::from_secs(dur as u64);
+        let self_clone = self.clone();
+        spawn(async move {
+            sleep(dur).await;
+            self_clone.bootstrap().await;
+            warn!("Cookie shifting complete");
+        });
+    }
+
+    fn cookie_cleaner(&self, reason: UselessReason) {
+        match reason {
+            UselessReason::Temporary(_) => {
+                warn!("Temporary useless cookie, not cleaning");
+                return;
+            }
+            _ => {}
+        }
+        let mut config = self.0.config.write();
+        if config.current_cookie_info().is_none() {
+            warn!("No current cookie info found");
+            return;
+        }
+        let current_index = config.cookie_index as usize;
         let mut config = self.0.config.write();
         let current_cookie = config.cookie_array.remove(current_index);
         config.cookie.clear();
@@ -173,10 +164,9 @@ impl AppState {
             .wasted_cookie
             .push(UselessCookie::new(current_cookie.cookie, reason));
         config.save().unwrap_or_else(|e| {
-            println!("Failed to save config: {}", e);
+            error!("Failed to save config: {}", e);
         });
         println!("Cleaning Cookie...");
-        self.cookie_changer(Some(true), Some(true))
     }
 
     pub async fn delete_chat(&self, uuid: String) -> Result<(), ClewdrError> {
