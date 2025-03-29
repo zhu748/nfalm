@@ -8,7 +8,7 @@ use crate::{
     SUPER_CLIENT,
     config::UselessReason,
     error::{ClewdrError, check_res_err},
-    router::AppState,
+    state::AppState,
     utils::{ENDPOINT, JsBool, MODELS, header_ref},
 };
 
@@ -32,8 +32,7 @@ impl AppState {
                 // println!("Config:\n{:?}", config);
                 // TODO: Local tunnel
             }
-            if !config.cookie_array.is_empty() {
-                let current_cookie = config.current_cookie_info().unwrap().clone();
+            if let Some(current_cookie) = config.current_cookie_info().cloned() {
                 config.cookie = current_cookie.cookie.clone();
 
                 *istate.change_times.write() += 1;
@@ -64,7 +63,7 @@ impl AppState {
         }
     }
 
-    async fn try_bootstrap(&self) -> Result<bool, ClewdrError> {
+    async fn try_bootstrap(&self) -> Result<(), ClewdrError> {
         let istate = self.0.clone();
         let config = istate.config.read().clone();
         let percentage = ((*istate.change_times.read() as f32)
@@ -74,7 +73,7 @@ impl AppState {
         if !config.cookie.validate() {
             *istate.changing.write() = false;
             error!("{}", "Invalid Cookie, enter apiKey-only mode.".red());
-            return Ok(false);
+            return Ok(());
         }
         self.update_cookies(&config.cookie.to_string());
         let end_point = config.endpoint("api/bootstrap");
@@ -89,7 +88,8 @@ impl AppState {
         let bootstrap = res.json::<Value>().await?;
         if bootstrap["account"].is_null() {
             println!("{}", "Null Error, Useless Cookie".red());
-            return Ok(self.cookie_cleaner(UselessReason::Null));
+            self.cookie_cleaner(UselessReason::Null);
+            return Ok(());
         }
         let memberships = bootstrap["account"]["memberships"]
             .as_array()
@@ -160,7 +160,8 @@ impl AppState {
             && istate.model.read().is_some()
             && istate.model.read().as_ref() != cookie_model.as_ref()
         {
-            return Ok(self.cookie_changer(None, None));
+            self.cookie_changer(None, None);
+            return Ok(());
         }
         let config = istate.config.read().clone();
         let index = if config.cookie_array.is_empty() {
@@ -222,7 +223,8 @@ impl AppState {
                 UselessReason::Overlap
             };
             println!("Cookie is useless, reason: {}", reason.to_string().red());
-            return Ok(self.cookie_cleaner(reason));
+            self.cookie_cleaner(reason);
+            return Ok(());
         } else {
             istate.uuid_org_array.write().push(uuid.to_string());
         }
@@ -356,12 +358,14 @@ impl AppState {
                     "{}",
                     "Your account is banned, please use another account.".red()
                 );
-                return Ok(self.cookie_cleaner(UselessReason::Banned));
+                self.cookie_cleaner(UselessReason::Banned);
+                return Ok(());
             } else {
                 // Restricted
                 println!("{}", "Your account is restricted.".red());
                 if self.0.config.read().settings.skip_restricted {
-                    return Ok(self.cookie_changer(None, None));
+                    self.cookie_changer(None, None);
+                    return Ok(());
                 }
             }
         }
@@ -427,6 +431,6 @@ impl AppState {
             .map(|u| self.delete_chat(u))
             .collect::<Vec<_>>();
         futures::future::join_all(futures).await;
-        Ok(true)
+        Ok(())
     }
 }

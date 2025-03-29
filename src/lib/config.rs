@@ -167,7 +167,7 @@ pub struct Config {
 
     // Network settings
     pub cookie_counter: u32,
-    pub cookie_index: u32,
+    pub cookie_index: i32,
     pub proxy_password: String,
     pub ip: String,
     pub port: u16,
@@ -231,7 +231,7 @@ impl Default for Config {
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
             cookie_counter: 3,
-            cookie_index: 0,
+            cookie_index: -1,
             proxy_password: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
@@ -349,7 +349,10 @@ impl Config {
     }
 
     pub fn current_cookie_info(&mut self) -> Option<&mut CookieInfo> {
-        if self.cookie_index < self.cookie_array.len() as u32 {
+        if self.cookie_index < 0 {
+            return None;
+        }
+        if self.cookie_index < self.cookie_array.len() as i32 {
             Some(&mut self.cookie_array[self.cookie_index as usize])
         } else {
             None
@@ -357,8 +360,8 @@ impl Config {
     }
 
     pub fn validate(mut self) -> Self {
-        if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() as u32 {
-            self.cookie_index = rng().random_range(0..self.cookie_array.len() as u32);
+        if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() as i32 {
+            self.cookie_index = rng().random_range(0..self.cookie_array.len() as i32);
         }
         // trim and remove non-ASCII characters from cookie
         self.unknown_models = self

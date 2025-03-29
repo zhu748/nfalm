@@ -1,4 +1,4 @@
-use clewdr::{self, config::Config, error::ClewdrError, router::AppState, utils::BANNER};
+use clewdr::{self, config::Config, error::ClewdrError, state::AppState, utils::BANNER};
 
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {

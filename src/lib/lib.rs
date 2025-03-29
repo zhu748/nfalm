@@ -11,6 +11,7 @@ pub mod stream;
 pub mod text;
 pub mod utils;
 pub mod bootstrap;
+pub mod state;
 
 pub static NORMAL_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()
