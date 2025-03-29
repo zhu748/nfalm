@@ -2,7 +2,7 @@ use colored::Colorize;
 use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::{
     Args,
@@ -326,6 +326,28 @@ impl Config {
             }
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub fn cookie_cleaner(&mut self, reason: UselessReason) {
+        if let UselessReason::Temporary(_) = reason {
+            warn!("Temporary useless cookie, not cleaning");
+            return;
+        }
+        if self.current_cookie_info().is_none() {
+            warn!("No current cookie info found");
+            return;
+        }
+        let Some(current_cookie) = self.delete_current_cookie() else {
+            warn!("No current cookie found");
+            return;
+        };
+        self.cookie.clear();
+        self.wasted_cookie
+            .push(UselessCookie::new(current_cookie.cookie, reason));
+        self.save().unwrap_or_else(|e| {
+            error!("Failed to save config: {}", e);
+        });
+        println!("Cleaning Cookie...");
     }
 
     pub fn endpoint(&self, path: &str) -> String {
