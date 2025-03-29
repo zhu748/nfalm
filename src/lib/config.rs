@@ -315,12 +315,17 @@ impl Config {
         }
     }
 
-    pub fn endpoint(&self) -> String {
-        if self.rproxy.is_empty() {
+    pub fn endpoint(&self, path: &str) -> String {
+        let endpoint = if self.rproxy.is_empty() {
             ENDPOINT.to_string()
         } else {
             self.rproxy.clone()
-        }
+        };
+        let path = path
+            .trim_start_matches('/')
+            .trim_end_matches('/')
+            .to_string();
+        format!("{}/{}", endpoint, path)
     }
 
     pub fn address(&self) -> String {

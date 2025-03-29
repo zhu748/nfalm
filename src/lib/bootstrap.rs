@@ -77,9 +77,7 @@ impl AppState {
             return Ok(false);
         }
         self.update_cookies(&config.cookie.to_string());
-        let rproxy = config.rproxy.clone();
-        let end_point = if rproxy.is_empty() { ENDPOINT } else { &rproxy };
-        let end_point = format!("{}/api/bootstrap", end_point);
+        let end_point = config.endpoint("api/bootstrap");
         let res = SUPER_CLIENT
             .get(end_point.clone())
             .header_append("Origin", ENDPOINT)
@@ -372,7 +370,7 @@ impl AppState {
             .and_then(|a| a.as_bool())
             .unwrap_or(false);
         if preview_feature_uses_artifacts != self.0.config.read().settings.artifacts {
-            let endpoint = self.0.config.read().endpoint();
+            let endpoint = self.0.config.read().endpoint("api/account");
             let endpoint = format!("{}/api/account", endpoint);
             let cookies = self.header_cookie();
             let mut account_settings = bootstrap
@@ -400,12 +398,12 @@ impl AppState {
             check_res_err(res).await?;
         }
         *self.0.changing.write() = false;
-        let endpoint = self.0.config.read().endpoint();
+        let endpoint = self.0.config.read().endpoint("api/organizations");
         let uuid = acc_info
             .get("uuid")
             .and_then(|u| u.as_str())
             .unwrap_or_default();
-        let endpoint = format!("{}/api/organizations/{}/chat_conversations", endpoint, uuid);
+        let endpoint = format!("{}/{}/chat_conversations", endpoint, uuid);
         let cookies = self.header_cookie();
         // mess the cookie a bit to see error message
         let res = SUPER_CLIENT

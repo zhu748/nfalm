@@ -225,12 +225,9 @@ impl AppState {
         if istate.config.read().settings.preserve_chats {
             return Ok(());
         }
-        let endpoint = istate.config.read().endpoint();
+        let endpoint = istate.config.read().endpoint("api/organizations");
         let uuid_org = istate.uuid_org.read().clone();
-        let endpoint = format!(
-            "{}/api/organizations/{}/chat_conversations/{}",
-            endpoint, uuid_org, uuid
-        );
+        let endpoint = format!("{}/{}/chat_conversations/{}", endpoint, uuid_org, uuid);
         let cookies = self.header_cookie();
         let res = SUPER_CLIENT
             .delete(endpoint.clone())
