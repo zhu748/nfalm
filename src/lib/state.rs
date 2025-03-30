@@ -14,6 +14,7 @@ use tracing::warn;
 
 use crate::client::AppendHeaders;
 use crate::client::SUPER_CLIENT;
+use crate::config;
 use crate::config::UselessReason;
 use crate::error::ClewdrError;
 use crate::{config::Config, utils::ENDPOINT};
@@ -99,6 +100,12 @@ impl AppState {
     }
 
     pub fn cookie_rotate(&self, reason: UselessReason) {
+        let self_clone = self.clone();
+        spawn(async move {
+            if let Ok(err) = self_clone.delete_chat().await {
+                error!("Failed to delete chat: {:?}", err);
+            }
+        });
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
         if SHIFTS.load(Ordering::Relaxed) == self.0.init_length {
             error!("Cookie used up, not rotating");
@@ -147,17 +154,17 @@ impl AppState {
 
     pub async fn delete_chat(&self) -> Result<(), ClewdrError> {
         let uuid = self.0.conv_uuid.write().take();
+        let config = self.0.config.read().clone();
+        let uuid_org = self.0.uuid_org.read().clone();
         if uuid.clone().map_or(true, |u| u.is_empty()) {
             return Ok(());
         }
         let uuid = uuid.unwrap();
-        let istate = self.0.clone();
-        if istate.config.read().settings.preserve_chats {
+        if config.settings.preserve_chats {
             return Ok(());
         }
         debug!("Deleting chat: {}", uuid);
-        let endpoint = istate.config.read().endpoint("api/organizations");
-        let uuid_org = istate.uuid_org.read().clone();
+        let endpoint = config.endpoint("api/organizations");
         let endpoint = format!("{}/{}/chat_conversations/{}", endpoint, uuid_org, uuid);
         let res = SUPER_CLIENT
             .delete(endpoint.clone())
