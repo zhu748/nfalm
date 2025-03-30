@@ -433,6 +433,7 @@ dependencies = [
  "const_format",
  "figlet-rs",
  "futures",
+ "futures-util",
  "parking_lot",
  "rand",
  "regex",
