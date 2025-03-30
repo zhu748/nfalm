@@ -139,15 +139,11 @@ impl AppState {
         }
 
         // delete the previous conversation if it exists
-        let uuid = s.conv_uuid.read().clone();
-        if let Some(uuid) = uuid {
-            self.delete_chat(uuid).await?;
-        }
+        self.delete_chat().await?;
         debug!("Chat deleted");
 
         // Create a new conversation
         *s.conv_uuid.write() = Some(uuid::Uuid::new_v4().to_string());
-        *s.conv_depth.write() = 0;
         let endpoint = s.config.read().endpoint("");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
@@ -172,10 +168,12 @@ impl AppState {
         self.update_cookie_from_res(&api_res);
         check_res_err(api_res).await?;
 
-        // send the request
+        // prepare the request
         let mut body: RequestBody = p.into();
         // check images
         let images = mem::take(&mut body.images);
+
+        // upload images
         let fut = images
             .into_iter()
             .map_while(|img| {
@@ -210,6 +208,7 @@ impl AppState {
             })
             .collect::<Vec<_>>();
 
+        // get upload responses
         let fut = join_all(fut)
             .await
             .into_iter()

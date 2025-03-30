@@ -32,7 +32,6 @@ pub struct InnerState {
     pub uuid_org_array: RwLock<Vec<String>>,
     pub conv_uuid: RwLock<Option<String>>,
     pub conv_char: RwLock<Option<String>>,
-    pub conv_depth: RwLock<i64>,
     pub prev_impersonated: RwLock<bool>,
     pub regex_log: RwLock<String>,
 }
@@ -146,22 +145,17 @@ impl AppState {
         });
     }
 
-    pub async fn delete_chat(&self, uuid: String) -> Result<(), ClewdrError> {
-        if uuid.is_empty() {
+    pub async fn delete_chat(&self) -> Result<(), ClewdrError> {
+        let uuid = self.0.conv_uuid.write().take();
+        if uuid.clone().map_or(true, |u| u.is_empty()) {
             return Ok(());
         }
+        let uuid = uuid.unwrap();
         let istate = self.0.clone();
-        let conv_uuid = istate.conv_uuid.read().clone();
-        if let Some(conv_uuid) = conv_uuid {
-            if uuid == conv_uuid {
-                istate.conv_uuid.write().take();
-                debug!("Deleting chat: {}", uuid);
-                *istate.conv_depth.write() = 0;
-            }
-        };
         if istate.config.read().settings.preserve_chats {
             return Ok(());
         }
+        debug!("Deleting chat: {}", uuid);
         let endpoint = istate.config.read().endpoint("api/organizations");
         let uuid_org = istate.uuid_org.read().clone();
         let endpoint = format!("{}/{}/chat_conversations/{}", endpoint, uuid_org, uuid);
