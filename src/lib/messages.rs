@@ -1,6 +1,5 @@
 use std::{fmt::Debug, sync::LazyLock};
 
-use anthropic_ai_sdk::types::message::{ContentBlock, Message, MessageContent, Role};
 use axum::{
     Json,
     body::Body,
@@ -17,7 +16,8 @@ use crate::{
     config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
-    utils::{TIME_ZONE, print_out_json, print_out_text},
+    types::message::{ContentBlock, Message, MessageContent, Role},
+    utils::{TIME_ZONE, print_out_json},
 };
 
 pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi!"));

@@ -38,4 +38,4 @@ thiserror = "2"
 uuid = { version = "1.16.0", features = ["v4"] }
 tower-http = { version = "0.6", features = ["trace"] }
 clap = { version = "4", features = ["derive"] }
-anthropic-ai-sdk = "0.2.0"
+async-trait = "0.1.88"
