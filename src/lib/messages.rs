@@ -51,7 +51,7 @@ impl Attachment {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
-    attachments: Attachment,
+    attachments: Vec<Attachment>,
     files: Vec<String>,
     model: String,
     rendering_mode: String,
@@ -79,9 +79,9 @@ fn transform(value: ClientRequestBody, user_real_roles: bool) -> Option<RequestB
     let first = merged.head;
     let last = merged.tail;
     let images = merged.images;
-    let attachments = Attachment::new(first);
+    let attachment = Attachment::new(first);
     Some(RequestBody {
-        attachments,
+        attachments: vec![attachment],
         files: vec![],
         model: value.model,
         rendering_mode: "messages".to_string(),
