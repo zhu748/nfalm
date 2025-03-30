@@ -27,7 +27,7 @@ axum = { version = "0.8", features = [
 regex = "1"
 tracing = { version = "0.1", features = [
     "max_level_debug",
-    "release_max_level_warn",
+    "release_max_level_info",
 ] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
 rand = "0.9"

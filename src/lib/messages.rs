@@ -6,18 +6,13 @@ use axum::{
     extract::State,
     response::{IntoResponse, Response},
 };
-use base64::{Engine, prelude::BASE64_STANDARD};
-use futures::future::join_all;
-use rquest::{
-    header::ACCEPT,
-    multipart::{Form, Part},
-};
+use rquest::header::ACCEPT;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tracing::{debug, warn};
 
 use crate::{
-    client::{AppendHeaders, SUPER_CLIENT},
+    client::{AppendHeaders, SUPER_CLIENT, upload_images},
     config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
@@ -125,7 +120,7 @@ impl AppState {
         print_out_json(&p, "0.req.json");
 
         // Check if the request is a test message
-        if !p.stream && p.messages.len() == 1 && p.messages[0] == *TEST_MESSAGE {
+        if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
             return Ok(json!({
                 "content": [
                     {
@@ -174,67 +169,7 @@ impl AppState {
         let images = mem::take(&mut body.images);
 
         // upload images
-        let fut = images
-            .into_iter()
-            .map_while(|img| {
-                if img.type_ != "base64" {
-                    warn!("Image type is not base64");
-                    return None;
-                }
-                let Ok(bytes) = BASE64_STANDARD.decode(img.data.as_bytes()) else {
-                    warn!("Failed to decode base64 image");
-                    return None;
-                };
-                let file_name = match img.media_type.as_str() {
-                    "image/png" => "image.png",
-                    "image/jpeg" => "image.jpg",
-                    "image/gif" => "image.gif",
-                    "image/webp" => "image.webp",
-                    "application/pdf" => "document.pdf",
-                    _ => "file",
-                };
-                let part = Part::bytes(bytes).file_name(file_name);
-                let form = Form::new().part("file", part);
-
-                let endpoint = format!("https://claude.ai/api/{}/upload", s.uuid_org.read(),);
-                Some(
-                    SUPER_CLIENT
-                        .post(endpoint)
-                        .append_headers("new", self.header_cookie().ok()?)
-                        .header_append("anthropic-client-platform", "web_claude_ai")
-                        .multipart(form)
-                        .send(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        // get upload responses
-        let fut = join_all(fut)
-            .await
-            .into_iter()
-            .map_while(|r| {
-                r.inspect_err(|e| {
-                    warn!("Failed to upload image: {:?}", e);
-                })
-                .ok()
-            })
-            .map(|r| async {
-                let json = r
-                    .json::<Value>()
-                    .await
-                    .inspect_err(|e| {
-                        warn!("Failed to parse image response: {:?}", e);
-                    })
-                    .ok()?;
-                Some(json["file_uuid"].as_str()?.to_string())
-            })
-            .collect::<Vec<_>>();
-
-        let files = join_all(fut)
-            .await
-            .into_iter()
-            .filter_map(|r| r)
-            .collect::<Vec<_>>();
+        let files = upload_images(images, self.header_cookie()?, s.uuid_org.read().clone()).await;
         body.files = files;
 
         // file processed
