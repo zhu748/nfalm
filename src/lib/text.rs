@@ -47,6 +47,7 @@ pub fn merge_messages(msgs: Vec<Message>, user_real_roles: bool) -> Option<Merge
                 }
             }
             MessageContent::Text { content } => {
+                let content = content.trim().to_string();
                 if content.is_empty() {
                     None
                 } else {
