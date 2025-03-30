@@ -56,14 +56,16 @@ jobs:
         env: ${{ matrix.custom_env }}
         run: cargo build --release --target ${{ matrix.target_triple }}
 
-      - name: Move artifact to work dir
-        run: mv target/${{ matrix.target_triple }}/release/clewdr .
+      - name: Move artifact to work dir and zip
+        run: |
+          mv target/${{ matrix.target_triple }}/release/clewdr .
+          zip -r clewdr-linux-${{ matrix.target }} clewdr
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: clewdr-linux-${{ matrix.target }}
-          path: clewdr
+          path: clewdr-linux-${{ matrix.target }}.zip
           retention-days: 1
 
   android:
@@ -108,10 +110,11 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
 
-      - name: Move artifact to work dir
+      - name: Move artifact to work dir and zip
         run: |
           mv target/${{ matrix.target_triple }}/release/clewdr .
           mv $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so .
+          zip -r clewdr-android-${{ matrix.target }} clewdr libc++_shared.so
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -119,9 +122,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: clewdr-android-${{ matrix.target }}
-          path: |
-            clewdr
-            libc++_shared.so
+          path: clewdr-android-${{ matrix.target }}.zip
           retention-days: 1
 
   musllinux:
@@ -178,14 +179,16 @@ jobs:
         env: ${{ matrix.custom_env }}
         run: cargo build --release --target ${{ matrix.target_triple }}
 
-      - name: Move artifact to work dir
-        run: mv target/${{ matrix.target_triple }}/release/clewdr .
+      - name: Move artifact to work dir and zip
+        run: |
+          mv target/${{ matrix.target_triple }}/release/clewdr .
+          zip -r clewdr-musllinux-${{ matrix.target }} clewdr
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: clewdr-musllinux-${{ matrix.target }}
-          path: clewdr
+          path: clewdr-musllinux-${{ matrix.target }}.zip
           retention-days: 1
 
   windows:
@@ -215,15 +218,17 @@ jobs:
           RUSTFLAGS: "-C target-feature=+crt-static"
         run: cargo build --release --target ${{ matrix.target_triple }}
 
-      - name: Move artifact to work dir
-        run: mv target/${{ matrix.target_triple }}/release/clewdr.exe .
+      - name: Move artifact to work dir and zip
+        run: |
+          mv target/${{ matrix.target_triple }}/release/clewdr.exe .
+          Compress-Archive -Path 'clewdr.exe' -DestinationPath "build-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
         shell: powershell
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: clewdr-windows-${{ matrix.target }}
-          path: clewdr.exe
+          path: build-windows-${{ matrix.target }}.zip
           retention-days: 1
 
   macos:
@@ -254,14 +259,16 @@ jobs:
       - name: Build for ${{ matrix.target }}
         run: cargo build --release --target ${{ matrix.target_triple }}
 
-      - name: Move artifact to work dir
-        run: mv target/${{ matrix.target_triple }}/release/clewdr .
+      - name: Move artifact to work dir and zip
+        run: |
+          mv target/${{ matrix.target_triple }}/release/clewdr .
+          zip -r clewdr-macos-${{ matrix.target }} clewdr
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: clewdr-macos-${{ matrix.target }}
-          path: clewdr
+          path: clewdr-macos-${{ matrix.target }}.zip
           retention-days: 1
 
   release:
@@ -281,7 +288,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/clewdr*
+          files: artifacts/**/clewdr*.zip
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
