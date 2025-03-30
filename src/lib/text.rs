@@ -2,7 +2,10 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::fmt::Write;
 
-use crate::types::message::{ContentBlock, ImageSource, Message, MessageContent, Role};
+use crate::{
+    types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
+    utils::print_out_text,
+};
 
 #[derive(Default, Debug, Serialize)]
 pub struct Merged {
@@ -13,7 +16,7 @@ pub struct Merged {
 }
 
 pub fn merge_messages(msgs: Vec<Message>, user_real_roles: bool) -> Option<Merged> {
-    let line_breaks = if user_real_roles { "\n\n" } else { "\n\n\x08" };
+    let line_breaks = if user_real_roles { "\n\n\x08" } else { "\n\n" };
     if msgs.is_empty() {
         return None;
     }
@@ -66,6 +69,8 @@ pub fn merge_messages(msgs: Vec<Message>, user_real_roles: bool) -> Option<Merge
         };
         write!(w, "{}{}{}", line_breaks, prefix, text).unwrap();
     }
+    print_out_text(first.1.as_str(), "head.txt");
+    print_out_text(w.as_str(), "tail.txt");
 
     Some(Merged {
         head: first.1,
