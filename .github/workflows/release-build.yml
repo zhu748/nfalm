@@ -221,14 +221,14 @@ jobs:
       - name: Move artifact to work dir and zip
         run: |
           mv target/${{ matrix.target_triple }}/release/clewdr.exe .
-          Compress-Archive -Path 'clewdr.exe' -DestinationPath "build-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
+          Compress-Archive -Path 'clewdr.exe' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
         shell: powershell
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: clewdr-windows-${{ matrix.target }}
-          path: build-windows-${{ matrix.target }}.zip
+          path: clewdr-windows-${{ matrix.target }}.zip
           retention-days: 1
 
   macos:
