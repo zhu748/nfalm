@@ -125,32 +125,17 @@ impl AppState {
         print_out_json(&p, "0.req.json");
 
         // Check if the request is a test message
-        if !p.stream && p.messages.len() == 1 {
-            let role = p.messages.first().map(|m| m.role.clone()).unwrap();
-            let content = p.messages.first().map(|m| m.content.clone()).unwrap();
-            match role {
-                Role::User => {
-                    if let MessageContent::Blocks { content } = content {
-                        if content.len() == 1 {
-                            if let ContentBlock::Text { text } = &content[0] {
-                                if text == "Hi" {
-                                    return Ok(json!({
-                                        "content": [
-                                            {
-                                                "text": "Hi! My name is Doge.",
-                                                "type": "text"
-                                            }
-                                        ],
-                                    })
-                                    .to_string()
-                                    .into_response());
-                                }
-                            }
-                        }
+        if !p.stream && p.messages.len() == 1 && p.messages[0] == *TEST_MESSAGE {
+            return Ok(json!({
+                "content": [
+                    {
+                        "text": "Hi! My name is Doge.",
+                        "type": "text"
                     }
-                }
-                _ => {}
-            }
+                ],
+            })
+            .to_string()
+            .into_response());
         }
 
         // delete the previous conversation if it exists
