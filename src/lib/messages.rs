@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::LazyLock};
+use std::{fmt::Debug, mem, sync::LazyLock};
 
 use axum::{
     Json,
@@ -6,7 +6,12 @@ use axum::{
     extract::State,
     response::{IntoResponse, Response},
 };
-use rquest::header::ACCEPT;
+use base64::{Engine, prelude::BASE64_STANDARD};
+use futures::future::join_all;
+use rquest::{
+    header::ACCEPT,
+    multipart::{Form, Part},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tracing::{debug, warn};
@@ -16,19 +21,28 @@ use crate::{
     config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
-    types::message::{ContentBlock, Message, MessageContent, Role},
+    types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
     utils::{TIME_ZONE, print_out_json},
 };
 
-pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi!"));
+pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
+    Message::new_blocks(
+        Role::User,
+        vec![ContentBlock::Text {
+            text: "Hi".to_string(),
+        }],
+    )
+});
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
-    files: Vec<Value>,
+    files: Vec<String>,
     model: String,
     rendering_mode: String,
     prompt: String,
     timezone: String,
+    #[serde(skip)]
+    images: Vec<ImageSource>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -46,28 +60,42 @@ pub struct ClientRequestBody {
 
 impl From<ClientRequestBody> for RequestBody {
     fn from(value: ClientRequestBody) -> Self {
-        Self {
-            files: vec![],
-            model: value.model,
-            rendering_mode: "messages".to_string(),
-            prompt: value
-                .messages
-                .iter()
-                .map(|m| match &m.content {
+        let mut images = vec![];
+        let prompt = value
+            .messages
+            .iter()
+            .map(|m| {
+                let r = match m.role {
+                    Role::User => "User: ",
+                    Role::Assistant => "Assistant: ",
+                };
+                let c = match &m.content {
                     MessageContent::Text { content } => content.clone(),
                     MessageContent::Blocks { content } => content
                         .iter()
                         .map_while(|b| match b {
-                            ContentBlock::Text { text } => Some(text),
+                            ContentBlock::Text { text } => Some(text.trim().to_string()),
+                            ContentBlock::Image { source } => {
+                                images.push(source.clone());
+                                None
+                            }
                             _ => None,
                         })
-                        .cloned()
+                        .filter(|s| !s.is_empty())
                         .collect::<Vec<_>>()
                         .join("\n"),
-                })
-                .collect::<Vec<_>>()
-                .join("\n"),
+                };
+                format!("{}{}", r, c)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        Self {
+            files: vec![],
+            model: value.model,
+            rendering_mode: "messages".to_string(),
+            prompt,
             timezone: TIME_ZONE.to_string(),
+            images,
         }
     }
 }
@@ -97,20 +125,32 @@ impl AppState {
         print_out_json(&p, "0.req.json");
 
         // Check if the request is a test message
-        if !p.stream
-            && p.messages.len() == 1
-            && p.messages.first().map(|m| format!("{:?}", m)) == Some(format!("{:?}", TEST_MESSAGE))
-        {
-            return Ok(json!({
-                "content": [
-                    {
-                        "text": "Hi! My name is Doge.",
-                        "type": "text"
+        if !p.stream && p.messages.len() == 1 {
+            let role = p.messages.first().map(|m| m.role.clone()).unwrap();
+            let content = p.messages.first().map(|m| m.content.clone()).unwrap();
+            match role {
+                Role::User => {
+                    if let MessageContent::Blocks { content } = content {
+                        if content.len() == 1 {
+                            if let ContentBlock::Text { text } = &content[0] {
+                                if text == "Hi" {
+                                    return Ok(json!({
+                                        "content": [
+                                            {
+                                                "text": "Hi! My name is Doge.",
+                                                "type": "text"
+                                            }
+                                        ],
+                                    })
+                                    .to_string()
+                                    .into_response());
+                                }
+                            }
+                        }
                     }
-                ],
-            })
-            .to_string()
-            .into_response());
+                }
+                _ => {}
+            }
         }
 
         // delete the previous conversation if it exists
@@ -148,7 +188,70 @@ impl AppState {
         check_res_err(api_res).await?;
 
         // send the request
-        let body: RequestBody = p.into();
+        let mut body: RequestBody = p.into();
+        // check images
+        let images = mem::take(&mut body.images);
+        let fut = images
+            .into_iter()
+            .map_while(|img| {
+                if img.type_ != "base64" {
+                    warn!("Image type is not base64");
+                    return None;
+                }
+                let Ok(bytes) = BASE64_STANDARD.decode(img.data.as_bytes()) else {
+                    warn!("Failed to decode base64 image");
+                    return None;
+                };
+                let file_name = match img.media_type.as_str() {
+                    "image/png" => "image.png",
+                    "image/jpeg" => "image.jpg",
+                    "image/gif" => "image.gif",
+                    "image/webp" => "image.webp",
+                    "application/pdf" => "document.pdf",
+                    _ => "file",
+                };
+                let part = Part::bytes(bytes).file_name(file_name);
+                let form = Form::new().part("file", part);
+
+                let endpoint = format!("https://claude.ai/api/{}/upload", s.uuid_org.read(),);
+                Some(
+                    SUPER_CLIENT
+                        .post(endpoint)
+                        .append_headers("new", self.header_cookie().ok()?)
+                        .header_append("anthropic-client-platform", "web_claude_ai")
+                        .multipart(form)
+                        .send(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let fut = join_all(fut)
+            .await
+            .into_iter()
+            .map_while(|r| {
+                r.inspect_err(|e| {
+                    warn!("Failed to upload image: {:?}", e);
+                })
+                .ok()
+            })
+            .map(|r| async {
+                let json = r
+                    .json::<Value>()
+                    .await
+                    .inspect_err(|e| {
+                        warn!("Failed to parse image response: {:?}", e);
+                    })
+                    .ok()?;
+                Some(json["file_uuid"].as_str()?.to_string())
+            })
+            .collect::<Vec<_>>();
+
+        let files = join_all(fut)
+            .await
+            .into_iter()
+            .filter_map(|r| r)
+            .collect::<Vec<_>>();
+        body.files = files;
         print_out_json(&body, "4.req.json");
         let endpoint = s.config.read().endpoint("");
         let endpoint = format!(
