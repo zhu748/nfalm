@@ -237,6 +237,8 @@ impl AppState {
             .filter_map(|r| r)
             .collect::<Vec<_>>();
         body.files = files;
+
+        // file processed
         print_out_json(&body, "4.req.json");
         let endpoint = s.config.read().endpoint("");
         let endpoint = format!(
