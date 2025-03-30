@@ -16,7 +16,8 @@ use crate::{
     config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
-    types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
+    text::merge_messages,
+    types::message::{ContentBlock, ImageSource, Message, Role},
     utils::{TIME_ZONE, print_out_json},
 };
 
@@ -30,7 +31,27 @@ pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
 });
 
 #[derive(Deserialize, Serialize, Debug)]
+struct Attachment {
+    extracted_content: String,
+    file_name: String,
+    file_type: String,
+    file_size: u64,
+}
+
+impl Attachment {
+    fn new(content: String) -> Self {
+        Attachment {
+            file_size: content.bytes().len() as u64,
+            extracted_content: content,
+            file_name: "paste.txt".to_string(),
+            file_type: "txt".to_string(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
+    attachments: Attachment,
     files: Vec<String>,
     model: String,
     rendering_mode: String,
@@ -53,46 +74,21 @@ pub struct ClientRequestBody {
     system: Value,
 }
 
-impl From<ClientRequestBody> for RequestBody {
-    fn from(value: ClientRequestBody) -> Self {
-        let mut images = vec![];
-        let prompt = value
-            .messages
-            .iter()
-            .map(|m| {
-                let r = match m.role {
-                    Role::User => "User: ",
-                    Role::Assistant => "Assistant: ",
-                };
-                let c = match &m.content {
-                    MessageContent::Text { content } => content.clone(),
-                    MessageContent::Blocks { content } => content
-                        .iter()
-                        .map_while(|b| match b {
-                            ContentBlock::Text { text } => Some(text.trim().to_string()),
-                            ContentBlock::Image { source } => {
-                                images.push(source.clone());
-                                None
-                            }
-                            _ => None,
-                        })
-                        .filter(|s| !s.is_empty())
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                };
-                format!("{}{}", r, c)
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        Self {
-            files: vec![],
-            model: value.model,
-            rendering_mode: "messages".to_string(),
-            prompt,
-            timezone: TIME_ZONE.to_string(),
-            images,
-        }
-    }
+fn transform(value: ClientRequestBody, user_real_roles: bool) -> Option<RequestBody> {
+    let merged = merge_messages(value.messages, user_real_roles)?;
+    let first = merged.head;
+    let last = merged.tail;
+    let images = merged.images;
+    let attachments = Attachment::new(first);
+    Some(RequestBody {
+        attachments,
+        files: vec![],
+        model: value.model,
+        rendering_mode: "messages".to_string(),
+        prompt: last,
+        timezone: TIME_ZONE.to_string(),
+        images,
+    })
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -164,12 +160,25 @@ impl AppState {
         check_res_err(api_res).await?;
 
         // prepare the request
-        let mut body: RequestBody = p.into();
+        let user_real_roles = s.config.read().user_real_roles;
+        let Some(mut body) = transform(p, user_real_roles) else {
+            return Ok(json!({
+                "content": [
+                    {
+                        "text": "Empty message",
+                        "type": "text"
+                    }
+                ],
+            })
+            .to_string()
+            .into_response());
+        };
         // check images
         let images = mem::take(&mut body.images);
 
         // upload images
-        let files = upload_images(images, self.header_cookie()?, s.uuid_org.read().clone()).await;
+        let uuid_org = s.uuid_org.read().clone();
+        let files = upload_images(images, self.header_cookie()?, uuid_org).await;
         body.files = files;
 
         // file processed

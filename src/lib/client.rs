@@ -45,7 +45,11 @@ fn header_ref<S: AsRef<str>>(ref_path: S) -> String {
     }
 }
 
-pub async fn upload_images(imgs: Vec<ImageSource>, cookies: String, uuid_org: String) -> Vec<String> {
+pub async fn upload_images(
+    imgs: Vec<ImageSource>,
+    cookies: String,
+    uuid_org: String,
+) -> Vec<String> {
     // upload images
     let fut = imgs
         .into_iter()
@@ -108,6 +112,6 @@ pub async fn upload_images(imgs: Vec<ImageSource>, cookies: String, uuid_org: St
     join_all(fut)
         .await
         .into_iter()
-        .filter_map(|r| r)
+        .flatten()
         .collect::<Vec<_>>()
 }

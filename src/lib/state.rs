@@ -150,7 +150,7 @@ impl AppState {
         let uuid = self.0.conv_uuid.write().take();
         let config = self.0.config.read().clone();
         let uuid_org = self.0.uuid_org.read().clone();
-        if uuid.clone().map_or(true, |u| u.is_empty()) {
+        if uuid.clone().is_none_or(|u| u.is_empty()) {
             return Ok(());
         }
         let uuid = uuid.unwrap();
