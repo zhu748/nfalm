@@ -13,8 +13,48 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for tag access
+
+      - name: Verify release notes version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          grep -q "# v$VERSION" RELEASE_NOTES.md || {
+            echo "Error: RELEASE_NOTES.md heading must match tag (v$VERSION)"
+            exit 1
+          }
+
+      - name: Extract version from tag
+        id: set-version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}  # e.g., "1.0.0" from "refs/tags/v1.0.0"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Update Cargo.toml version
+        run: |
+          VERSION=${{ steps.set-version.outputs.version }}
+          sed -i "s/version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          cat Cargo.toml  # Debug output
+
+      - name: Commit updated Cargo.toml
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add Cargo.toml
+          git commit -m "Update Cargo.toml to version ${{ steps.set-version.outputs.version }}"
+          git push
+
   linux:
     name: Build Linux (GNU)
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -70,6 +110,7 @@ jobs:
 
   android:
     name: Build Android (NDK)
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -127,6 +168,7 @@ jobs:
 
   musllinux:
     name: Build Linux (musl)
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -193,6 +235,7 @@ jobs:
 
   windows:
     name: Build Windows
+    needs: prepare
     runs-on: windows-latest
     strategy:
       matrix:
@@ -233,6 +276,7 @@ jobs:
 
   macos:
     name: Build macOS
+    needs: prepare
     strategy:
       matrix:
         include:
@@ -290,7 +334,7 @@ jobs:
         with:
           files: artifacts/**/clewdr*.zip
           name: Release ${{ github.ref_name }}
-          draft: false
+          draft: true
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

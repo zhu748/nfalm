@@ -76,18 +76,14 @@ pub struct ClientRequestBody {
 
 fn transform(value: ClientRequestBody, user_real_roles: bool) -> Option<RequestBody> {
     let merged = merge_messages(value.messages, user_real_roles)?;
-    let first = merged.head;
-    let last = merged.tail;
-    let images = merged.images;
-    let attachment = Attachment::new(first);
     Some(RequestBody {
-        attachments: vec![attachment],
+        attachments: vec![Attachment::new(merged.head)],
         files: vec![],
         model: value.model,
         rendering_mode: "messages".to_string(),
-        prompt: last,
+        prompt: merged.tail,
         timezone: TIME_ZONE.to_string(),
-        images,
+        images: merged.images,
     })
 }
 
