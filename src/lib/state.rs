@@ -96,8 +96,8 @@ impl AppState {
     pub fn cookie_rotate(&self, reason: UselessReason) {
         let self_clone = self.clone();
         spawn(async move {
-            if let Ok(err) = self_clone.delete_chat().await {
-                error!("Failed to delete chat: {:?}", err);
+            if let Err(err) = self_clone.delete_chat().await {
+                error!("Failed to delete chat: {}", err);
             }
         });
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
@@ -116,6 +116,7 @@ impl AppState {
                 config.save().unwrap_or_else(|e| {
                     error!("Failed to save config: {}", e);
                 });
+                config.rotate_cookie();
             }
             _ => {
                 // if reason is not temporary, clean cookie
@@ -123,7 +124,6 @@ impl AppState {
             }
         }
         // rotate the cookie
-        config.rotate_cookie();
         config.save().unwrap_or_else(|e| {
             error!("Failed to save config: {}", e);
         });

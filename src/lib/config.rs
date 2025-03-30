@@ -395,7 +395,11 @@ impl Config {
             let index = self.cookie_index as usize;
             let removed = self.cookie_array.remove(index);
             if index == self.cookie_array.len() {
-                self.cookie_index -= 1;
+                if index == 0 {
+                    self.cookie_index = -1;
+                } else {
+                    self.cookie_index = 0;
+                }
             }
             warn!("Removed cookie: {}", removed.cookie.to_string().red());
             return Some(removed);
@@ -414,7 +418,7 @@ impl Config {
         let array_len = self.cookie_array.len();
         let index = &mut self.cookie_index;
         *index = (*index + 1) % array_len as i32;
-        warn!("Rotating cookie to index {}", index.to_string().green());
+        warn!("Rotating cookie");
     }
 
     fn validate(mut self) -> Self {
