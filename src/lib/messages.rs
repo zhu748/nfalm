@@ -115,7 +115,6 @@ pub async fn api_messages(
 
 impl AppState {
     async fn try_message(&self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
-        let s = self.0.clone();
         print_out_json(&p, "0.req.json");
 
         // Check if the request is a test message
@@ -133,15 +132,15 @@ impl AppState {
         debug!("Chat deleted");
 
         // Create a new conversation
-        *s.conv_uuid.write() = Some(uuid::Uuid::new_v4().to_string());
-        let endpoint = s.config.read().endpoint("");
+        *self.conv_uuid.write() = Some(uuid::Uuid::new_v4().to_string());
+        let endpoint = self.config.read().endpoint("");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
             endpoint,
-            s.uuid_org.read()
+            self.uuid_org.read()
         );
         let mut body = json!({
-            "uuid": s.conv_uuid.read().as_ref().unwrap(),
+            "uuid": self.conv_uuid.read().as_ref().unwrap(),
             "name":""
         });
         if p.thinking.is_some() {
@@ -159,7 +158,7 @@ impl AppState {
         check_res_err(api_res).await?;
 
         // prepare the request
-        let user_real_roles = s.config.read().user_real_roles;
+        let user_real_roles = self.config.read().user_real_roles;
         let Some(mut body) = transform(p, user_real_roles) else {
             return Ok(serde_json::ser::to_string(&Message::new_text(
                 Role::Assistant,
@@ -172,18 +171,18 @@ impl AppState {
         let images = mem::take(&mut body.images);
 
         // upload images
-        let uuid_org = s.uuid_org.read().clone();
+        let uuid_org = self.uuid_org.read().clone();
         let files = upload_images(images, self.header_cookie()?, uuid_org).await;
         body.files = files;
 
         // file processed
         print_out_json(&body, "4.req.json");
-        let endpoint = s.config.read().endpoint("");
+        let endpoint = self.config.read().endpoint("");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}/completion",
             endpoint,
-            s.uuid_org.read(),
-            s.conv_uuid.read().as_ref().cloned().unwrap_or_default()
+            self.uuid_org.read(),
+            self.conv_uuid.read().as_ref().cloned().unwrap_or_default()
         );
 
         let api_res = SUPER_CLIENT

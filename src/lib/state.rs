@@ -2,6 +2,7 @@ use parking_lot::RwLock;
 use regex::Regex;
 use regex::RegexBuilder;
 use rquest::Response;
+use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -31,8 +32,18 @@ pub struct InnerState {
     pub conv_uuid: RwLock<Option<String>>,
 }
 
+impl Deref for AppState {
+    type Target = InnerState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 #[derive(Clone)]
-pub struct AppState(pub Arc<InnerState>);
+pub struct AppState {
+    inner: Arc<InnerState>,
+}
 
 impl AppState {
     pub fn new(config: Config) -> Self {
@@ -42,7 +53,7 @@ impl AppState {
             ..Default::default()
         };
         let m = Arc::new(m);
-        AppState(m)
+        AppState { inner: m }
     }
 
     pub fn update_cookie_from_res(&self, res: &Response) {
@@ -73,17 +84,17 @@ impl AppState {
                 if let Some(caps) = caps {
                     let key = caps[1].to_string();
                     let value = caps[2].to_string();
-                    let mut cookies = self.0.cookies.write();
+                    let mut cookies = self.cookies.write();
                     cookies.insert(key, value);
                 }
             });
     }
 
     pub fn header_cookie(&self) -> Result<String, ClewdrError> {
-        if self.0.rotating.load(Ordering::Relaxed) {
+        if self.rotating.load(Ordering::Relaxed) {
             return Err(ClewdrError::CookieRotating);
         }
-        let cookies = self.0.cookies.read();
+        let cookies = self.cookies.read();
         Ok(cookies
             .iter()
             .map(|(name, value)| format!("{}={}", name, value))
@@ -101,11 +112,11 @@ impl AppState {
             })
         });
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
-        if SHIFTS.load(Ordering::Relaxed) == self.0.init_length {
+        if SHIFTS.load(Ordering::Relaxed) == self.init_length {
             error!("Cookie used up, not rotating");
             return;
         }
-        let mut config = self.0.config.write();
+        let mut config = self.config.write();
         let Some(current_cookie) = config.current_cookie_info() else {
             return;
         };
@@ -138,18 +149,18 @@ impl AppState {
         let self_clone = self.clone();
         SHIFTS.fetch_add(1, Ordering::Relaxed);
         spawn(async move {
-            self_clone.0.rotating.store(true, Ordering::Relaxed);
+            self_clone.rotating.store(true, Ordering::Relaxed);
             sleep(dur).await;
             warn!("Cookie rotating complete");
-            self_clone.0.rotating.store(false, Ordering::Relaxed);
+            self_clone.rotating.store(false, Ordering::Relaxed);
             self_clone.bootstrap().await;
         });
     }
 
     pub async fn delete_chat(&self) -> Result<(), ClewdrError> {
-        let uuid = self.0.conv_uuid.write().take();
-        let config = self.0.config.read().clone();
-        let uuid_org = self.0.uuid_org.read().clone();
+        let uuid = self.conv_uuid.write().take();
+        let config = self.config.read().clone();
+        let uuid_org = self.uuid_org.read().clone();
         if uuid.clone().is_none_or(|u| u.is_empty()) {
             return Ok(());
         }

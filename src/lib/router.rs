@@ -38,7 +38,6 @@ async fn get_models(
     headers: HeaderMap,
     State(api_state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
-    let api_state = api_state.0;
     let authorization = headers
         .get("Authorization")
         .and_then(|h| h.to_str().ok())

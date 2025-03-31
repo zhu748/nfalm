@@ -12,15 +12,14 @@ use crate::{
 
 impl AppState {
     pub async fn bootstrap(&self) {
-        let istate = self.0.clone();
         {
-            let mut config = istate.config.write();
+            let mut config = self.config.write();
             if let Some(current_cookie) = config.current_cookie_info().cloned() {
                 config.cookie = current_cookie.cookie.clone();
-                if istate.model.read().is_some()
+                if self.model.read().is_some()
                     && current_cookie.model.is_some()
                     && !current_cookie.is_pro()
-                    && istate.model.read().as_ref().unwrap() != &current_cookie.model.unwrap()
+                    && self.model.read().as_ref().unwrap() != &current_cookie.model.unwrap()
                 {
                     self.cookie_rotate(UselessReason::Null);
                     return;
@@ -38,8 +37,7 @@ impl AppState {
     }
 
     async fn try_bootstrap(&self) -> Result<(), ClewdrError> {
-        let istate = self.0.clone();
-        let config = istate.config.read().clone();
+        let config = self.config.read().clone();
         if !config.cookie.validate() {
             error!("{}", "Invalid Cookie, enter apiKey-only mode.".red());
             return Err(ClewdrError::InvalidAuth);
@@ -95,12 +93,12 @@ impl AppState {
                 is_pro = Some("claude_team_pro".to_string())
             }
         }
-        *istate.is_pro.write() = is_pro.clone();
+        *self.is_pro.write() = is_pro.clone();
 
         // Check if cookie model is unknown (not in known models or in config's unknown models)
         {
             // drop lock by using a new scope
-            let mut config = istate.config.write();
+            let mut config = self.config.write();
             if let Some(cookie_model) = &cookie_model {
                 if !MODELS.contains(&cookie_model.as_str())
                     && !config.unknown_models.contains(cookie_model)
@@ -123,13 +121,13 @@ impl AppState {
             }
         }
         if is_pro.is_none()
-            && istate.model.read().is_some()
-            && istate.model.read().as_ref() != cookie_model.as_ref()
+            && self.model.read().is_some()
+            && self.model.read().as_ref() != cookie_model.as_ref()
         {
             self.cookie_rotate(UselessReason::Null);
             return Err(ClewdrError::InvalidAuth);
         }
-        let config = istate.config.read().clone();
+        let config = self.config.read().clone();
         let index = if config.index() < 0 {
             "".to_string()
         } else {
@@ -165,7 +163,7 @@ impl AppState {
         let uuid = boot_acc_info["uuid"]
             .as_str()
             .ok_or(ClewdrError::UnexpectedNone)?;
-        let uuid_included = istate.uuid_org_array.read().clone();
+        let uuid_included = self.uuid_org_array.read().clone();
         let uuid_included = boot_acc_info["uuid"]
             .as_str()
             .is_some_and(|uuid| uuid_included.iter().any(|u| u.as_str() == uuid));
@@ -190,7 +188,7 @@ impl AppState {
             self.cookie_rotate(reason);
             return Err(ClewdrError::InvalidAuth);
         } else {
-            istate.uuid_org_array.write().push(uuid.to_string());
+            self.uuid_org_array.write().push(uuid.to_string());
         }
 
         // Bootstrap complete
@@ -218,7 +216,7 @@ impl AppState {
             .ok_or(ClewdrError::UnexpectedNone)?;
 
         if let Some(u) = acc_info.get("uuid").and_then(|u| u.as_str()) {
-            *istate.uuid_org.write() = u.to_string();
+            *self.uuid_org.write() = u.to_string();
         }
         let active_flags = acc_info
             .get("active_flags")
@@ -266,7 +264,7 @@ impl AppState {
             } else {
                 // Restricted
                 println!("{}", "Your account is restricted.".red());
-                if self.0.config.read().settings.skip_restricted && restrict_until > 0 {
+                if self.config.read().settings.skip_restricted && restrict_until > 0 {
                     warn!("skip_restricted is enabled, skipping...");
                     self.cookie_rotate(UselessReason::Temporary(restrict_until));
                     return Ok(());
@@ -277,8 +275,8 @@ impl AppState {
             .pointer("/account/settings/preview_feature_uses_artifacts")
             .and_then(|a| a.as_bool())
             .unwrap_or(false);
-        if preview_feature_uses_artifacts != self.0.config.read().settings.artifacts {
-            let endpoint = self.0.config.read().endpoint("api/account");
+        if preview_feature_uses_artifacts != self.config.read().settings.artifacts {
+            let endpoint = self.config.read().endpoint("api/account");
             let endpoint = format!("{}/api/account", endpoint);
             let mut account_settings = bootstrap
                 .pointer("/account/settings")
