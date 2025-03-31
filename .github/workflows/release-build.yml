@@ -39,11 +39,11 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version: $VERSION"
 
-      - name: Ensure tag commit is on main
+      - name: Ensure tag commit is on master
         run: |
           git fetch origin
-          git checkout main
-          git cherry-pick ${{ github.ref }}  # Applies the tag's commit to main
+          git checkout master
+          git cherry-pick ${{ github.ref }}  # Applies the tag's commit to master
 
       - name: Update Cargo.toml version
         run: |
