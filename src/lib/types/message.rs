@@ -165,6 +165,12 @@ pub enum Role {
     Assistant,
 }
 
+impl Default for Role {
+    fn default() -> Self {
+        Role::Assistant
+    }
+}
+
 /// Content of a message
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(untagged)]
@@ -270,7 +276,7 @@ pub struct CreateMessageResponse {
 }
 
 /// Reason for stopping message generation
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StopReason {
     EndTurn,
@@ -280,7 +286,7 @@ pub enum StopReason {
 }
 
 /// Token usage statistics
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Usage {
     /// Input tokens used
     pub input_tokens: u32,
@@ -288,7 +294,7 @@ pub struct Usage {
     pub output_tokens: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct StreamUsage {
     /// Input tokens used (may be missing in some events)
     #[serde(default)]
@@ -351,7 +357,7 @@ pub struct CountMessageTokensResponse {
     pub input_tokens: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum StreamEvent {
     #[serde(rename = "message_start")]
@@ -381,7 +387,7 @@ pub enum StreamEvent {
     Error { error: StreamError },
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct MessageStartContent {
     pub id: String,
     #[serde(rename = "type")]
@@ -394,7 +400,7 @@ pub struct MessageStartContent {
     pub usage: Usage,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum ContentBlockDelta {
     #[serde(rename = "text_delta")]
@@ -407,13 +413,13 @@ pub enum ContentBlockDelta {
     SignatureDelta { signature: String },
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct MessageDeltaContent {
     pub stop_reason: Option<StopReason>,
     pub stop_sequence: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct StreamError {
     #[serde(rename = "type")]
     pub type_: String,

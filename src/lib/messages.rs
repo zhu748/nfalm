@@ -16,7 +16,7 @@ use tracing::{debug, warn};
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT, upload_images},
     config::UselessReason,
-    error::{ClewdrError, check_res_err},
+    error::{ClewdrError, check_res_err, error_stream},
     state::AppState,
     text::merge_messages,
     types::message::{ContentBlock, ImageSource, Message, Role},
@@ -101,6 +101,7 @@ pub async fn api_messages(
     State(state): State<AppState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
+    let stream = p.stream;
     match state.try_message(p).await {
         Ok(b) => {
             defer! {
@@ -121,12 +122,16 @@ pub async fn api_messages(
                 state.cookie_rotate(UselessReason::Temporary(i));
             }
             warn!("Error: {:?}", e);
-            serde_json::ser::to_string(&Message::new_text(
-                Role::Assistant,
-                format!("Error: {:?}", e),
-            ))
-            .unwrap()
-            .into_response()
+            if stream {
+                Body::from_stream(error_stream(e)).into_response()
+            } else {
+                serde_json::ser::to_string(&Message::new_text(
+                    Role::Assistant,
+                    format!("Error: {}", e),
+                ))
+                .unwrap()
+                .into_response()
+            }
         }
     }
 }
@@ -213,9 +218,6 @@ impl AppState {
 
         if !stream {
             let text = api_res.text().await?;
-            if let Err(e) = self.delete_chat().await {
-                warn!("Failed to delete chat: {:?}", e);
-            }
             return Ok(text.into_response());
         }
 

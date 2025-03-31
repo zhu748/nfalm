@@ -1,8 +1,12 @@
-use colored::Colorize;
+use futures::{Stream, stream};
 use rquest::Response;
 use serde_json::Value;
-use std::fmt::Display;
+use std::{convert::Infallible, fmt::Display};
 use tracing::{error, warn};
+
+use crate::types::message::{
+    ContentBlock, ContentBlockDelta, MessageDeltaContent, MessageStartContent, StreamEvent,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
@@ -28,8 +32,6 @@ pub enum ClewdrError {
     UnexpectedNone,
     #[error("No valid key")]
     NoValidKey,
-    #[error("Please use OpenAI format")]
-    WrongCompletionFormat,
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Invalid model name: {0}")]
@@ -104,13 +106,52 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             let diff = reset_time - now;
             let hours = diff.num_hours();
             let message = format!("Rate limit exceeded, expires in {} hours", hours);
-            warn!(
-                "Rate limit exceeded, expires in {} hours",
-                hours.to_string().yellow()
-            );
+            warn!(message);
             ret.message = Some(message.into());
             return Err(ClewdrError::TooManyRequest(ret, time));
         }
     }
     Err(ClewdrError::JsError(ret))
+}
+
+pub fn error_stream(e: ClewdrError) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> {
+    let msg_start_content = MessageStartContent::default();
+    let msg_start_block = StreamEvent::MessageStart {
+        message: msg_start_content,
+    };
+    let content_block = ContentBlock::Text {
+        text: String::new(),
+    };
+    let content_block_start = StreamEvent::ContentBlockStart {
+        index: 0,
+        content_block,
+    };
+    let content_block_delta = ContentBlockDelta::TextDelta {
+        text: format!("ClewdR Error: {e}"),
+    };
+    let content_block_delta = StreamEvent::ContentBlockDelta {
+        index: 0,
+        delta: content_block_delta,
+    };
+    let content_block_end = StreamEvent::ContentBlockStop { index: 0 };
+    let message_delta = StreamEvent::MessageDelta {
+        delta: MessageDeltaContent::default(),
+        usage: None,
+    };
+    let message_stop = StreamEvent::MessageStop;
+    let vec = vec![
+        msg_start_block,
+        content_block_start,
+        content_block_delta,
+        content_block_end,
+        message_delta,
+        message_stop,
+    ];
+    let vec = vec.into_iter().map(|e| {
+        let e = serde_json::to_string(&e).unwrap();
+        let e = format!("data: {e}\n\n");
+        let bytes = axum::body::Bytes::from(e);
+        Ok::<axum::body::Bytes, Infallible>(bytes)
+    });
+    stream::iter(vec)
 }

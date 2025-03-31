@@ -215,64 +215,10 @@ impl AppState {
             })
             .ok_or(ClewdrError::UnexpectedNone)?;
 
+        self.check_flags(acc_info)?;
+
         if let Some(u) = acc_info.get("uuid").and_then(|u| u.as_str()) {
             *self.uuid_org.write() = u.to_string();
-        }
-        let active_flags = acc_info
-            .get("active_flags")
-            .and_then(|a| a.as_array())
-            .cloned()
-            .unwrap_or_default();
-        if !active_flags.is_empty() {
-            let now = chrono::Utc::now();
-            let mut restrict_until = 0;
-            let formatted_flags = active_flags
-                .iter()
-                .map_while(|f| {
-                    let expire = f["expires_at"].as_str()?;
-                    let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;
-                    let timestamp = expire.timestamp();
-                    let diff = expire.to_utc() - now;
-                    if diff < chrono::Duration::zero() {
-                        return None;
-                    }
-                    restrict_until = timestamp.max(restrict_until);
-                    let r#type = f["type"].as_str()?;
-                    Some(format!(
-                        "{}: expires in {} hours",
-                        r#type.red(),
-                        diff.num_hours().to_string().red()
-                    ))
-                })
-                .collect::<Vec<_>>();
-            let banned = active_flags
-                .iter()
-                .any(|f| f["type"].as_str() == Some("consumer_banned"));
-            let banned_str = if banned {
-                "[BANNED] ".red().to_string()
-            } else {
-                "".to_string()
-            };
-            println!("{}{}", banned_str, "Your account has warnings:".red());
-            for flag in formatted_flags {
-                println!("{}", flag);
-            }
-            if banned {
-                println!(
-                    "{}",
-                    "Your account is banned, please use another account.".red()
-                );
-                self.cookie_rotate(UselessReason::Banned);
-                return Err(ClewdrError::InvalidAuth);
-            } else {
-                // Restricted
-                println!("{}", "Your account is restricted.".red());
-                if self.config.read().settings.skip_restricted && restrict_until > 0 {
-                    warn!("skip_restricted is enabled, skipping...");
-                    self.cookie_rotate(UselessReason::Temporary(restrict_until));
-                    return Ok(());
-                }
-            }
         }
         let preview_feature_uses_artifacts = bootstrap
             .pointer("/account/settings/preview_feature_uses_artifacts")
@@ -303,6 +249,74 @@ impl AppState {
             self.update_cookie_from_res(&res);
             check_res_err(res).await?;
         }
+        Ok(())
+    }
+
+    fn check_flags(&self, acc_info: &Value) -> Result<(), ClewdrError> {
+        let active_flags = acc_info
+            .get("active_flags")
+            .and_then(|a| a.as_array())
+            .cloned()
+            .unwrap_or_default();
+        if active_flags.is_empty() {
+            return Ok(());
+        }
+        let now = chrono::Utc::now();
+        let mut restrict_until = 0;
+        let formatted_flags = active_flags
+            .iter()
+            .map_while(|f| {
+                let expire = f["expires_at"].as_str()?;
+                let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;
+                let timestamp = expire.timestamp();
+                let diff = expire.to_utc() - now;
+                if diff < chrono::Duration::zero() {
+                    return None;
+                }
+                restrict_until = timestamp.max(restrict_until);
+                let r#type = f["type"].as_str()?;
+                Some(format!(
+                    "{}: expires in {} hours",
+                    r#type.red(),
+                    diff.num_hours().to_string().red()
+                ))
+            })
+            .collect::<Vec<_>>();
+
+        if formatted_flags.is_empty() {
+            return Ok(());
+        }
+
+        let banned = active_flags
+            .iter()
+            .any(|f| f["type"].as_str() == Some("consumer_banned"));
+        let banned_str = if banned {
+            "[BANNED] ".red().to_string()
+        } else {
+            "".to_string()
+        };
+
+        println!("{}{}", banned_str, "Your account has warnings:".red());
+        for flag in formatted_flags {
+            println!("{}", flag);
+        }
+        if banned {
+            println!(
+                "{}",
+                "Your account is banned, please use another account.".red()
+            );
+            self.cookie_rotate(UselessReason::Banned);
+            return Err(ClewdrError::InvalidAuth);
+        } else {
+            // Restricted
+            println!("{}", "Your account is restricted.".red());
+            if self.config.read().settings.skip_restricted && restrict_until > 0 {
+                warn!("skip_restricted is enabled, skipping...");
+                self.cookie_rotate(UselessReason::Temporary(restrict_until));
+                return Err(ClewdrError::InvalidAuth);
+            }
+        }
+
         Ok(())
     }
 }
