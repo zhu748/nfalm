@@ -74,28 +74,17 @@ pub struct Config {
     pub wait_time: u64,
 
     // Network settings
-    pub cookie_counter: u32,
     cookie_index: i32,
     pub proxy_password: String,
     ip: String,
     port: u16,
     pub local_tunnel: bool,
 
-    // Performance settings
-    pub buffer_size: u32,
-    pub system_interval: u32,
-
     // Proxy configurations
     pub rproxy: String,
     pub api_rproxy: String,
 
-    // Token handling
-    pub placeholder_token: String,
-    pub placeholder_byte: String,
-
     // Prompt templates
-    pub prompt_experiment_first: String,
-    pub prompt_experiment_next: String,
     pub user_real_roles: bool,
 
     // Nested settings section
@@ -105,10 +94,6 @@ pub struct Config {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
-    pub renew_always: bool,
-    pub prompt_experiments: bool,
-    pub system_experiments: bool,
-    pub prevent_imperson: bool,
     pub pass_params: bool,
     pub preserve_chats: bool,
     pub log_messages: bool,
@@ -250,20 +235,13 @@ impl Default for Config {
             wait_time: 15,
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
-            cookie_counter: 3,
             cookie_index: -1,
             proxy_password: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
             local_tunnel: false,
-            buffer_size: 1,
-            system_interval: 3,
             rproxy: String::new(),
             api_rproxy: String::new(),
-            placeholder_token: String::new(),
-            placeholder_byte: String::new(),
-            prompt_experiment_first: String::new(),
-            prompt_experiment_next: String::new(),
             settings: Settings::default(),
             user_real_roles: false,
         }
@@ -273,10 +251,6 @@ impl Default for Config {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            renew_always: true,
-            prompt_experiments: true,
-            system_experiments: true,
-            prevent_imperson: true,
             pass_params: false,
             preserve_chats: false,
             log_messages: true,

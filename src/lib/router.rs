@@ -7,6 +7,7 @@ use axum::{
 };
 use const_format::{concatc, formatc};
 use serde_json::{Value, json};
+use tracing::debug;
 
 use crate::{client::NORMAL_CLIENT, messages::api_messages, state::AppState, utils::MODELS};
 
@@ -34,12 +35,11 @@ impl RouterBuilder {
 }
 
 async fn reject_openai() -> Json<Value> {
+    debug!("Reject OpenAI API");
     let response = json!({
         "error": {
             "message": "OpenAI API is not supported, please use as Claude Reverse Proxy. 请使用Claude反向代理而非OpenAI API兼容",
             "type": "invalid_request_error",
-            "param": null,
-            "code": null
         }
     });
     Json(response)
@@ -94,6 +94,7 @@ async fn get_models(
         let b = b["id"].as_str().unwrap_or("");
         a.cmp(b)
     });
+    debug!("Models: {:?}", data);
     data.dedup();
     let response = json!({
         "data": data,

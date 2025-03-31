@@ -12,25 +12,10 @@ use crate::{
 
 impl AppState {
     pub async fn bootstrap(&self) {
-        {
-            let mut config = self.config.write();
-            if let Some(current_cookie) = config.current_cookie_info().cloned() {
-                config.cookie = current_cookie.cookie.clone();
-                if self.model.read().is_some()
-                    && current_cookie.model.is_some()
-                    && !current_cookie.is_pro()
-                    && self.model.read().as_ref().unwrap() != &current_cookie.model.unwrap()
-                {
-                    self.cookie_rotate(UselessReason::Null);
-                    return;
-                }
-            }
-        }
-
         let res = self.try_bootstrap().await;
         if let Err(ClewdrError::OtherHttpError(c, _)) = res {
             if c == 401 || c == 403 {
-                error!("{}", "Invalid authorization".red());
+                error!("{}", "Invalid authorization");
                 self.cookie_rotate(UselessReason::Invalid);
             }
         }
@@ -82,18 +67,18 @@ impl AppState {
                 cookie_model = Some(model.to_string());
             }
         }
-        let mut is_pro = None;
+        let mut pro = None;
         if let Some(capabilities) = boot_acc_info["capabilities"].as_array() {
             if capabilities
                 .iter()
                 .any(|c| c.as_str() == Some("claude_pro"))
             {
-                is_pro = Some("claude_pro".to_string());
+                pro = Some("claude_pro".to_string());
             } else if capabilities.iter().any(|c| c.as_str() == Some("raven")) {
-                is_pro = Some("claude_team_pro".to_string())
+                pro = Some("claude_team_pro".to_string())
             }
         }
-        *self.is_pro.write() = is_pro.clone();
+        *self.is_pro.write() = pro.clone();
 
         // Check if cookie model is unknown (not in known models or in config's unknown models)
         {
@@ -110,7 +95,7 @@ impl AppState {
                 }
             }
 
-            let model_name = is_pro.clone().or(cookie_model.clone()).unwrap_or_default();
+            let model_name = pro.clone().or(cookie_model.clone()).unwrap_or_default();
             if let Some(current_cookie) = config.current_cookie_info() {
                 if !model_name.is_empty() {
                     current_cookie.model = Some(model_name);
@@ -120,7 +105,7 @@ impl AppState {
                 }
             }
         }
-        if is_pro.is_none()
+        if pro.is_none()
             && self.model.read().is_some()
             && self.model.read().as_ref() != cookie_model.as_ref()
         {
