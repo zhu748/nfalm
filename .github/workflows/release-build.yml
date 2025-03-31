@@ -347,7 +347,9 @@ jobs:
         with:
           files: artifacts/**/clewdr*.zip
           name: Release ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md  # Use release notes file
           draft: true
           prerelease: false
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
