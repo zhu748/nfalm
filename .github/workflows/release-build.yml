@@ -62,7 +62,7 @@ jobs:
 
       - name: Commit updated Cargo.toml
         run: |
-          git add Cargo.toml
+          git add Cargo.toml Cargo.lock
           git commit -m "Update Cargo.toml to version ${{ steps.set-version.outputs.version }}" && {
             git pull origin master --rebase
             git push origin master
