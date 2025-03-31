@@ -8,4 +8,4 @@ git add RELEASE_NOTES.md
 git commit -m "Update release notes for v$VERSION"
 git push
 git tag -a "v$VERSION" -m "Release v$VERSION"
-git push origin "v$VERSION" -f
+git push origin "v$VERSION" --force

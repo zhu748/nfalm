@@ -3,6 +3,7 @@ name: dev-build
 on:
   push:
     branches: ["master"]
+    tags-ignore: ["v*"]
   pull_request:
     branches: ["master"]
   workflow_dispatch:
