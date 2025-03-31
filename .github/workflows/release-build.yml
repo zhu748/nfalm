@@ -63,8 +63,10 @@ jobs:
       - name: Commit updated Cargo.toml
         run: |
           git add Cargo.toml
-          git commit -m "Update Cargo.toml to version ${{ steps.set-version.outputs.version }}"
-          git push origin master
+          git commit -m "Update Cargo.toml to version ${{ steps.set-version.outputs.version }}" && {
+            git pull origin master --rebase
+            git push origin master
+          } || echo "No changes to commit in Cargo.toml; skipping push"
 
   linux:
     name: Build Linux (GNU)
