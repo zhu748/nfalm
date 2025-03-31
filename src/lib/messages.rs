@@ -194,11 +194,7 @@ impl AppState {
             .send()
             .await?;
         self.update_cookie_from_res(&api_res);
-        let api_res = check_res_err(api_res).await.inspect_err(|e| {
-            if let ClewdrError::TooManyRequest(_, i) = e {
-                self.cookie_rotate(UselessReason::Temporary(*i));
-            }
-        })?;
+        let api_res = check_res_err(api_res).await?;
 
         if !stream {
             let text = api_res.text().await?;

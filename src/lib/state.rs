@@ -23,6 +23,7 @@ use crate::{config::Config, utils::ENDPOINT};
 pub struct InnerState {
     pub config: RwLock<Config>,
     init_length: u64,
+    cons_requests: AtomicU64,
     rotating: AtomicBool,
     pub is_pro: RwLock<Option<String>>,
     pub uuid_org: RwLock<String>,
@@ -54,6 +55,17 @@ impl AppState {
         };
         let m = Arc::new(m);
         AppState { inner: m }
+    }
+
+    pub fn increase_cons_requests(&self) {
+        let mut cons_requests = self.cons_requests.load(Ordering::Relaxed);
+        cons_requests += 1;
+        let max_cons_requests = self.config.read().max_cons_requests;
+        if cons_requests > max_cons_requests {
+            cons_requests = 0;
+            self.cookie_rotate(UselessReason::CoolDown);
+        }
+        self.cons_requests.store(cons_requests, Ordering::Relaxed);
     }
 
     pub fn update_cookie_from_res(&self, res: &Response) {
@@ -121,6 +133,10 @@ impl AppState {
             return;
         };
         match reason {
+            UselessReason::CoolDown => {
+                warn!("Cookie is in cooling down, not cleaning");
+                config.rotate_cookie();
+            }
             UselessReason::Temporary(i) => {
                 warn!("Temporary useless cookie, not cleaning");
                 current_cookie.reset_time = Some(i);

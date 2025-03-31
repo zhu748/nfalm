@@ -21,6 +21,7 @@ pub enum UselessReason {
     Banned,
     Invalid,
     Temporary(i64),
+    CoolDown,
 }
 
 impl Display for UselessReason {
@@ -33,6 +34,7 @@ impl Display for UselessReason {
             UselessReason::Banned => write!(f, "Banned"),
             UselessReason::Invalid => write!(f, "Invalid"),
             UselessReason::Temporary(i) => write!(f, "Temporary {}", i),
+            UselessReason::CoolDown => write!(f, "CoolDown"),
         }
     }
 }
@@ -65,6 +67,7 @@ pub struct Config {
     cookie_array: Vec<CookieInfo>,
     pub wasted_cookie: Vec<UselessCookie>,
     pub unknown_models: Vec<String>,
+    pub max_cons_requests: u64,
 
     // Network settings
     pub cookie_counter: u32,
@@ -227,6 +230,7 @@ impl Default for Config {
                 CookieInfo::new(PLACEHOLDER_COOKIE, None, None),
                 CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro"), None),
             ],
+            max_cons_requests: 3,
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
             cookie_counter: 3,
@@ -387,7 +391,7 @@ impl Config {
         self.cookie_index
     }
 
-    pub fn delete_current_cookie(&mut self) -> Option<CookieInfo> {
+    fn delete_current_cookie(&mut self) -> Option<CookieInfo> {
         if self.cookie_index < 0 {
             return None;
         }
