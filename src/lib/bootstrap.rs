@@ -232,8 +232,11 @@ impl AppState {
                     let expire = f["expires_at"].as_str()?;
                     let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;
                     let timestamp = expire.timestamp();
-                    restrict_until = timestamp.max(restrict_until);
                     let diff = expire.to_utc() - now;
+                    if diff < chrono::Duration::zero() {
+                        return None;
+                    }
+                    restrict_until = timestamp.max(restrict_until);
                     let r#type = f["type"].as_str()?;
                     Some(format!(
                         "{}: expires in {} hours",
