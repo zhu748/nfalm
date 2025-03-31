@@ -15,7 +15,7 @@ async fn main() -> Result<(), ClewdrError> {
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_timer(timer)
-        .compact()
+        .pretty()
         .init();
     // use that subscriber to process traces emitted after this point
     println!("{}", *BANNER);

@@ -1,8 +1,11 @@
 use colored::Colorize;
 use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Display};
-use tracing::{error, info, warn};
+use std::{
+    fmt::{Debug, Display},
+    process::exit,
+};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     Args,
@@ -68,6 +71,7 @@ pub struct Config {
     pub wasted_cookie: Vec<UselessCookie>,
     pub unknown_models: Vec<String>,
     pub max_cons_requests: u64,
+    pub wait_time: u64,
 
     // Network settings
     pub cookie_counter: u32,
@@ -151,6 +155,18 @@ impl CookieInfo {
             .as_ref()
             .is_some_and(|model| model.contains("claude") && model.contains("_pro"))
     }
+
+    pub fn check_timer(&mut self) -> bool {
+        if let Some(reset_time) = self.reset_time {
+            let now = chrono::Utc::now();
+            if reset_time < now.timestamp() {
+                self.reset_time = None;
+                return true;
+            }
+            return false;
+        }
+        true
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -231,6 +247,7 @@ impl Default for Config {
                 CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro"), None),
             ],
             max_cons_requests: 3,
+            wait_time: 15,
             wasted_cookie: Vec::new(),
             unknown_models: Vec::new(),
             cookie_counter: 3,
@@ -420,8 +437,23 @@ impl Config {
             return;
         }
         let array_len = self.cookie_array.len();
-        let index = &mut self.cookie_index;
-        *index = (*index + 1) % array_len as i32;
+        let mut index = self.cookie_index;
+        index = (index + 1) % array_len as i32;
+        while let Some(cookie) = self.cookie_array.get_mut(index as usize) {
+            debug!("Checking cookie in {}", index);
+            if index == self.cookie_index {
+                error!("All cookies are useless");
+                exit(1);
+            }
+            if cookie.check_timer() {
+                break;
+            }
+            index = (index + 1) % array_len as i32;
+        }
+        self.cookie_index = index;
+        self.save().unwrap_or_else(|e| {
+            error!("Failed to save config: {}", e);
+        });
         warn!("Rotating cookie");
     }
 

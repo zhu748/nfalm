@@ -63,6 +63,7 @@ impl AppState {
         let max_cons_requests = self.config.read().max_cons_requests;
         if cons_requests > max_cons_requests {
             cons_requests = 0;
+            warn!("Reached max concurrent requests, rotating cookie");
             self.cookie_rotate(UselessReason::CoolDown);
         }
         self.cons_requests.store(cons_requests, Ordering::Relaxed);
@@ -117,51 +118,49 @@ impl AppState {
     }
 
     pub fn cookie_rotate(&self, reason: UselessReason) {
-        let self_clone = self.clone();
-        spawn(async move {
-            self_clone.delete_chat().await.inspect_err(|e| {
-                warn!("Failed to delete chat: {:?}", e);
-            })
-        });
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
         if SHIFTS.load(Ordering::Relaxed) == self.init_length {
             error!("Cookie used up, not rotating");
             return;
         }
-        let mut config = self.config.write();
-        let Some(current_cookie) = config.current_cookie_info() else {
-            return;
-        };
-        match reason {
-            UselessReason::CoolDown => {
-                warn!("Cookie is in cooling down, not cleaning");
-                config.rotate_cookie();
-            }
-            UselessReason::Temporary(i) => {
-                warn!("Temporary useless cookie, not cleaning");
-                current_cookie.reset_time = Some(i);
-                config.save().unwrap_or_else(|e| {
-                    error!("Failed to save config: {}", e);
-                });
-                config.rotate_cookie();
-            }
-            _ => {
-                // if reason is not temporary, clean cookie
-                config.cookie_cleaner(reason);
+        {
+            let mut config = self.config.write();
+            let Some(current_cookie) = config.current_cookie_info() else {
+                return;
+            };
+            match reason {
+                UselessReason::CoolDown => {
+                    warn!("Cookie is in cooling down, not cleaning");
+                    config.rotate_cookie();
+                }
+                UselessReason::Temporary(i) => {
+                    warn!("Temporary useless cookie, not cleaning");
+                    current_cookie.reset_time = Some(i);
+                    config.save().unwrap_or_else(|e| {
+                        error!("Failed to save config: {}", e);
+                    });
+                    config.rotate_cookie();
+                }
+                _ => {
+                    // if reason is not temporary, clean cookie
+                    config.cookie_cleaner(reason);
+                }
             }
         }
+        let config = self.config.read();
         // rotate the cookie
         config.save().unwrap_or_else(|e| {
             error!("Failed to save config: {}", e);
         });
         // set timeout callback
         let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
-            warn!("Waiting 15 seconds to change cookie");
-            15
+            let time = config.wait_time;
+            warn!("Waiting {time} seconds to change cookie");
+            time
         } else {
             0
         };
-        let dur = Duration::from_secs(dur as u64);
+        let dur = Duration::from_secs(dur);
         let self_clone = self.clone();
         SHIFTS.fetch_add(1, Ordering::Relaxed);
         spawn(async move {

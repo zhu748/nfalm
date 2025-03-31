@@ -7,15 +7,17 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use rquest::header::ACCEPT;
+use scopeguard::defer;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use tokio::spawn;
 use tracing::{debug, warn};
 
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT, upload_images},
+    config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
-    stream::ClewdrStream,
     text::merge_messages,
     types::message::{ContentBlock, ImageSource, Message, Role},
     utils::{TIME_ZONE, print_out_json},
@@ -99,11 +101,22 @@ pub async fn api_messages(
     State(state): State<AppState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
+    let state_clone = state.clone();
+    defer! {
+        spawn(async move {
+            if let Err(e) = state_clone.delete_chat().await {
+                warn!("Failed to delete chat: {:?}", e);
+            }
+        });
+    }
     match state.try_message(p).await {
         Ok(b) => b.into_response(),
         Err(e) => {
+            if let Err(e) = state.delete_chat().await {
+                warn!("Failed to delete chat: {:?}", e);
+            }
             if let ClewdrError::TooManyRequest(_, i) = e {
-                state.cookie_rotate(crate::config::UselessReason::Temporary(i));
+                state.cookie_rotate(UselessReason::Temporary(i));
             }
             warn!("Error: {:?}", e);
             serde_json::ser::to_string(&Message::new_text(
@@ -131,11 +144,9 @@ impl AppState {
             .into_response());
         }
 
-        // delete the previous conversation if it exists
-        self.delete_chat().await?;
-
         // Create a new conversation
-        *self.conv_uuid.write() = Some(uuid::Uuid::new_v4().to_string());
+        let new_uuid = uuid::Uuid::new_v4().to_string();
+        *self.conv_uuid.write() = Some(new_uuid.to_string());
         let endpoint = self.config.read().endpoint("");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
@@ -156,7 +167,7 @@ impl AppState {
             .append_headers("", &self.header_cookie()?)
             .send()
             .await?;
-        debug!("New conversation created");
+        debug!("New conversation created: {}", new_uuid);
         self.update_cookie_from_res(&api_res);
         check_res_err(api_res).await?;
 
@@ -203,12 +214,13 @@ impl AppState {
             if let Err(e) = self.delete_chat().await {
                 warn!("Failed to delete chat: {:?}", e);
             }
+            self.increase_cons_requests();
             return Ok(text.into_response());
         }
 
         // stream the response
         let input_stream = api_res.bytes_stream();
-        let my_stream = ClewdrStream::new(input_stream, self.clone());
-        Ok(Body::from_stream(my_stream).into_response())
+        // let my_stream = ClewdrStream::new(input_stream, self.clone());
+        Ok(Body::from_stream(input_stream).into_response())
     }
 }

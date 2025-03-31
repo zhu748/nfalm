@@ -1,5 +1,6 @@
+use colored::Colorize;
 use rquest::Response;
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::fmt::Display;
 use tracing::{error, warn};
 
@@ -102,54 +103,14 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             let now = chrono::Utc::now();
             let diff = reset_time - now;
             let hours = diff.num_hours();
-            let message = format!("Rate limit exceeded, expires in {hours} hours");
-            warn!(message);
+            let message = format!("Rate limit exceeded, expires in {} hours", hours);
+            warn!(
+                "Rate limit exceeded, expires in {} hours",
+                hours.to_string().yellow()
+            );
             ret.message = Some(message.into());
             return Err(ClewdrError::TooManyRequest(ret, time));
         }
     }
     Err(ClewdrError::JsError(ret))
-}
-
-pub fn check_json_err(json: &Value) -> Value {
-    let err = json.get("error");
-    let status = json
-        .get("status")
-        .and_then(|s| s.as_u64())
-        .map(|s| s as u16)
-        .unwrap_or(500);
-    let err_msg = err.and_then(|e| e.get("message")).and_then(|m| m.as_str());
-    let mut ret = json!({
-        "name": "Error",
-        "message": err_msg.unwrap_or("Unknown error"),
-    });
-    if let Some(err_api) = err {
-        ret["status"] = json["status"].clone();
-        ret["planned"] = json!(true);
-        if !err_api["message"].is_null() {
-            ret["message"] = err_api["message"].clone();
-        }
-        if !err_api["type"].is_null() {
-            ret["type"] = err_api["type"].clone();
-        }
-        if status == 429 {
-            if let Some(time) = err_api["message"]
-                .as_str()
-                .and_then(|m| serde_json::from_str::<Value>(m).ok())
-                .and_then(|m| m["resetsAt"].as_i64())
-            {
-                let Some(reset_time) = chrono::DateTime::from_timestamp(time, 0) else {
-                    error!("Failed to parse timestamp: {}", time);
-                    return ret;
-                };
-                let now = chrono::Utc::now();
-                let diff = reset_time - now;
-                let hours = diff.num_hours();
-                let message = format!("Rate limit exceeded, expires in {hours} hours");
-                warn!(message);
-                ret["message"] = message.into();
-            }
-        }
-    }
-    ret
 }
