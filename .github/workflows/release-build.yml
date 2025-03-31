@@ -21,6 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: master
           fetch-depth: 0 # Full history for tag access
 
       - name: Verify release notes version
@@ -38,6 +39,12 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version: $VERSION"
 
+      - name: Ensure tag commit is on main
+        run: |
+          git fetch origin
+          git checkout main
+          git cherry-pick ${{ github.ref }}  # Applies the tag's commit to main
+
       - name: Update Cargo.toml version
         run: |
           VERSION=${{ steps.set-version.outputs.version }}
@@ -50,7 +57,7 @@ jobs:
           git config user.email "action@github.com"
           git add Cargo.toml
           git commit -m "Update Cargo.toml to version ${{ steps.set-version.outputs.version }}"
-          git push
+          git push origin master
 
   linux:
     name: Build Linux (GNU)
