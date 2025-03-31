@@ -11,9 +11,9 @@ use crate::types::message::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
-    #[error("Invalid authorization")]
+    #[error("Invalid Cookie")]
     InvalidCookie,
-    #[error("Exhausted cookie: {0}")]
+    #[error("Exhausted Cookie: {0}")]
     ExhaustedCookie(i64),
     #[error("Json error: {0}")]
     JsonError(#[from] serde_json::Error),
@@ -27,18 +27,14 @@ pub enum ClewdrError {
     RquestError(#[from] rquest::Error),
     #[error("UTF8 error: {0}")]
     UTF8Error(#[from] std::string::FromUtf8Error),
-    #[error("Http error: {0}, {1}")]
+    #[error("Http error: code: {0}, body: {1}")]
     OtherHttpError(StatusCode, InnerHttpError),
-    #[error("429 Too many requests: {0}")]
+    #[error("429 Too many requests, until {0}")]
     TooManyRequest(i64),
     #[error("Unexpected None")]
     UnexpectedNone,
-    #[error("No valid key")]
-    NoValidKey,
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("Invalid model name: {0}")]
-    InvalidModel(String),
     #[error("Config error: {0}")]
     PathNotFound(String),
     #[error("Invalid timestamp: {0}")]

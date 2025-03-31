@@ -36,10 +36,6 @@ impl AppState {
                 error!("Cookie is invalid");
                 self.cookie_rotate(UselessReason::Invalid);
             }
-            Err(ClewdrError::CookieRotating) => {
-                // Cookie is rotating
-                error!("Cookie is rotating");
-            }
             Err(ClewdrError::OtherHttpError(c, e)) => {
                 error!("HTTP Error, code: {}, error: {}", c, e);
             }
