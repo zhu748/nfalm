@@ -41,6 +41,8 @@ jobs:
 
       - name: Ensure tag commit is on master
         run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
           git fetch origin
           git checkout master
           git cherry-pick ${{ github.ref }}  # Applies the tag's commit to master
@@ -53,8 +55,6 @@ jobs:
 
       - name: Commit updated Cargo.toml
         run: |
-          git config user.name "GitHub Action"
-          git config user.email "action@github.com"
           git add Cargo.toml
           git commit -m "Update Cargo.toml to version ${{ steps.set-version.outputs.version }}"
           git push origin master
