@@ -13,7 +13,6 @@ use tracing::{debug, warn};
 
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT, upload_images},
-    config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
     stream::ClewdrStream,
@@ -103,6 +102,9 @@ pub async fn api_messages(
     match state.try_message(p).await {
         Ok(b) => b.into_response(),
         Err(e) => {
+            if let ClewdrError::TooManyRequest(_, i) = e {
+                state.cookie_rotate(crate::config::UselessReason::Temporary(i));
+            }
             warn!("Error: {:?}", e);
             serde_json::ser::to_string(&Message::new_text(
                 Role::Assistant,
