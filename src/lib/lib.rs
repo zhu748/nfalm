@@ -19,6 +19,8 @@ pub const TITLE: &str = formatc!(
 );
 
 #[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
 pub struct Args {
+    /// Path to the cookie file
     pub cookie_file: Option<String>,
 }

@@ -1,9 +1,11 @@
+use clap::Parser;
 use clewdr::{self, config::Config, error::ClewdrError, state::AppState, utils::BANNER};
 use colored::Colorize;
 use const_format::formatc;
 
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {
+    clewdr::Args::parse();
     // construct a subscriber that prints formatted traces to stdout
     let timer = tracing_subscriber::fmt::time::ChronoLocal::new("%H:%M:%S%.3f".to_string());
     let filter = tracing_subscriber::EnvFilter::builder()
