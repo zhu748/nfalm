@@ -28,8 +28,8 @@ impl AppState {
         }
 
         let res = self.try_bootstrap().await;
-        if let Err(ClewdrError::JsError(v)) = res {
-            if Some(json!("Invalid authorization")) == v.message {
+        if let Err(ClewdrError::OtherHttpError(c, _)) = res {
+            if c == 401 || c == 403 {
                 error!("{}", "Invalid authorization".red());
                 self.cookie_rotate(UselessReason::Invalid);
             }

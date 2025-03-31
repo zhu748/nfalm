@@ -1,8 +1,9 @@
 use futures::{Stream, stream};
-use rquest::Response;
-use serde_json::Value;
+use rquest::{Response, StatusCode};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use std::{convert::Infallible, fmt::Display};
-use tracing::{error, warn};
+use tracing::{debug, error};
 
 use crate::types::message::{
     ContentBlock, ContentBlockDelta, MessageDeltaContent, MessageStartContent, StreamEvent,
@@ -24,10 +25,10 @@ pub enum ClewdrError {
     RquestError(#[from] rquest::Error),
     #[error("UTF8 error: {0}")]
     UTF8Error(#[from] std::string::FromUtf8Error),
-    #[error("JavaScript error {0}")]
-    JsError(JsError),
-    #[error("Too many requests: {0}")]
-    TooManyRequest(JsError, i64),
+    #[error("Http error: {0}, {1}")]
+    OtherHttpError(StatusCode, InnerHttpError),
+    #[error("429 Too many requests: {0}")]
+    TooManyRequest(i64),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error("No valid key")]
@@ -44,16 +45,45 @@ pub enum ClewdrError {
     CookieRotating,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct JsError {
-    pub name: String,
-    pub message: Option<Value>,
-    pub status: Option<Value>,
-    pub planned: Option<bool>,
-    pub r#type: Option<Value>,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct HttpError {
+    pub error: InnerHttpError,
+    r#type: String,
 }
 
-impl Display for JsError {
+#[derive(Debug, Serialize)]
+pub struct InnerHttpError {
+    pub message: Value,
+    pub r#type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct InnerHttpErrorRaw {
+    pub message: String,
+    pub r#type: String,
+}
+
+impl<'de> Deserialize<'de> for InnerHttpError {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // when message is a json string, try pass it as a object
+        let raw = InnerHttpErrorRaw::deserialize(deserializer)?;
+        if let Ok(message) = serde_json::from_str::<Value>(&raw.message) {
+            return Ok(InnerHttpError {
+                message,
+                r#type: raw.r#type,
+            });
+        }
+        Ok(InnerHttpError {
+            message: json!(raw.message),
+            r#type: raw.r#type,
+        })
+    }
+}
+
+impl Display for InnerHttpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         serde_json::to_string(self)
             .map_err(|_| std::fmt::Error)?
@@ -62,56 +92,26 @@ impl Display for JsError {
 }
 
 pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
-    let mut ret = JsError {
-        name: "Error".to_string(),
-        message: None,
-        status: None,
-        planned: None,
-        r#type: None,
-    };
     let status = res.status();
-    if !status.is_success() {
-        ret.message = Some(format!("Unexpected response code: {}", status).into());
-        error!("Unexpected response code: {}", status);
-    } else {
+    if status.is_success() {
         return Ok(res);
     }
-    let json = res.text().await.inspect_err(|e| {
-        error!("Failed to get response: {}\n", e);
-    })?;
-    let json = serde_json::from_str::<Value>(&json).inspect_err(|e| {
-        error!("Failed to parse response: {}\n", e);
-    })?;
-    let Some(err_api) = json.get("error") else {
-        return Err(ClewdrError::JsError(ret));
-    };
-    ret.status = json.get("status").cloned();
-    ret.planned = true.into();
-    if !err_api["message"].is_null() {
-        ret.message = err_api.get("message").cloned();
-    }
-    if !err_api["type"].is_null() {
-        ret.r#type = err_api.get("type").cloned();
-    }
+    debug!("Error response status: {}", status);
+    let err = res.json::<HttpError>().await?;
+    let err = err.error;
     if status == 429 {
-        if let Some(time) = err_api["message"]
-            .as_str()
-            .and_then(|m| serde_json::from_str::<Value>(m).ok())
-            .and_then(|m| m["resetsAt"].as_i64())
-        {
+        if let Some(time) = err.message["resetsAt"].as_i64() {
             let reset_time = chrono::DateTime::from_timestamp(time, 0)
                 .ok_or(ClewdrError::TimestampError(time))?
                 .to_utc();
             let now = chrono::Utc::now();
             let diff = reset_time - now;
             let hours = diff.num_hours();
-            let message = format!("Rate limit exceeded, expires in {} hours", hours);
-            warn!(message);
-            ret.message = Some(message.into());
-            return Err(ClewdrError::TooManyRequest(ret, time));
+            error!("Rate limit exceeded, expires in {} hours", hours);
+            return Err(ClewdrError::TooManyRequest(time));
         }
     }
-    Err(ClewdrError::JsError(ret))
+    Err(ClewdrError::OtherHttpError(status, err))
 }
 
 pub fn error_stream(e: ClewdrError) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> {

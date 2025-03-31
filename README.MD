@@ -22,6 +22,7 @@ If you find any issue, feel free to tell me.
 2. Run `clewdr` / `clewdr.exe`.
 3. A default config file `config.toml` will be generated in the same directory.
 4. Edit `config.toml` to set your own config.
+5. Fill proxy setting in SillyTavern as Claude Reverse Proxy, **NOT** OpenAI Compatible. Due to a SillyTavern bug, you should fill some random proxy password in the proxy password field. Otherwise, SillyTavern will not send the request to the proxy.
 
 ## Advanced usage
 

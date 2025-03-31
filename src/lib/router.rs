@@ -18,6 +18,7 @@ impl RouterBuilder {
     pub fn new(state: AppState) -> Self {
         Self {
             inner: Router::new()
+                .route("/v1/chat/completions", post(reject_openai))
                 .route("/v1/models", get(get_models))
                 .route("/v1/messages", post(api_messages))
                 .route("/v1", options(api_options))
@@ -30,6 +31,18 @@ impl RouterBuilder {
     pub fn build(self) -> Router {
         self.inner
     }
+}
+
+async fn reject_openai() -> Json<Value> {
+    let response = json!({
+        "error": {
+            "message": "OpenAI API is not supported, please use as Claude Reverse Proxy. 请使用Claude反向代理而非OpenAI API兼容",
+            "type": "invalid_request_error",
+            "param": null,
+            "code": null
+        }
+    });
+    Json(response)
 }
 
 async fn get_models(

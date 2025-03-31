@@ -118,7 +118,7 @@ pub async fn api_messages(
             if let Err(e) = state.delete_chat().await {
                 warn!("Failed to delete chat: {:?}", e);
             }
-            if let ClewdrError::TooManyRequest(_, i) = e {
+            if let ClewdrError::TooManyRequest(i) = e {
                 state.cookie_rotate(UselessReason::Temporary(i));
             }
             warn!("Error: {:?}", e);
