@@ -58,6 +58,7 @@ jobs:
           VERSION=${{ steps.set-version.outputs.version }}
           sed -i "/\[package\]/,/^\[/s/version = \".*\"/version = \"$VERSION\"/" Cargo.toml
           cat Cargo.toml  # Debug output
+          cargo update -p clewdr --manifest-path Cargo.toml
 
       - name: Commit updated Cargo.toml
         run: |
