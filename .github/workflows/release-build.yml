@@ -45,7 +45,13 @@ jobs:
           git config user.email "action@github.com"
           git fetch origin
           git checkout master
-          git cherry-pick ${{ github.ref }}  # Applies the tag's commit to master
+          # Check if the tag commit is already in master
+          if git merge-base --is-ancestor ${{ github.sha }} master; then
+            echo "Tag commit ${{ github.sha }} is already in master"
+          else
+            git cherry-pick ${{ github.ref }} || git cherry-pick --abort
+            echo "Cherry-picked tag commit into master or aborted if empty"
+          fi
 
       - name: Update Cargo.toml version
         run: |
