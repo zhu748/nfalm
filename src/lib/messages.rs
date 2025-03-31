@@ -51,6 +51,7 @@ impl Attachment {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
+    max_tokens_to_sample: Option<u64>,
     attachments: Vec<Attachment>,
     files: Vec<String>,
     model: String,
@@ -77,11 +78,12 @@ pub struct ClientRequestBody {
 fn transform(value: ClientRequestBody, user_real_roles: bool) -> Option<RequestBody> {
     let merged = merge_messages(value.messages, user_real_roles)?;
     Some(RequestBody {
-        attachments: vec![Attachment::new(merged.head)],
+        max_tokens_to_sample: value.max_tokens,
+        attachments: vec![Attachment::new(merged.paste)],
         files: vec![],
         model: value.model,
         rendering_mode: "messages".to_string(),
-        prompt: merged.tail,
+        prompt: merged._prompt,
         timezone: TIME_ZONE.to_string(),
         images: merged.images,
     })

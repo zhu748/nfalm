@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use serde::Serialize;
 use std::fmt::Write;
 
 use crate::{
@@ -7,11 +6,10 @@ use crate::{
     utils::print_out_text,
 };
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug)]
 pub struct Merged {
-    pub head: String,
-    pub tail: String,
-    #[serde(skip)]
+    pub paste: String,
+    pub _prompt: String,
     pub images: Vec<ImageSource>,
 }
 
@@ -63,6 +61,7 @@ pub fn merge_messages(msgs: Vec<Message>, user_real_roles: bool) -> Option<Merge
     });
     let first = msgs.next()?;
     // first message does not need prefix
+    write!(w, "{}", first.1).unwrap();
     for (role, text) in msgs {
         let prefix = match role {
             Role::User => "Human: ",
@@ -73,9 +72,10 @@ pub fn merge_messages(msgs: Vec<Message>, user_real_roles: bool) -> Option<Merge
     print_out_text(first.1.as_str(), "head.txt");
     print_out_text(w.as_str(), "tail.txt");
 
+    // TODO: leave prompt empty for now
     Some(Merged {
-        head: first.1,
-        tail: w,
+        paste: w,
+        _prompt: String::new(),
         images: imgs,
     })
 }
