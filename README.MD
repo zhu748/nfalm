@@ -4,13 +4,14 @@ Total rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in Rust
 
 ## **WORK IN PROGRESS**
 
-**<span style="color:red">开发中，使用后果自负</span>**
+If you find any issue, feel free to tell me.
 
 ## Advantages
 
 - **No Node.js**: ~~Although I'm sure all of you playing SillyTavern have it installed~~
 - **No external binaries**: Clewd spawns a `superfetch` command for every request to mimic browser behavior. ClewdR uses native Rust `rquest` library.
 - **Support macOS**: Clewd doesn't provide `superfetch` for macOS, so it doesn't work on macOS.
+- **Support Android**: Same as above, ClewdR is a native Rust program, so it works on Android.
 - **Robust Backend**: Clewd uses home-made backend on top of Node's `Server` Object. ClewdR is built on top of `Axum` and `Tokio`, which are battle-tested libraries for building web servers in Rust.
 - **Support Thinking**: Support newest `thinking` feature in SillyTavern for 3.7 Sonnet.
 - **Support Image Attachment**: Support image attachment, you can send images to the bot.
