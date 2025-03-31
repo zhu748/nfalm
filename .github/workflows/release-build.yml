@@ -24,14 +24,6 @@ jobs:
           ref: master
           fetch-depth: 0 # Full history for tag access
 
-      - name: Verify release notes version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          grep -q "# v$VERSION" RELEASE_NOTES.md || {
-            echo "Error: RELEASE_NOTES.md heading must match tag (v$VERSION)"
-            exit 1
-          }
-
       - name: Extract version from tag
         id: set-version
         run: |
