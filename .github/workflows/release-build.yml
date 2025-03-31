@@ -56,7 +56,7 @@ jobs:
       - name: Update Cargo.toml version
         run: |
           VERSION=${{ steps.set-version.outputs.version }}
-          sed -i "s/version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          sed -i "/\[package\]/,/^\[/s/version = \".*\"/version = \"$VERSION\"/" Cargo.toml
           cat Cargo.toml  # Debug output
 
       - name: Commit updated Cargo.toml
@@ -347,7 +347,7 @@ jobs:
         with:
           files: artifacts/**/clewdr*.zip
           name: Release ${{ github.ref_name }}
-          body_path: RELEASE_NOTES.md  # Use release notes file
+          body_path: RELEASE_NOTES.md # Use release notes file
           draft: true
           prerelease: false
           fail_on_unmatched_files: true
