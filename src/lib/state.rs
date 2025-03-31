@@ -96,9 +96,9 @@ impl AppState {
     pub fn cookie_rotate(&self, reason: UselessReason) {
         let self_clone = self.clone();
         spawn(async move {
-            if let Err(err) = self_clone.delete_chat().await {
-                error!("Failed to delete chat: {}", err);
-            }
+            self_clone.delete_chat().await.inspect_err(|e| {
+                warn!("Failed to delete chat: {:?}", e);
+            })
         });
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
         if SHIFTS.load(Ordering::Relaxed) == self.0.init_length {

@@ -101,7 +101,12 @@ pub async fn api_messages(
         Ok(b) => b.into_response(),
         Err(e) => {
             warn!("Error: {:?}", e);
-            e.to_string().into_response()
+            serde_json::ser::to_string(&Message::new_text(
+                Role::Assistant,
+                format!("Error: {:?}", e),
+            ))
+            .unwrap()
+            .into_response()
         }
     }
 }
@@ -113,15 +118,11 @@ impl AppState {
 
         // Check if the request is a test message
         if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
-            return Ok(json!({
-                "content": [
-                    {
-                        "text": "Hi! My name is Doge.",
-                        "type": "text"
-                    }
-                ],
-            })
-            .to_string()
+            return Ok(serde_json::ser::to_string(&Message::new_text(
+                Role::Assistant,
+                "Test message".to_string(),
+            ))
+            .unwrap()
             .into_response());
         }
 
@@ -158,15 +159,11 @@ impl AppState {
         // prepare the request
         let user_real_roles = s.config.read().user_real_roles;
         let Some(mut body) = transform(p, user_real_roles) else {
-            return Ok(json!({
-                "content": [
-                    {
-                        "text": "Empty message",
-                        "type": "text"
-                    }
-                ],
-            })
-            .to_string()
+            return Ok(serde_json::ser::to_string(&Message::new_text(
+                Role::Assistant,
+                "Empty message?".to_string(),
+            ))
+            .unwrap()
             .into_response());
         };
         // check images
