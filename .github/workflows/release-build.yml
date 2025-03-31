@@ -335,6 +335,11 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master  # Ensure we get the latest master with RELEASE_NOTES.md
+          fetch-depth: 0  # Full history for consistency
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
