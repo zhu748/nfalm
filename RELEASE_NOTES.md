@@ -1,4 +1,5 @@
-# v0.1.2
+# v0.1.3
 
-- **Feature**: Pass error message to SillyTavern.
-- **Refactor**: Delete unused code.
+- **Bug Fix**: Handle prompt generation correctly.
+Now ClewdR will paste all prompt as attachment file, it may change in the future.
+- **Refactor**: Add auto deref for AppState, make it easier to use.
