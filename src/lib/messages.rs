@@ -16,6 +16,7 @@ use crate::{
     config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
+    stream::ClewdrStream,
     text::merge_messages,
     types::message::{ContentBlock, ImageSource, Message, Role},
     utils::{TIME_ZONE, print_out_json},
@@ -116,6 +117,7 @@ pub async fn api_messages(
 impl AppState {
     async fn try_message(&self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
+        let stream = p.stream;
 
         // Check if the request is a test message
         if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
@@ -129,7 +131,6 @@ impl AppState {
 
         // delete the previous conversation if it exists
         self.delete_chat().await?;
-        debug!("Chat deleted");
 
         // Create a new conversation
         *self.conv_uuid.write() = Some(uuid::Uuid::new_v4().to_string());
@@ -199,8 +200,17 @@ impl AppState {
             }
         })?;
 
+        if !stream {
+            let text = api_res.text().await?;
+            if let Err(e) = self.delete_chat().await {
+                warn!("Failed to delete chat: {:?}", e);
+            }
+            return Ok(text.into_response());
+        }
+
         // stream the response
         let input_stream = api_res.bytes_stream();
-        Ok(Body::from_stream(input_stream).into_response())
+        let my_stream = ClewdrStream::new(input_stream, self.clone());
+        Ok(Body::from_stream(my_stream).into_response())
     }
 }

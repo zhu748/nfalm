@@ -177,6 +177,7 @@ impl AppState {
             .send()
             .await?;
         self.update_cookie_from_res(&res);
+        debug!("Chat deleted");
         Ok(())
     }
 }

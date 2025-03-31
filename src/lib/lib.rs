@@ -8,6 +8,7 @@ pub mod error;
 pub mod messages;
 pub mod router;
 pub mod state;
+pub mod stream;
 pub mod text;
 pub mod types;
 pub mod utils;
