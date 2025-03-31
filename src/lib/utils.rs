@@ -1,88 +1,9 @@
 use figlet_rs::FIGfont;
 use serde_json::Value;
-use std::{collections::HashMap, path::PathBuf, sync::LazyLock};
+use std::{path::PathBuf, sync::LazyLock};
 use tracing::error;
 
 use crate::{config::CONFIG_NAME, error::ClewdrError};
-
-const R: [(&str, &str); 5] = [
-    ("user", "Human"),
-    ("assistant", "Assistant"),
-    ("system", ""),
-    ("example_user", "H"),
-    ("example_assistant", "A"),
-];
-
-pub const TIME_ZONE: &str = "America/New_York";
-
-pub static REPLACEMENT: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| HashMap::from(R));
-pub static DANGER_CHARS: LazyLock<Vec<char>> = LazyLock::new(|| {
-    let mut r: Vec<char> = REPLACEMENT
-        .iter()
-        .flat_map(|(_, v)| v.chars())
-        .chain(['\n', ':', '\\', 'n'])
-        .filter(|&c| c != ' ')
-        .collect();
-    r.sort();
-    r.dedup();
-    r
-});
-
-pub fn clean_json(json: &str) -> &str {
-    // return after "data: "
-    let Some(json) = json.split("data: ").nth(1) else {
-        return json;
-    };
-    json
-}
-
-pub fn index_of_any(text: &str, last: Option<bool>) -> i32 {
-    let indices = vec![index_of_h(text, last), index_of_a(text, last)]
-        .into_iter()
-        .filter(|&idx| idx > -1)
-        .collect::<Vec<i32>>();
-    let last = last.unwrap_or(false);
-    if indices.is_empty() {
-        -1
-    } else if last {
-        *indices.iter().max().unwrap() // Last in sorted order is max
-    } else {
-        *indices.iter().min().unwrap() // First in sorted order is min
-    }
-}
-
-fn index_of_h(text: &str, last: Option<bool>) -> i32 {
-    let last = last.unwrap_or(false);
-    let re = regex::Regex::new(r"(?:(?:\\n)|\r|\n){2}((?:Human|H)[:︓：﹕] ?)").unwrap();
-    let matches: Vec<_> = re.find_iter(text).collect();
-
-    if matches.is_empty() {
-        -1
-    } else if last {
-        matches.last().unwrap().start() as i32
-    } else {
-        matches.first().unwrap().start() as i32
-    }
-}
-
-fn index_of_a(text: &str, last: Option<bool>) -> i32 {
-    let last = last.unwrap_or(false);
-    let re = regex::Regex::new(r"(?:(?:\\n)|\r|\n){2}((?:Assistant|A)[:︓：﹕] ?)").unwrap();
-    let matches: Vec<_> = re.find_iter(text).collect();
-
-    if matches.is_empty() {
-        -1
-    } else if last {
-        matches.last().unwrap().start() as i32
-    } else {
-        matches.first().unwrap().start() as i32
-    }
-}
-
-pub fn generic_fixes(text: &str) -> String {
-    let re = regex::Regex::new(r"(\r\n|\r|\\n)").unwrap();
-    re.replace_all(text, "\n").to_string()
-}
 
 pub fn cwd_or_exec() -> Result<PathBuf, ClewdrError> {
     let cwd = std::env::current_dir().map_err(|_| ClewdrError::PathNotFound("cwd".to_string()))?;
@@ -204,3 +125,5 @@ pub const MODELS: [&str; 10] = [
 ];
 
 pub const ENDPOINT: &str = "https://api.claude.ai";
+
+pub const TIME_ZONE: &str = "America/New_York";
