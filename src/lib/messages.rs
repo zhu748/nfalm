@@ -101,16 +101,18 @@ pub async fn api_messages(
     State(state): State<AppState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
-    let state_clone = state.clone();
-    defer! {
-        spawn(async move {
-            if let Err(e) = state_clone.delete_chat().await {
-                warn!("Failed to delete chat: {:?}", e);
-            }
-        });
-    }
     match state.try_message(p).await {
-        Ok(b) => b.into_response(),
+        Ok(b) => {
+            defer! {
+                spawn(async move {
+                    if let Err(e) = state.delete_chat().await {
+                        warn!("Failed to delete chat: {:?}", e);
+                    }
+                    state.increase_cons_requests();
+                });
+            }
+            b.into_response()
+        }
         Err(e) => {
             if let Err(e) = state.delete_chat().await {
                 warn!("Failed to delete chat: {:?}", e);
@@ -214,7 +216,6 @@ impl AppState {
             if let Err(e) = self.delete_chat().await {
                 warn!("Failed to delete chat: {:?}", e);
             }
-            self.increase_cons_requests();
             return Ok(text.into_response());
         }
 

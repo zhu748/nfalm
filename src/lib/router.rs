@@ -7,7 +7,6 @@ use axum::{
 };
 use const_format::{concatc, formatc};
 use serde_json::{Value, json};
-use tower_http::trace::TraceLayer;
 
 use crate::{client::NORMAL_CLIENT, messages::api_messages, state::AppState, utils::MODELS};
 
@@ -24,7 +23,6 @@ impl RouterBuilder {
                 .route("/v1", options(api_options))
                 .route("/", options(api_options))
                 .fallback(api_fallback)
-                .layer(TraceLayer::new_for_http())
                 .with_state(state),
         }
     }

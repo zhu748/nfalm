@@ -59,6 +59,7 @@ impl AppState {
 
     pub fn increase_cons_requests(&self) {
         let mut cons_requests = self.cons_requests.load(Ordering::Relaxed);
+        debug!("Current concurrent requests: {}", cons_requests);
         cons_requests += 1;
         let max_cons_requests = self.config.read().max_cons_requests;
         if cons_requests > max_cons_requests {
@@ -165,6 +166,7 @@ impl AppState {
         SHIFTS.fetch_add(1, Ordering::Relaxed);
         spawn(async move {
             self_clone.rotating.store(true, Ordering::Relaxed);
+            self_clone.cons_requests.store(0, Ordering::Relaxed);
             sleep(dur).await;
             warn!("Cookie rotating complete");
             self_clone.rotating.store(false, Ordering::Relaxed);
