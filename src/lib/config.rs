@@ -23,7 +23,7 @@ pub enum UselessReason {
     Overlap,
     Banned,
     Invalid,
-    Temporary(i64),
+    Exhausted(i64),
     CoolDown,
 }
 
@@ -36,7 +36,7 @@ impl Display for UselessReason {
             UselessReason::Overlap => write!(f, "Overlap"),
             UselessReason::Banned => write!(f, "Banned"),
             UselessReason::Invalid => write!(f, "Invalid"),
-            UselessReason::Temporary(i) => write!(f, "Temporary {}", i),
+            UselessReason::Exhausted(i) => write!(f, "Temporarily Exhausted: {}", i),
             UselessReason::CoolDown => write!(f, "CoolDown"),
         }
     }
@@ -96,10 +96,8 @@ pub struct Config {
 pub struct Settings {
     pub pass_params: bool,
     pub preserve_chats: bool,
-    pub log_messages: bool,
     pub padtxt: String,
     pub skip_restricted: bool,
-    pub artifacts: bool,
 }
 
 const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";
@@ -253,10 +251,8 @@ impl Default for Settings {
         Self {
             pass_params: false,
             preserve_chats: false,
-            log_messages: true,
             padtxt: "1000,1000,15000".to_string(),
             skip_restricted: false,
-            artifacts: false,
         }
     }
 }
@@ -306,7 +302,7 @@ impl Config {
     }
 
     pub fn cookie_cleaner(&mut self, reason: UselessReason) {
-        if let UselessReason::Temporary(_) = reason {
+        if let UselessReason::Exhausted(_) = reason {
             warn!("Temporary useless cookie, not cleaning");
             return;
         }

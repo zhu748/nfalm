@@ -119,7 +119,7 @@ pub async fn api_messages(
                 warn!("Failed to delete chat: {:?}", e);
             }
             if let ClewdrError::TooManyRequest(i) = e {
-                state.cookie_rotate(UselessReason::Temporary(i));
+                state.cookie_rotate(UselessReason::Exhausted(i));
             }
             warn!("Error: {:?}", e);
             if stream {
@@ -161,7 +161,7 @@ impl AppState {
             self.uuid_org.read()
         );
         let mut body = json!({
-            "uuid": self.conv_uuid.read().as_ref().unwrap(),
+            "uuid": new_uuid,
             "name":""
         });
         if p.thinking.is_some() {

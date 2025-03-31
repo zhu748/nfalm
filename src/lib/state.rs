@@ -27,7 +27,6 @@ pub struct InnerState {
     rotating: AtomicBool,
     pub is_pro: RwLock<Option<String>>,
     pub uuid_org: RwLock<String>,
-    pub model: RwLock<Option<String>>,
     cookies: RwLock<HashMap<String, String>>,
     pub uuid_org_array: RwLock<Vec<String>>,
     pub conv_uuid: RwLock<Option<String>>,
@@ -134,7 +133,7 @@ impl AppState {
                     warn!("Cookie is in cooling down, not cleaning");
                     config.rotate_cookie();
                 }
-                UselessReason::Temporary(i) => {
+                UselessReason::Exhausted(i) => {
                     warn!("Temporary useless cookie, not cleaning");
                     current_cookie.reset_time = Some(i);
                     config.save().unwrap_or_else(|e| {

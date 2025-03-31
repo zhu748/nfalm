@@ -1,5 +1,5 @@
 use colored::Colorize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use tracing::{error, warn};
 
 use crate::{
@@ -12,20 +12,49 @@ use crate::{
 
 impl AppState {
     pub async fn bootstrap(&self) {
+        {
+            let mut config = self.config.write();
+            if let Some(current_cookie) = config.current_cookie_info().cloned() {
+                config.cookie = current_cookie.cookie.clone();
+            }
+        }
+
         let res = self.try_bootstrap().await;
-        if let Err(ClewdrError::OtherHttpError(c, _)) = res {
-            if c == 401 || c == 403 {
-                error!("{}", "Invalid authorization");
+        match res {
+            Err(ClewdrError::OtherHttpError(c, _)) if c == 401 || c == 403 => {
+                // Invalid authorization
+                error!("{}", "Invalid authorization, Cookie is useless");
                 self.cookie_rotate(UselessReason::Invalid);
             }
+            Err(ClewdrError::ExhaustedCookie(i)) => {
+                // Cookie is exhausted
+                error!("Cookie is exhausted, until: {}", i);
+                self.cookie_rotate(UselessReason::Exhausted(i));
+            }
+            Err(ClewdrError::InvalidCookie) => {
+                // Invalid cookie
+                error!("Cookie is invalid");
+                self.cookie_rotate(UselessReason::Invalid);
+            }
+            Err(ClewdrError::CookieRotating) => {
+                // Cookie is rotating
+                error!("Cookie is rotating");
+            }
+            Err(ClewdrError::OtherHttpError(c, e)) => {
+                error!("HTTP Error, code: {}, error: {}", c, e);
+            }
+            Err(e) => {
+                error!("Error: {:?}", e);
+            }
+            _ => {}
         }
     }
 
     async fn try_bootstrap(&self) -> Result<(), ClewdrError> {
         let config = self.config.read().clone();
         if !config.cookie.validate() {
-            error!("{}", "Invalid Cookie, enter apiKey-only mode.".red());
-            return Err(ClewdrError::InvalidAuth);
+            error!("Invalid Cookie.");
+            return Err(ClewdrError::InvalidCookie);
         }
         self.update_cookies(&config.cookie.to_string());
         let end_point = config.endpoint("api/bootstrap");
@@ -37,14 +66,13 @@ impl AppState {
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
         if bootstrap["account"].is_null() {
-            println!("{}", "Null Error, Useless Cookie".red());
-            self.cookie_rotate(UselessReason::Null);
-            return Err(ClewdrError::InvalidAuth);
+            println!("Null Error, Useless Cookie");
+            return Err(ClewdrError::InvalidCookie);
         }
         let memberships = bootstrap["account"]["memberships"]
             .as_array()
             .cloned()
-            .unwrap_or_default();
+            .ok_or(ClewdrError::UnexpectedNone)?;
         let boot_acc_info = memberships
             .iter()
             .find(|m| {
@@ -105,13 +133,6 @@ impl AppState {
                 }
             }
         }
-        if pro.is_none()
-            && self.model.read().is_some()
-            && self.model.read().as_ref() != cookie_model.as_ref()
-        {
-            self.cookie_rotate(UselessReason::Null);
-            return Err(ClewdrError::InvalidAuth);
-        }
         let config = self.config.read().clone();
         let index = if config.index() < 0 {
             "".to_string()
@@ -170,8 +191,7 @@ impl AppState {
                 UselessReason::Overlap
             };
             println!("Cookie is useless, reason: {}", reason.to_string().red());
-            self.cookie_rotate(reason);
-            return Err(ClewdrError::InvalidAuth);
+            return Err(ClewdrError::InvalidCookie);
         } else {
             self.uuid_org_array.write().push(uuid.to_string());
         }
@@ -202,38 +222,11 @@ impl AppState {
 
         self.check_flags(acc_info)?;
 
-        if let Some(u) = acc_info.get("uuid").and_then(|u| u.as_str()) {
-            *self.uuid_org.write() = u.to_string();
-        }
-        let preview_feature_uses_artifacts = bootstrap
-            .pointer("/account/settings/preview_feature_uses_artifacts")
-            .and_then(|a| a.as_bool())
-            .unwrap_or(false);
-        if preview_feature_uses_artifacts != self.config.read().settings.artifacts {
-            let endpoint = self.config.read().endpoint("api/account");
-            let endpoint = format!("{}/api/account", endpoint);
-            let mut account_settings = bootstrap
-                .pointer("/account/settings")
-                .and_then(|a| a.as_object())
-                .cloned()
-                .unwrap_or_default();
-            account_settings.insert(
-                "preview_feature_uses_artifacts".to_string(),
-                Value::Bool(!preview_feature_uses_artifacts),
-            );
-            let body = json!({
-                "settings": account_settings,
-            });
-            let res = SUPER_CLIENT
-                .post(endpoint.clone())
-                .append_headers("", self.header_cookie()?)
-                .json(&body)
-                .send()
-                .await?;
-
-            self.update_cookie_from_res(&res);
-            check_res_err(res).await?;
-        }
+        let u = acc_info
+            .get("uuid")
+            .and_then(|u| u.as_str())
+            .ok_or(ClewdrError::UnexpectedNone)?;
+        *self.uuid_org.write() = u.to_string();
         Ok(())
     }
 
@@ -290,18 +283,15 @@ impl AppState {
                 "{}",
                 "Your account is banned, please use another account.".red()
             );
-            self.cookie_rotate(UselessReason::Banned);
-            return Err(ClewdrError::InvalidAuth);
+            return Err(ClewdrError::InvalidCookie);
         } else {
             // Restricted
             println!("{}", "Your account is restricted.".red());
             if self.config.read().settings.skip_restricted && restrict_until > 0 {
                 warn!("skip_restricted is enabled, skipping...");
-                self.cookie_rotate(UselessReason::Temporary(restrict_until));
-                return Err(ClewdrError::InvalidAuth);
+                return Err(ClewdrError::ExhaustedCookie(restrict_until));
             }
         }
-
         Ok(())
     }
 }

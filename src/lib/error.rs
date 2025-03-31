@@ -12,7 +12,9 @@ use crate::types::message::{
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
     #[error("Invalid authorization")]
-    InvalidAuth,
+    InvalidCookie,
+    #[error("Exhausted cookie: {0}")]
+    ExhaustedCookie(i64),
     #[error("Json error: {0}")]
     JsonError(#[from] serde_json::Error),
     #[error("TOML Deserialize error: {0}")]
