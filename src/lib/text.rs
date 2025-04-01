@@ -1,4 +1,6 @@
 use itertools::Itertools;
+use rand::{Rng, seq::SliceRandom};
+use serde_json::Value;
 use std::fmt::Write;
 
 use crate::{
@@ -20,7 +22,8 @@ pub struct Merged {
 impl AppState {
     /// Transform the request body from Claude API to Claude web
     pub fn transform(&self, value: ClientRequestBody) -> Option<RequestBody> {
-        let merged = self.merge_messages(value.messages, value.system)?;
+        let system = merge_system(value.system);
+        let merged = self.merge_messages(value.messages, system)?;
         Some(RequestBody {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
@@ -120,9 +123,7 @@ impl AppState {
         let prompt_polyfill = self.config.read().prompt_polyfill.clone();
         let polyfill = match prompt_polyfill {
             PromptPolyfill::CustomPrompt(p) => p,
-            PromptPolyfill::PadTxt(f) => {
-                unimplemented!()
-            }
+            PromptPolyfill::PadTxt(_) => self.generate_padding(),
         };
 
         Some(Merged {
@@ -131,4 +132,48 @@ impl AppState {
             images: imgs,
         })
     }
+
+    /// Generate padding text
+    fn generate_padding(&self) -> String {
+        let mut tokens = self.config.read().padtxt.clone();
+        assert!(tokens.len() >= 4096, "Padding tokens too short");
+
+        // Aim for around 4000 tokens, ensuring we don't exceed 4096
+        let mut rng = rand::rng();
+        let target_count = rng.random_range(3888..=4096);
+
+        // Randomly select target_count tokens
+        tokens.shuffle(&mut rng);
+        tokens.truncate(target_count);
+
+        // Generate separators with specified probabilities
+        let mut result = String::with_capacity(4096 * 8);
+        for (i, token) in tokens.into_iter().enumerate() {
+            if i > 0 {
+                let roll = rng.random::<f32>(); // Generate a random float between 0.0 and 1.0
+                match roll {
+                    r if r < 0.95 => result.push(' '),  // 95% chance for space
+                    r if r < 0.99 => result.push('\n'), // 4% chance for single newline
+                    _ => result.push_str("\n\n"),       // 1% chance for double newline
+                }
+            }
+            result.push_str(&token);
+        }
+        print_out_text(&result, "padding.txt");
+        result
+    }
+}
+
+fn merge_system(sys: Value) -> String {
+    if let Some(str) = sys.as_str() {
+        return str.to_string();
+    }
+    let Some(arr) = sys.as_array() else {
+        return String::new();
+    };
+    arr.into_iter()
+        .map_while(|v| v["text"].as_str())
+        .to_owned()
+        .collect::<Vec<_>>()
+        .join("\n")
 }

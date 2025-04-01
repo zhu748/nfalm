@@ -4,3 +4,4 @@ config.toml
 log/
 cookie.txt
 .DS_Store
+pad.txt

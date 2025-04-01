@@ -41,4 +41,7 @@ pub const TITLE: &str = formatc!(
 pub struct Args {
     /// Path to the cookie file
     pub cookie_file: Option<String>,
+    /// Index of cookie
+    #[clap(long, short)]
+    pub index: Option<i32>,
 }

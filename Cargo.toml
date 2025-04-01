@@ -41,4 +41,5 @@ futures-util = "0.3"
 base64 = "0.22"
 itertools = "0.14"
 scopeguard = "1.2"
-toml_edit = { version = "0.22.24", features = ["serde"] }
+toml_edit = { version = "0.22", features = ["serde"] }
+claude-tokenizer = "0.3"

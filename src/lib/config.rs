@@ -1,5 +1,8 @@
+use clap::Parser;
+use claude_tokenizer::tokenize;
 use colored::Colorize;
 use rand::{Rng, rng};
+use regex::Regex;
 use rquest::Proxy;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -12,6 +15,45 @@ use crate::{Args, error::ClewdrError, utils::config_dir};
 
 pub const CONFIG_NAME: &str = "config.toml";
 pub const ENDPOINT: &str = "https://api.claude.ai";
+
+/// A struct representing the configuration of the application
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config {
+    // Cookie configurations
+    pub cookie: Cookie,
+    #[serde(default)]
+    pub prompt_polyfill: PromptPolyfill,
+    cookie_array: Vec<CookieInfo>,
+    pub wasted_cookie: Vec<UselessCookie>,
+    pub max_cons_requests: u64,
+    pub wait_time: u64,
+
+    // Network settings
+    cookie_index: i32,
+    pub proxy: String,
+    pub proxy_password: String,
+    ip: String,
+    port: u16,
+    pub local_tunnel: bool,
+
+    // Proxy configurations
+    pub rproxy: String,
+
+    // Prompt templates
+    pub user_real_roles: bool,
+    pub custom_h: Option<String>,
+    pub custom_a: Option<String>,
+
+    // Nested settings section
+    #[serde(default)]
+    pub settings: Settings,
+
+    // Skip field
+    #[serde(skip)]
+    pub rquest_proxy: Option<Proxy>,
+    #[serde(skip)]
+    pub padtxt: Vec<String>,
+}
 
 /// Reason why a cookie is considered useless
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -79,49 +121,11 @@ pub struct CookieInfo {
     pub reset_time: Option<i64>,
 }
 
-/// A struct representing the configuration of the application
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config {
-    // Cookie configurations
-    pub cookie: Cookie,
-    #[serde(default)]
-    pub prompt_polyfill: PromptPolyfill,
-    cookie_array: Vec<CookieInfo>,
-    pub wasted_cookie: Vec<UselessCookie>,
-    pub max_cons_requests: u64,
-    pub wait_time: u64,
-
-    // Network settings
-    cookie_index: i32,
-    pub proxy: String,
-    pub proxy_password: String,
-    ip: String,
-    port: u16,
-    pub local_tunnel: bool,
-
-    // Proxy configurations
-    pub rproxy: String,
-
-    // Prompt templates
-    pub user_real_roles: bool,
-    pub custom_h: Option<String>,
-    pub custom_a: Option<String>,
-
-    // Nested settings section
-    #[serde(default)]
-    pub settings: Settings,
-
-    // Skip field
-    #[serde(skip)]
-    pub rquest_proxy: Option<Proxy>,
-}
-
 /// Additional settings, ported from clewd, may be merged into config in the future
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub pass_params: bool,
     pub preserve_chats: bool,
-    pub padtxt: String,
     pub skip_restricted: bool,
 }
 
@@ -283,6 +287,7 @@ impl Default for Config {
             custom_h: None,
             custom_a: None,
             rquest_proxy: None,
+            padtxt: Vec::new(),
         }
     }
 }
@@ -294,12 +299,27 @@ impl Display for Config {
             f,
             "Cookie index: {}\n\
             Forward Proxy: {}\n\
-            IP: {}\n\
-            Port: {}\n\
-            Local tunnel: {}\n\
-            Reverse Proxy: {}\n",
-            self.cookie_index, self.proxy, self.ip, self.port, self.local_tunnel, self.rproxy,
-        )
+            Reverse Proxy: {}\n\
+            Available Cookies in array: {}\n",
+            self.cookie_index.to_string().blue(),
+            self.proxy.to_string().blue(),
+            self.rproxy.to_string().blue(),
+            self.cookie_array
+                .iter()
+                .filter(|x| x.reset_time.is_none())
+                .count()
+                .to_string()
+                .blue()
+        )?;
+        if let PromptPolyfill::PadTxt(_) = &self.prompt_polyfill {
+            Ok(write!(
+                f,
+                "Pad txt token count: {}\n",
+                self.padtxt.len().to_string().blue()
+            )?)
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -308,7 +328,6 @@ impl Default for Settings {
         Self {
             pass_params: false,
             preserve_chats: false,
-            padtxt: "1000,1000,15000".to_string(),
             skip_restricted: false,
         }
     }
@@ -337,8 +356,19 @@ impl Config {
                 // parse the config file
                 let mut config: Config = toml_edit::de::from_str(&file_string)?;
                 config.load_from_arg_file();
+                config.load_padtxt();
                 config = config.validate();
+                // load command line arguments
+                let args = Args::parse();
+                if let Some(index) = args.index {
+                    if index < config.cookie_array.len() as i32 {
+                        info!("Setting cookie index to {}", index);
+                        config.cookie_index = index;
+                    } else {
+                        warn!("Index out of range");
+                    }
                 config.save()?;
+                }
                 Ok(config)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -361,6 +391,39 @@ impl Config {
             }
             Err(e) => Err(e.into()),
         }
+    }
+
+    fn load_padtxt(&mut self) {
+        let PromptPolyfill::PadTxt(padtxt) = &self.prompt_polyfill else {
+            return;
+        };
+
+        let Ok(dir) = config_dir() else {
+            error!("No config found in cwd or exec dir");
+            return;
+        };
+        let padtxt_path = dir.join(padtxt);
+        if !padtxt_path.exists() {
+            error!("Pad txt file not found: {}", padtxt_path.display());
+            return;
+        }
+        let Ok(padtxt_string) = std::fs::read_to_string(padtxt_path.clone()) else {
+            error!("Failed to read pad txt file: {}", padtxt_path.display());
+            return;
+        };
+        // remove tokenizer special characters
+        let re = Regex::new(r"[^\x00-\x7F]").unwrap();
+        let tokens = tokenize(&padtxt_string)
+            .expect("Failed to tokenize pad txt")
+            .into_iter()
+            // remove special characters
+            .map(|t| re.replace_all(t.1.as_str(), "").trim().to_string())
+            .filter(|t| !t.is_empty())
+            .collect::<Vec<_>>();
+        if tokens.len() < 4096 {
+            panic!("Pad txt file is too short: {}", padtxt_path.display());
+        }
+        self.padtxt = tokens;
     }
 
     /// Clean current cookie and add it to the wasted cookie list
@@ -501,12 +564,15 @@ impl Config {
         }
         self.ip = self.ip.trim().to_string();
         self.rproxy = self.rproxy.trim().to_string();
-        self.settings.padtxt = self.settings.padtxt.trim().to_string();
         self.proxy = self.proxy.trim().to_string();
         let proxy = if self.proxy.is_empty() {
             None
         } else {
-            Some(Proxy::all(self.proxy.clone()).expect("Invalid proxy"))
+            Proxy::all(self.proxy.clone())
+                .inspect_err(|e| {
+                    error!("Failed to parse proxy: {}", e);
+                })
+                .ok()
         };
         self.rquest_proxy = proxy;
         self

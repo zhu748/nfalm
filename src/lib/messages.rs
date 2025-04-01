@@ -9,7 +9,7 @@ use axum::{
 use rquest::header::ACCEPT;
 use scopeguard::defer;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::spawn;
 use tracing::{debug, warn};
 
@@ -55,7 +55,7 @@ impl Attachment {
 /// Request body to be sent to the Claude.ai
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
-    pub max_tokens_to_sample: Option<u64>,
+    pub max_tokens_to_sample: u64,
     pub attachments: Vec<Attachment>,
     pub files: Vec<String>,
     pub model: String,
@@ -69,15 +69,23 @@ pub struct RequestBody {
 /// Request body sent from the client
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ClientRequestBody {
-    pub max_tokens: Option<u64>,
+    pub max_tokens: u64,
     pub messages: Vec<Message>,
+    #[serde(default)]
     pub stop_sequences: Vec<String>,
     pub model: String,
     #[serde(default)]
     pub stream: bool,
+    #[serde(default)]
     pub thinking: Option<Thinking>,
     #[serde(default)]
-    pub system: String,
+    pub system: Value,
+    #[serde(default)]
+    pub temperature: f32,
+    #[serde(default)]
+    pub top_p: f32,
+    #[serde(default)]
+    pub top_k: u64,
 }
 
 /// Thinking mode in Claude API Request
