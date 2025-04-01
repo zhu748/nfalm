@@ -9,6 +9,8 @@
 
 ## Improvements
 
+- Support for custom prompts in the config file.
+- Support system prompts(only string).
 - Better error handling.
 - Return error message when client tries to use OpenAI compatible mode.
 

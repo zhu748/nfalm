@@ -9,7 +9,7 @@ use axum::{
 use rquest::header::ACCEPT;
 use scopeguard::defer;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::json;
 use tokio::spawn;
 use tracing::{debug, warn};
 
@@ -74,11 +74,15 @@ pub struct ClientRequestBody {
     stream: bool,
     thinking: Option<Thinking>,
     #[serde(default)]
-    system: Value,
+    system: String,
 }
 
-fn transform(value: ClientRequestBody, user_real_roles: bool) -> Option<RequestBody> {
-    let merged = merge_messages(value.messages, user_real_roles)?;
+fn transform(
+    value: ClientRequestBody,
+    custom_prompt: String,
+    user_real_roles: bool,
+) -> Option<RequestBody> {
+    let merged = merge_messages(value.messages, value.system, custom_prompt, user_real_roles)?;
     Some(RequestBody {
         max_tokens_to_sample: value.max_tokens,
         attachments: vec![Attachment::new(merged.paste)],
@@ -180,7 +184,8 @@ impl AppState {
 
         // prepare the request
         let user_real_roles = self.config.read().user_real_roles;
-        let Some(mut body) = transform(p, user_real_roles) else {
+        let custom_prompt = self.config.read().custom_prompt.clone();
+        let Some(mut body) = transform(p, custom_prompt, user_real_roles) else {
             return Ok(serde_json::ser::to_string(&Message::new_text(
                 Role::Assistant,
                 "Empty message?".to_string(),

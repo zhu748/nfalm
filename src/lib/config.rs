@@ -86,6 +86,7 @@ pub struct Config {
 
     // Prompt templates
     pub user_real_roles: bool,
+    pub custom_prompt: String,
 
     // Nested settings section
     #[serde(default)]
@@ -242,6 +243,7 @@ impl Default for Config {
             api_rproxy: String::new(),
             settings: Settings::default(),
             user_real_roles: false,
+            custom_prompt: String::new(),
         }
     }
 }

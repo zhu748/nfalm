@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 use thiserror::Error;
 
 /// Error types for the Messages API
@@ -158,17 +158,12 @@ pub struct Message {
 }
 
 /// Role of a message sender
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     User,
+    #[default]
     Assistant,
-}
-
-impl Default for Role {
-    fn default() -> Self {
-        Role::Assistant
-    }
 }
 
 /// Content of a message
