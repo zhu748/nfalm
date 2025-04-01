@@ -1,17 +1,18 @@
-# v0.1.7
+# v0.1.8
 
-<!-- ## Bug Fix
+## Bug Fix
 
-- Ignore warnings with negative time delta. -->
-## Documentation
+- Fix system prompt generation. (422 Error)
 
-- Improve readability by adding more comments.
+<!-- ## Documentation
 
-## Improvements
+- Improve readability by adding more comments. -->
 
-- Support forward proxy (http/https/socks)
-- Print config at start.
+## Feature
 
-## Refactoring
+- Add `-i`/`--index` option to specify the cookie index.
+- Support pad text as prompt.
 
-- Delete useless code ported from Clewd.
+## Improvement
+
+- Print configuration after loading.
