@@ -2,6 +2,7 @@ use itertools::Itertools;
 use std::fmt::Write;
 
 use crate::{
+    config::PromptPolyfill,
     messages::{Attachment, ClientRequestBody, RequestBody},
     state::AppState,
     types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
@@ -49,7 +50,7 @@ impl AppState {
             .custom_a
             .clone()
             .unwrap_or("Assistant".to_string());
-        let custom_prompt = self.config.read().custom_prompt.clone();
+
         let user_real_roles = self.config.read().user_real_roles;
         let line_breaks = if user_real_roles { "\n\n\x08" } else { "\n\n" };
         let system = system.trim().to_string();
@@ -115,9 +116,18 @@ impl AppState {
         }
         print_out_text(w.as_str(), "paste.txt");
 
+        // prompt polyfill
+        let prompt_polyfill = self.config.read().prompt_polyfill.clone();
+        let polyfill = match prompt_polyfill {
+            PromptPolyfill::CustomPrompt(p) => p,
+            PromptPolyfill::PadTxt(f) => {
+                unimplemented!()
+            }
+        };
+
         Some(Merged {
             paste: w,
-            prompt: custom_prompt,
+            prompt: polyfill,
             images: imgs,
         })
     }

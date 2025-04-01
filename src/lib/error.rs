@@ -17,10 +17,10 @@ pub enum ClewdrError {
     ExhaustedCookie(i64),
     #[error("Json error: {0}")]
     JsonError(#[from] serde_json::Error),
-    #[error("TOML Deserialize error: {0}")]
-    TomlDeError(#[from] toml::de::Error),
-    #[error("TOML Serialize error: {0}")]
-    TomlSeError(#[from] toml::ser::Error),
+    #[error("TOML Edit Deserialize error: {0}")]
+    TomlDeError(#[from] toml_edit::de::Error),
+    #[error("TOML Edit Serialize error: {0}")]
+    TomlSeError(#[from] toml_edit::ser::Error),
     #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
     #[error("Rquest error: {0}")]
@@ -117,7 +117,6 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     }
     Err(ClewdrError::OtherHttpError(status, err))
 }
-
 
 /// Convert a ClewdrError to a Stream of Claude API events
 pub fn error_stream(e: ClewdrError) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> {
