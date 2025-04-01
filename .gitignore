@@ -1,6 +1,6 @@
 target/
 .vscode/
-config.toml
+/config.toml
 log/
 cookie.txt
 .DS_Store
