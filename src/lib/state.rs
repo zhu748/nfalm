@@ -15,14 +15,14 @@ use tracing::warn;
 
 use crate::client::AppendHeaders;
 use crate::client::SUPER_CLIENT;
+use crate::config::Config;
 use crate::config::UselessReason;
 use crate::error::ClewdrError;
-use crate::{config::Config, utils::ENDPOINT};
 
 /// Inner state of the application
-/// 
+///
 /// Mutable fields are all Atomic or RwLock
-/// 
+///
 /// Caution for deadlocks
 #[derive(Default)]
 pub struct InnerState {
@@ -46,9 +46,9 @@ impl Deref for AppState {
 }
 
 /// Arc wrapper for the inner state
-/// 
+///
 /// Mutable fields are all Atomic or RwLock
-/// 
+///
 /// Caution for deadlocks
 #[derive(Clone)]
 pub struct AppState {
@@ -172,7 +172,7 @@ impl AppState {
             error!("Failed to save config: {}", e);
         });
         // set timeout callback
-        let dur = if config.rproxy.is_empty() || config.rproxy == ENDPOINT {
+        let dur = if config.rproxy.is_empty() {
             let time = config.wait_time;
             warn!("Waiting {time} seconds to change cookie");
             time
@@ -214,7 +214,11 @@ impl AppState {
         );
         let res = SUPER_CLIENT
             .delete(endpoint.clone())
-            .append_headers("", self.header_cookie()?)
+            .append_headers(
+                "",
+                self.header_cookie()?,
+                self.config.read().rquest_proxy.clone(),
+            )
             .send()
             .await?;
         self.update_cookie_from_res(&res);

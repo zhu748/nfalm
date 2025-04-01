@@ -1,5 +1,6 @@
 use colored::Colorize;
 use rand::{Rng, rng};
+use rquest::Proxy;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
@@ -7,13 +8,10 @@ use std::{
 };
 use tracing::{debug, error, info, warn};
 
-use crate::{
-    Args,
-    error::ClewdrError,
-    utils::{ENDPOINT, config_dir},
-};
+use crate::{Args, error::ClewdrError, utils::config_dir};
 
 pub const CONFIG_NAME: &str = "config.toml";
+pub const ENDPOINT: &str = "https://api.claude.ai";
 
 /// Reason why a cookie is considered useless
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -73,12 +71,12 @@ pub struct Config {
     pub cookie: Cookie,
     cookie_array: Vec<CookieInfo>,
     pub wasted_cookie: Vec<UselessCookie>,
-    pub unknown_models: Vec<String>,
     pub max_cons_requests: u64,
     pub wait_time: u64,
 
     // Network settings
     cookie_index: i32,
+    pub proxy: String,
     pub proxy_password: String,
     ip: String,
     port: u16,
@@ -97,6 +95,10 @@ pub struct Config {
     // Nested settings section
     #[serde(default)]
     pub settings: Settings,
+
+    // Skip field
+    #[serde(skip)]
+    pub rquest_proxy: Option<Proxy>,
 }
 
 /// Additional settings, ported from clewd, may be merged into config in the future
@@ -253,8 +255,8 @@ impl Default for Config {
             max_cons_requests: 3,
             wait_time: 15,
             wasted_cookie: Vec::new(),
-            unknown_models: Vec::new(),
             cookie_index: -1,
+            proxy: String::new(),
             proxy_password: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
@@ -266,6 +268,7 @@ impl Default for Config {
             custom_prompt: String::new(),
             custom_h: None,
             custom_a: None,
+            rquest_proxy: None,
         }
     }
 }
@@ -466,12 +469,6 @@ impl Config {
         if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() as i32 {
             self.cookie_index = rng().random_range(0..self.cookie_array.len() as i32);
         }
-        // trim and remove non-ASCII characters from cookie
-        self.unknown_models = self
-            .unknown_models
-            .iter()
-            .map(|c| c.trim().to_string())
-            .collect();
         self.ip = self.ip.trim().to_string();
         self.rproxy = self.rproxy.trim().to_string();
         self.api_rproxy = self
@@ -481,6 +478,13 @@ impl Config {
             .trim_end_matches("/v1")
             .to_string();
         self.settings.padtxt = self.settings.padtxt.trim().to_string();
+        self.proxy = self.proxy.trim().to_string();
+        let proxy = if self.proxy.is_empty() {
+            None
+        } else {
+            Some(Proxy::all(self.proxy.clone()).expect("Invalid proxy"))
+        };
+        self.rquest_proxy = proxy;
         self
     }
 

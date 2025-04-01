@@ -7,7 +7,7 @@ use crate::{
     config::UselessReason,
     error::{ClewdrError, check_res_err},
     state::AppState,
-    utils::{ENDPOINT, JsBool, MODELS},
+    utils::JsBool,
 };
 
 impl AppState {
@@ -47,6 +47,7 @@ impl AppState {
     }
 
     async fn try_bootstrap(&self) -> Result<(), ClewdrError> {
+        let proxy = self.config.read().rquest_proxy.clone();
         let config = self.config.read().clone();
         if !config.cookie.validate() {
             error!("Invalid Cookie.");
@@ -56,7 +57,7 @@ impl AppState {
         let end_point = format!("{}/api/bootstrap", config.endpoint());
         let res = SUPER_CLIENT
             .get(end_point.clone())
-            .append_headers("", self.header_cookie()?)
+            .append_headers("", self.header_cookie()?, proxy.clone())
             .send()
             .await?;
         let res = check_res_err(res).await?;
@@ -104,20 +105,10 @@ impl AppState {
         }
         *self.is_pro.write() = pro.clone();
 
-        // Check if cookie model is unknown (not in known models or in config's unknown models)
+        // Check if is a pro account
         {
             // drop lock by using a new scope
             let mut config = self.config.write();
-            if let Some(cookie_model) = &cookie_model {
-                if !MODELS.contains(&cookie_model.as_str())
-                    && !config.unknown_models.contains(cookie_model)
-                {
-                    config.unknown_models.push(cookie_model.clone());
-                    config.save().unwrap_or_else(|e| {
-                        println!("Failed to save config: {}", e);
-                    });
-                }
-            }
 
             let model_name = pro.clone().or(cookie_model.clone()).unwrap_or_default();
             if let Some(current_cookie) = config.current_cookie_info() {
@@ -193,12 +184,11 @@ impl AppState {
         }
 
         // Bootstrap complete
-        let rproxy = config.rproxy.clone();
-        let end_point = if rproxy.is_empty() { ENDPOINT } else { &rproxy };
+        let end_point = config.endpoint();
         let end_point = format!("{}/api/organizations", end_point);
         let res = SUPER_CLIENT
             .get(end_point.clone())
-            .append_headers("", self.header_cookie()?)
+            .append_headers("", self.header_cookie()?, proxy.clone())
             .send()
             .await?;
         self.update_cookie_from_res(&res);

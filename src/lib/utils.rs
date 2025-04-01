@@ -102,22 +102,5 @@ impl JsBool for Value {
     }
 }
 
-/// Models for the API
-pub const MODELS: [&str; 10] = [
-    "claude-3-7-sonnet-20250219",
-    "claude-3-5-sonnet-20240620",
-    "claude-3-opus-20240229",
-    "claude-3-sonnet-20240229",
-    "claude-3-haiku-20240307",
-    "claude-2.1",
-    "claude-2.0",
-    "claude-1.3",
-    "claude-instant-1.2",
-    "claude-instant-1.1",
-];
-
-/// Endpoint for the API
-pub const ENDPOINT: &str = "https://api.claude.ai";
-
 /// Timezone for the API
 pub const TIME_ZONE: &str = "America/New_York";

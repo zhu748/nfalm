@@ -1,15 +1,15 @@
 use axum::{
     Json, Router,
-    extract::{Request, State},
-    http::{HeaderMap, StatusCode},
+    extract::Request,
+    http::HeaderMap,
     response::Html,
-    routing::{get, options, post},
+    routing::{options, post},
 };
 use const_format::{concatc, formatc};
 use serde_json::{Value, json};
 use tracing::debug;
 
-use crate::{client::NORMAL_CLIENT, messages::api_messages, state::AppState, utils::MODELS};
+use crate::{messages::api_messages, state::AppState};
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
@@ -21,11 +21,12 @@ impl RouterBuilder {
     pub fn new(state: AppState) -> Self {
         Self {
             inner: Router::new()
-                .route("/v1/chat/completions", post(reject_openai))
-                .route("/v1/models", get(get_models))
-                .route("/v1/messages", post(api_messages))
-                .route("/v1", options(api_options))
                 .route("/", options(api_options))
+                .route("/v1", options(api_options))
+                .route("/chat/completions", post(reject_openai))
+                .route("/v1/chat/completions", post(reject_openai))
+                .route("/messages", post(api_messages))
+                .route("/v1/messages", post(api_messages))
                 .fallback(api_fallback)
                 .with_state(state),
         }
@@ -47,65 +48,6 @@ async fn reject_openai() -> Json<Value> {
         }
     });
     Json(response)
-}
-
-/// Handle the models request, probably not needed.
-/// Because SillyTavern already has a models list.
-async fn get_models(
-    headers: HeaderMap,
-    State(api_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
-    let authorization = headers
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("");
-    // TODO: get api_rproxy from url query
-    let api_rproxy = api_state.config.read().api_rproxy.clone();
-    let models = if authorization.matches("oaiKey:").count() > 0 && !api_rproxy.is_empty() {
-        let url = format!("{}/v1/models", api_rproxy);
-        let key = authorization.replace("oaiKey:", ",");
-        if let Some((key, _)) = key.split_once(",") {
-            let key = key.trim();
-            let resp = NORMAL_CLIENT
-                .get(&url)
-                .header("Authorization", key)
-                .send()
-                .await
-                .map_err(|_| StatusCode::BAD_REQUEST)?;
-            let models = resp
-                .json::<Value>()
-                .await
-                .map_err(|_| StatusCode::BAD_REQUEST)?;
-            models["data"].as_array().cloned().unwrap_or_default()
-        } else {
-            vec![]
-        }
-    } else {
-        vec![]
-    };
-    let config = api_state.config.read();
-    let mut data = MODELS
-        .iter()
-        .cloned()
-        .chain(config.unknown_models.iter().map(|s| s.as_str()))
-        .map(|name| {
-            json!({
-                "id":name,
-            })
-        })
-        .chain(models)
-        .collect::<Vec<_>>();
-    data.sort_unstable_by(|a, b| {
-        let a = a["id"].as_str().unwrap_or("");
-        let b = b["id"].as_str().unwrap_or("");
-        a.cmp(b)
-    });
-    debug!("Models: {:?}", data);
-    data.dedup();
-    let response = json!({
-        "data": data,
-    });
-    Ok(Json(response))
 }
 
 /// Handle the fallback request

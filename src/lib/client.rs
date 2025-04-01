@@ -1,7 +1,7 @@
 use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::future::join_all;
 use rquest::{
-    Client, ClientBuilder, RequestBuilder,
+    Client, ClientBuilder, Proxy, RequestBuilder,
     header::{COOKIE, ORIGIN, REFERER},
     multipart::{Form, Part},
 };
@@ -10,14 +10,7 @@ use serde_json::Value;
 use std::sync::LazyLock;
 use tracing::warn;
 
-use crate::{types::message::ImageSource, utils::ENDPOINT};
-
-/// The default client to be used for requests
-pub static NORMAL_CLIENT: LazyLock<Client> = LazyLock::new(|| {
-    ClientBuilder::new()
-        .build()
-        .expect("Failed to create client")
-});
+use crate::{config::ENDPOINT, types::message::ImageSource};
 
 /// The client to be used for requests to the Claude.ai
 /// This client is used for requests that require a specific emulation
@@ -30,14 +23,30 @@ pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
 
 /// Helper function to add headers to a request
 pub trait AppendHeaders {
-    fn append_headers(self, refer: impl AsRef<str>, cookies: impl AsRef<str>) -> Self;
+    fn append_headers(
+        self,
+        refer: impl AsRef<str>,
+        cookies: impl AsRef<str>,
+        proxy: Option<Proxy>,
+    ) -> Self;
 }
 
 impl AppendHeaders for RequestBuilder {
-    fn append_headers(self, refer: impl AsRef<str>, cookies: impl AsRef<str>) -> RequestBuilder {
-        self.header_append(ORIGIN, ENDPOINT)
+    fn append_headers(
+        self,
+        refer: impl AsRef<str>,
+        cookies: impl AsRef<str>,
+        proxy: Option<Proxy>,
+    ) -> RequestBuilder {
+        let b = self
+            .header_append(ORIGIN, ENDPOINT)
             .header_append(REFERER, header_ref(refer))
-            .header_append(COOKIE, cookies.as_ref())
+            .header_append(COOKIE, cookies.as_ref());
+        if let Some(proxy) = proxy {
+            b.proxy(proxy)
+        } else {
+            b
+        }
     }
 }
 
@@ -55,6 +64,7 @@ pub async fn upload_images(
     imgs: Vec<ImageSource>,
     cookies: String,
     uuid_org: String,
+    proxy: Option<Proxy>,
 ) -> Vec<String> {
     // upload images
     let fut = imgs
@@ -89,7 +99,7 @@ pub async fn upload_images(
                 // send the request into future
                 SUPER_CLIENT
                     .post(endpoint)
-                    .append_headers("new", cookies.as_str())
+                    .append_headers("new", cookies.as_str(), proxy.clone())
                     .header_append("anthropic-client-platform", "web_claude_ai")
                     .multipart(form)
                     .send(),

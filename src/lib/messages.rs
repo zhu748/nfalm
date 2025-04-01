@@ -140,6 +140,7 @@ impl AppState {
     async fn try_message(&self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
+        let proxy = self.config.read().rquest_proxy.clone();
 
         // Check if the request is a test message
         if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
@@ -173,7 +174,7 @@ impl AppState {
         let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .append_headers("", &self.header_cookie()?)
+            .append_headers("", &self.header_cookie()?, proxy.clone())
             .send()
             .await?;
         debug!("New conversation created: {}", new_uuid);
@@ -198,7 +199,7 @@ impl AppState {
 
         // upload images
         let uuid_org = self.uuid_org.read().clone();
-        let files = upload_images(images, self.header_cookie()?, uuid_org).await;
+        let files = upload_images(images, self.header_cookie()?, uuid_org, proxy.clone()).await;
         body.files = files;
 
         // send the request
@@ -213,7 +214,7 @@ impl AppState {
         let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .append_headers("", self.header_cookie()?)
+            .append_headers("", self.header_cookie()?, proxy.clone())
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;
