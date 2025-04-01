@@ -212,13 +212,10 @@ impl AppState {
             uuid_org,
             uuid
         );
+        let proxy = config.rquest_proxy.clone();
         let res = SUPER_CLIENT
             .delete(endpoint.clone())
-            .append_headers(
-                "",
-                self.header_cookie()?,
-                self.config.read().rquest_proxy.clone(),
-            )
+            .append_headers("", self.header_cookie()?, proxy)
             .send()
             .await?;
         self.update_cookie_from_res(&res);

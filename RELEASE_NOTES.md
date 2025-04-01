@@ -1,18 +1,18 @@
-# v0.1.8
+# v0.1.9
 
-## Bug Fix
+<!-- ## Bug Fix
 
-- Fix system prompt generation. (422 Error)
+- Fix system prompt generation. (422 Error) -->
 
 <!-- ## Documentation
 
 - Improve readability by adding more comments. -->
 
-## Feature
+<!-- ## Feature
 
 - Add `-i`/`--index` option to specify the cookie index.
-- Support pad text as prompt.
+- Support pad text as prompt. -->
 
 ## Improvement
 
-- Print configuration after loading.
+- Improve padtxt, need more tests. Any suggestions are welcome.

@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use rand::{Rng, seq::SliceRandom};
+use rand::{Rng, rng};
 use serde_json::Value;
 use std::fmt::Write;
 
@@ -135,31 +135,28 @@ impl AppState {
 
     /// Generate padding text
     fn generate_padding(&self) -> String {
-        let mut tokens = self.config.read().padtxt.clone();
+        let conf = &self.config.read();
+        let tokens = conf.padtxt.iter().map(|s| s.as_str()).collect::<Vec<_>>();
         assert!(tokens.len() >= 4096, "Padding tokens too short");
 
-        // Aim for around 4000 tokens, ensuring we don't exceed 4096
-        let mut rng = rand::rng();
-        let target_count = rng.random_range(3888..=4096);
-
-        // Randomly select target_count tokens
-        tokens.shuffle(&mut rng);
-        tokens.truncate(target_count);
-
-        // Generate separators with specified probabilities
         let mut result = String::with_capacity(4096 * 8);
-        for (i, token) in tokens.into_iter().enumerate() {
-            if i > 0 {
-                let roll = rng.random::<f32>(); // Generate a random float between 0.0 and 1.0
-                match roll {
-                    r if r < 0.95 => result.push(' '),  // 95% chance for space
-                    r if r < 0.99 => result.push('\n'), // 4% chance for single newline
-                    _ => result.push_str("\n\n"),       // 1% chance for double newline
-                }
+        let mut rng = rng();
+        let mut pushed = 0;
+        loop {
+            let slice_len = rng.random_range(8..64);
+            let slice_start = rng.random_range(0..tokens.len() - slice_len);
+            let slice = &tokens[slice_start..slice_start + slice_len];
+            result.push_str(slice.join(" ").as_str());
+            pushed += slice_len;
+            result.push('\n');
+            if rng.random_range(0..100) < 5 {
+                result.push('\n');
             }
-            result.push_str(&token);
+            if pushed > 4000 {
+                break;
+            }
         }
-        print_out_text(&result, "padding.txt");
+        print_out_text(result.as_str(), "padding.txt");
         result
     }
 }
@@ -171,8 +168,9 @@ fn merge_system(sys: Value) -> String {
     let Some(arr) = sys.as_array() else {
         return String::new();
     };
-    arr.into_iter()
+    arr.iter()
         .map_while(|v| v["text"].as_str())
+        .map(|v| v.trim())
         .to_owned()
         .collect::<Vec<_>>()
         .join("\n")

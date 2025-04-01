@@ -122,7 +122,7 @@ pub struct CookieInfo {
 }
 
 /// Additional settings, ported from clewd, may be merged into config in the future
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Settings {
     pub pass_params: bool,
     pub preserve_chats: bool,
@@ -312,23 +312,13 @@ impl Display for Config {
                 .blue()
         )?;
         if let PromptPolyfill::PadTxt(_) = &self.prompt_polyfill {
-            Ok(write!(
+            Ok(writeln!(
                 f,
-                "Pad txt token count: {}\n",
+                "Pad txt token count: {}",
                 self.padtxt.len().to_string().blue()
             )?)
         } else {
             Ok(())
-        }
-    }
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            pass_params: false,
-            preserve_chats: false,
-            skip_restricted: false,
         }
     }
 }
@@ -354,7 +344,7 @@ impl Config {
         match file_string {
             Ok(file_string) => {
                 // parse the config file
-                let mut config: Config = toml_edit::de::from_str(&file_string)?;
+                let mut config: Config = toml::de::from_str(&file_string)?;
                 config.load_from_arg_file();
                 config.load_padtxt();
                 config = config.validate();
@@ -367,7 +357,7 @@ impl Config {
                     } else {
                         warn!("Index out of range");
                     }
-                config.save()?;
+                    config.save()?;
                 }
                 Ok(config)
             }
@@ -466,7 +456,7 @@ impl Config {
         if let Ok(existing) = existing {
             let config_path = existing.join(CONFIG_NAME);
             // overwrite the file if it exists
-            std::fs::write(config_path, toml_edit::ser::to_string_pretty(self)?)?;
+            std::fs::write(config_path, toml::ser::to_string_pretty(self)?)?;
             return Ok(());
         }
         // try to create a new config file in exec path or pwd
@@ -480,7 +470,7 @@ impl Config {
         }
         // Save the config to a file
         let config_path = config_dir.join(CONFIG_NAME);
-        let config_string = toml_edit::ser::to_string_pretty(self)?;
+        let config_string = toml::ser::to_string_pretty(self)?;
         std::fs::write(config_path, config_string)?;
         Ok(())
     }
