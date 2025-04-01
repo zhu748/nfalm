@@ -27,10 +27,9 @@ use crate::error::ClewdrError;
 #[derive(Default)]
 pub struct InnerState {
     pub config: RwLock<Config>,
-    init_length: u64,
     cons_requests: AtomicU64,
     rotating: AtomicBool,
-    pub is_pro: RwLock<Option<String>>,
+    pub pro: RwLock<Option<String>>,
     pub uuid_org: RwLock<String>,
     cookies: RwLock<HashMap<String, String>>,
     pub uuid_org_array: RwLock<Vec<String>>,
@@ -59,7 +58,6 @@ impl AppState {
     /// Create a new AppState instance
     pub fn new(config: Config) -> Self {
         let m = InnerState {
-            init_length: config.cookie_array_len() as u64,
             config: RwLock::new(config),
             ..Default::default()
         };
@@ -137,10 +135,6 @@ impl AppState {
     /// Rotate the cookie for the given reason
     pub fn cookie_rotate(&self, reason: UselessReason) {
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
-        if SHIFTS.load(Ordering::Relaxed) == self.init_length {
-            error!("Cookie used up, not rotating");
-            return;
-        }
         // create scope to avoid deadlock
         {
             let mut config = self.config.write();
@@ -149,11 +143,9 @@ impl AppState {
             };
             match reason {
                 UselessReason::CoolDown => {
-                    warn!("Cookie is in cooling down, not cleaning");
                     config.rotate_cookie();
                 }
                 UselessReason::Exhausted(i) => {
-                    warn!("Temporary useless cookie, not cleaning");
                     current_cookie.reset_time = Some(i);
                     config.save().unwrap_or_else(|e| {
                         error!("Failed to save config: {}", e);

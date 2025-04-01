@@ -6,6 +6,7 @@ use axum::{
     extract::State,
     response::{IntoResponse, Response},
 };
+use colored::Colorize;
 use rquest::header::ACCEPT;
 use scopeguard::defer;
 use serde::{Deserialize, Serialize};
@@ -101,6 +102,12 @@ pub async fn api_messages(
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
     let stream = p.stream;
+    let stopwatch = chrono::Utc::now();
+    println!(
+        "Request received, stream mode: {}, messages: {}",
+        stream.to_string().green(),
+        p.messages.len().to_string().green()
+    );
 
     // check if request is successful
     match state.try_message(p).await {
@@ -108,8 +115,13 @@ pub async fn api_messages(
             // delete chat after a successful request
             defer! {
                 spawn(async move {
+                    let dur = chrono::Utc::now().signed_duration_since(stopwatch);
+                    println!(
+                        "Request finished, elapsed time: {} seconds",
+                        dur.num_seconds().to_string().green()
+                    );
                     if let Err(e) = state.delete_chat().await {
-                        warn!("Failed to delete chat: {:?}", e);
+                        warn!("Failed to delete chat: {}", e);
                     }
                     // increment the request count
                     state.increase_cons_requests();
@@ -120,13 +132,13 @@ pub async fn api_messages(
         Err(e) => {
             // delete chat after an error
             if let Err(e) = state.delete_chat().await {
-                warn!("Failed to delete chat: {:?}", e);
+                warn!("Failed to delete chat: {}", e);
             }
             // 429 error
             if let ClewdrError::TooManyRequest(i) = e {
                 state.cookie_rotate(UselessReason::Exhausted(i));
             }
-            warn!("Error: {:?}", e);
+            warn!("Error: {}", e);
             if stream {
                 // stream the error as a response
                 Body::from_stream(error_stream(e)).into_response()

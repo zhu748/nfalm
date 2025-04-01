@@ -12,13 +12,6 @@ use crate::{
 
 impl AppState {
     pub async fn bootstrap(&self) {
-        {
-            let mut config = self.config.write();
-            if let Some(current_cookie) = config.current_cookie_info().cloned() {
-                config.cookie = current_cookie.cookie.clone();
-            }
-        }
-
         let res = self.try_bootstrap().await;
         match res {
             Err(ClewdrError::OtherHttpError(c, _)) if c == 401 || c == 403 => {
@@ -40,7 +33,7 @@ impl AppState {
                 error!("HTTP Error, code: {}, error: {}", c, e);
             }
             Err(e) => {
-                error!("Error: {:?}", e);
+                error!("Error: {}", e);
             }
             _ => {}
         }
@@ -48,13 +41,15 @@ impl AppState {
 
     async fn try_bootstrap(&self) -> Result<(), ClewdrError> {
         let proxy = self.config.read().rquest_proxy.clone();
-        let config = self.config.read().clone();
-        if !config.cookie.validate() {
-            error!("Invalid Cookie.");
-            return Err(ClewdrError::InvalidCookie);
+        {
+            let mut config = self.config.write();
+            let Some(cookie) = config.current_cookie_info().cloned() else {
+                error!("No cookie found.");
+                return Err(ClewdrError::InvalidCookie);
+            };
+            self.update_cookies(&cookie.cookie.to_string());
         }
-        self.update_cookies(&config.cookie.to_string());
-        let end_point = format!("{}/api/bootstrap", config.endpoint());
+        let end_point = format!("{}/api/bootstrap", self.config.read().endpoint());
         let res = SUPER_CLIENT
             .get(end_point.clone())
             .append_headers("", self.header_cookie()?, proxy.clone())
@@ -63,7 +58,7 @@ impl AppState {
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
         if bootstrap["account"].is_null() {
-            println!("Null Error, Useless Cookie");
+            error!("Null Error, Useless Cookie");
             return Err(ClewdrError::InvalidCookie);
         }
         let memberships = bootstrap["account"]["memberships"]
@@ -103,7 +98,7 @@ impl AppState {
                 pro = Some("claude_team_pro".to_string())
             }
         }
-        *self.is_pro.write() = pro.clone();
+        *self.pro.write() = pro.clone();
 
         // Check if is a pro account
         {
@@ -115,7 +110,7 @@ impl AppState {
                 if !model_name.is_empty() {
                     current_cookie.model = Some(model_name);
                     config.save().unwrap_or_else(|e| {
-                        println!("Failed to save config: {}", e);
+                        error!("Failed to save config: {}", e);
                     });
                 }
             }
@@ -177,7 +172,7 @@ impl AppState {
             } else {
                 UselessReason::Overlap
             };
-            println!("Cookie is useless, reason: {}", reason.to_string().red());
+            error!("Cookie is useless, reason: {}", reason.to_string().red());
             return Err(ClewdrError::InvalidCookie);
         } else {
             self.uuid_org_array.write().push(uuid.to_string());

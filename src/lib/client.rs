@@ -79,7 +79,7 @@ pub async fn upload_images(
             let bytes = BASE64_STANDARD
                 .decode(img.data.as_bytes())
                 .inspect_err(|e| {
-                    warn!("Failed to decode image: {:?}", e);
+                    warn!("Failed to decode image: {}", e);
                 })
                 .ok()?;
             // choose the file name based on the media type
@@ -114,7 +114,7 @@ pub async fn upload_images(
         .map_while(|r| {
             // check if the response is ok
             r.inspect_err(|e| {
-                warn!("Failed to upload image: {:?}", e);
+                warn!("Failed to upload image: {}", e);
             })
             .ok()
         })
@@ -125,7 +125,7 @@ pub async fn upload_images(
                 .json::<Value>()
                 .await
                 .inspect_err(|e| {
-                    warn!("Failed to parse image response: {:?}", e);
+                    warn!("Failed to parse image response: {}", e);
                 })
                 .ok()?;
             Some(json["file_uuid"].as_str()?.to_string())

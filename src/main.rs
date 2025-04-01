@@ -2,6 +2,7 @@ use clap::Parser;
 use clewdr::{self, BANNER, config::Config, error::ClewdrError, state::AppState};
 use colored::Colorize;
 use const_format::formatc;
+use tracing_subscriber::fmt::time::ChronoLocal;
 
 /// Async main function using tokio runtime
 #[tokio::main]
@@ -9,7 +10,7 @@ async fn main() -> Result<(), ClewdrError> {
     // parse command line arguments
     clewdr::Args::parse();
     // set up logging time format
-    let timer = tracing_subscriber::fmt::time::ChronoLocal::new("%H:%M:%S%.3f".to_string());
+    let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
     tracing_subscriber::fmt().with_timer(timer).pretty().init();
 

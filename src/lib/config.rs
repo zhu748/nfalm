@@ -5,10 +5,7 @@ use rand::{Rng, rng};
 use regex::Regex;
 use rquest::Proxy;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{Debug, Display},
-    process::exit,
-};
+use std::fmt::{Debug, Display};
 use tracing::{debug, error, info, warn};
 
 use crate::{Args, error::ClewdrError, utils::config_dir};
@@ -20,7 +17,6 @@ pub const ENDPOINT: &str = "https://api.claude.ai";
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     // Cookie configurations
-    pub cookie: Cookie,
     #[serde(default)]
     pub prompt_polyfill: PromptPolyfill,
     cookie_array: Vec<CookieInfo>,
@@ -31,7 +27,6 @@ pub struct Config {
     // Network settings
     cookie_index: i32,
     pub proxy: String,
-    pub proxy_password: String,
     ip: String,
     port: u16,
     pub local_tunnel: bool,
@@ -266,7 +261,6 @@ impl<'de> Deserialize<'de> for Cookie {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cookie: Cookie::from(PLACEHOLDER_COOKIE),
             cookie_array: vec![
                 CookieInfo::new(PLACEHOLDER_COOKIE, None, None),
                 CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro"), None),
@@ -276,7 +270,6 @@ impl Default for Config {
             wasted_cookie: Vec::new(),
             cookie_index: -1,
             proxy: String::new(),
-            proxy_password: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
             local_tunnel: false,
@@ -426,13 +419,12 @@ impl Config {
             warn!("No current cookie found");
             return;
         };
-        self.cookie.clear();
         self.wasted_cookie
             .push(UselessCookie::new(current_cookie.cookie, reason));
         self.save().unwrap_or_else(|e| {
             error!("Failed to save config: {}", e);
         });
-        println!("Cleaning Cookie...");
+        debug!("Cleaning Cookie...");
     }
 
     /// API endpoint of server
@@ -532,7 +524,7 @@ impl Config {
             if index == self.cookie_index {
                 // Terminate if all cookies are useless
                 error!("All cookies are useless");
-                exit(1);
+                return;
             }
             // Check if the cookie is usable
             if cookie.check_timer() {
@@ -544,7 +536,6 @@ impl Config {
         self.save().unwrap_or_else(|e| {
             error!("Failed to save config: {}", e);
         });
-        warn!("Rotating cookie");
     }
 
     /// Validate the configuration
