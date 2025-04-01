@@ -1,18 +1,16 @@
-# v0.1.6
+# v0.1.7
 
 <!-- ## Bug Fix
 
 - Ignore warnings with negative time delta. -->
 ## Documentation
 
-- Add instructions for detailed proxy settings in SillyTavern.
+- Improve readability by adding more comments.
 
 ## Improvements
 
-- Support for custom prompts in the config file.
-- Support system prompts(only string).
-- Better error handling.
-- Return error message when client tries to use OpenAI compatible mode.
+- Support forward proxy (http/https/socks)
+- Print config at start.
 
 ## Refactoring
 
