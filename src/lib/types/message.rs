@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize, de};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Error types for the Messages API
