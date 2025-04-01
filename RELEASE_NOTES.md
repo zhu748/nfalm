@@ -1,8 +1,8 @@
-# v0.1.9
+# v0.1.10
 
-<!-- ## Bug Fix
+## Bug Fix
 
-- Fix system prompt generation. (422 Error) -->
+- Fix android dynamic library loading issue.
 
 <!-- ## Documentation
 
@@ -12,7 +12,7 @@
 
 - Add `-i`/`--index` option to specify the cookie index.
 - Support pad text as prompt. -->
-
+<!-- 
 ## Improvement
 
-- Improve padtxt, need more tests. Any suggestions are welcome.
+- Improve padtxt, need more tests. Any suggestions are welcome. -->
