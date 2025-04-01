@@ -84,7 +84,6 @@ pub struct Config {
 
     // Proxy configurations
     pub rproxy: String,
-    pub api_rproxy: String,
 
     // Prompt templates
     pub user_real_roles: bool,
@@ -262,7 +261,6 @@ impl Default for Config {
             port: 8484,
             local_tunnel: false,
             rproxy: String::new(),
-            api_rproxy: String::new(),
             settings: Settings::default(),
             user_real_roles: false,
             custom_prompt: String::new(),
@@ -270,6 +268,22 @@ impl Default for Config {
             custom_a: None,
             rquest_proxy: None,
         }
+    }
+}
+
+impl Display for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // one line per field
+        write!(
+            f,
+            "Cookie index: {}\n\
+            Forward Proxy: {}\n\
+            IP: {}\n\
+            Port: {}\n\
+            Local tunnel: {}\n\
+            Reverse Proxy: {}\n",
+            self.cookie_index, self.proxy, self.ip, self.port, self.local_tunnel, self.rproxy,
+        )
     }
 }
 
@@ -471,12 +485,6 @@ impl Config {
         }
         self.ip = self.ip.trim().to_string();
         self.rproxy = self.rproxy.trim().to_string();
-        self.api_rproxy = self
-            .api_rproxy
-            .trim()
-            .trim_end_matches('/')
-            .trim_end_matches("/v1")
-            .to_string();
         self.settings.padtxt = self.settings.padtxt.trim().to_string();
         self.proxy = self.proxy.trim().to_string();
         let proxy = if self.proxy.is_empty() {

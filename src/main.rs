@@ -26,7 +26,7 @@ async fn main() -> Result<(), ClewdrError> {
     );
     println!("{}", TITLE.blue());
     println!("Listening on {}", config.address().green());
-    // println!("Config:\n{:?}", config);
+    println!("{}", config);
     // TODO: Local tunnel
 
     // initialize the application state
