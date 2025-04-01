@@ -18,11 +18,11 @@ use crate::{
     config::UselessReason,
     error::{ClewdrError, check_res_err, error_stream},
     state::AppState,
-    text::merge_messages,
     types::message::{ContentBlock, ImageSource, Message, Role},
-    utils::{TIME_ZONE, print_out_json},
+    utils::print_out_json,
 };
 
+/// Exact test message send by SillyTavern
 pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
     Message::new_blocks(
         Role::User,
@@ -32,8 +32,9 @@ pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
     )
 });
 
+/// Claude.ai attachment
 #[derive(Deserialize, Serialize, Debug)]
-struct Attachment {
+pub struct Attachment {
     extracted_content: String,
     file_name: String,
     file_type: String,
@@ -41,7 +42,7 @@ struct Attachment {
 }
 
 impl Attachment {
-    fn new(content: String) -> Self {
+    pub fn new(content: String) -> Self {
         Attachment {
             file_size: content.bytes().len() as u64,
             extracted_content: content,
@@ -51,84 +52,78 @@ impl Attachment {
     }
 }
 
+/// Request body to be sent to the Claude.ai
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
-    max_tokens_to_sample: Option<u64>,
-    attachments: Vec<Attachment>,
-    files: Vec<String>,
-    model: String,
-    rendering_mode: String,
-    prompt: String,
-    timezone: String,
+    pub max_tokens_to_sample: Option<u64>,
+    pub attachments: Vec<Attachment>,
+    pub files: Vec<String>,
+    pub model: String,
+    pub rendering_mode: String,
+    pub prompt: String,
+    pub timezone: String,
     #[serde(skip)]
-    images: Vec<ImageSource>,
+    pub images: Vec<ImageSource>,
 }
 
+/// Request body sent from the client
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ClientRequestBody {
-    max_tokens: Option<u64>,
-    messages: Vec<Message>,
-    stop_sequences: Vec<String>,
-    model: String,
+    pub max_tokens: Option<u64>,
+    pub messages: Vec<Message>,
+    pub stop_sequences: Vec<String>,
+    pub model: String,
     #[serde(default)]
-    stream: bool,
-    thinking: Option<Thinking>,
+    pub stream: bool,
+    pub thinking: Option<Thinking>,
     #[serde(default)]
-    system: String,
+    pub system: String,
 }
 
-fn transform(
-    value: ClientRequestBody,
-    custom_prompt: String,
-    user_real_roles: bool,
-) -> Option<RequestBody> {
-    let merged = merge_messages(value.messages, value.system, custom_prompt, user_real_roles)?;
-    Some(RequestBody {
-        max_tokens_to_sample: value.max_tokens,
-        attachments: vec![Attachment::new(merged.paste)],
-        files: vec![],
-        model: value.model,
-        rendering_mode: "messages".to_string(),
-        prompt: merged._prompt,
-        timezone: TIME_ZONE.to_string(),
-        images: merged.images,
-    })
-}
-
+/// Thinking mode in Claude API Request
 #[derive(Deserialize, Serialize, Debug)]
-struct Thinking {
+pub struct Thinking {
     budget_tokens: u64,
     r#type: String,
 }
 
+/// Axum handler for the API messages
 pub async fn api_messages(
     State(state): State<AppState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
     let stream = p.stream;
+
+    // check if request is successful
     match state.try_message(p).await {
         Ok(b) => {
+            // delete chat after a successful request
             defer! {
                 spawn(async move {
                     if let Err(e) = state.delete_chat().await {
                         warn!("Failed to delete chat: {:?}", e);
                     }
+                    // increment the request count
                     state.increase_cons_requests();
                 });
             }
             b.into_response()
         }
         Err(e) => {
+            // delete chat after an error
             if let Err(e) = state.delete_chat().await {
                 warn!("Failed to delete chat: {:?}", e);
             }
+            // 429 error
             if let ClewdrError::TooManyRequest(i) = e {
                 state.cookie_rotate(UselessReason::Exhausted(i));
             }
             warn!("Error: {:?}", e);
             if stream {
+                // stream the error as a response
                 Body::from_stream(error_stream(e)).into_response()
             } else {
+                // return the error as a response
                 serde_json::ser::to_string(&Message::new_text(
                     Role::Assistant,
                     format!("Error: {}", e),
@@ -141,12 +136,14 @@ pub async fn api_messages(
 }
 
 impl AppState {
+    /// Try to send a message to the Claude API
     async fn try_message(&self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
 
         // Check if the request is a test message
         if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
+            // respond with a test message
             return Ok(serde_json::ser::to_string(&Message::new_text(
                 Role::Assistant,
                 "Test message".to_string(),
@@ -158,16 +155,17 @@ impl AppState {
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
         *self.conv_uuid.write() = Some(new_uuid.to_string());
-        let endpoint = self.config.read().endpoint("");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
-            endpoint,
+            self.config.read().endpoint(),
             self.uuid_org.read()
         );
         let mut body = json!({
             "uuid": new_uuid,
             "name":""
         });
+
+        // enable thinking mode
         if p.thinking.is_some() {
             body["paprika_mode"] = "extended".into();
             body["model"] = p.model.clone().into();
@@ -179,13 +177,14 @@ impl AppState {
             .send()
             .await?;
         debug!("New conversation created: {}", new_uuid);
+
+        // update cookie
         self.update_cookie_from_res(&api_res);
         check_res_err(api_res).await?;
 
-        // prepare the request
-        let user_real_roles = self.config.read().user_real_roles;
-        let custom_prompt = self.config.read().custom_prompt.clone();
-        let Some(mut body) = transform(p, custom_prompt, user_real_roles) else {
+        // generate the request body
+        // check if the request is empty
+        let Some(mut body) = self.transform(p) else {
             return Ok(serde_json::ser::to_string(&Message::new_text(
                 Role::Assistant,
                 "Empty message?".to_string(),
@@ -193,6 +192,7 @@ impl AppState {
             .unwrap()
             .into_response());
         };
+
         // check images
         let images = mem::take(&mut body.images);
 
@@ -201,14 +201,13 @@ impl AppState {
         let files = upload_images(images, self.header_cookie()?, uuid_org).await;
         body.files = files;
 
-        // file processed
+        // send the request
         print_out_json(&body, "4.req.json");
-        let endpoint = self.config.read().endpoint("");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}/completion",
-            endpoint,
+            self.config.read().endpoint(),
             self.uuid_org.read(),
-            self.conv_uuid.read().as_ref().cloned().unwrap_or_default()
+            new_uuid
         );
 
         let api_res = SUPER_CLIENT
@@ -221,6 +220,7 @@ impl AppState {
         self.update_cookie_from_res(&api_res);
         let api_res = check_res_err(api_res).await?;
 
+        // if not streaming, return the response
         if !stream {
             let text = api_res.text().await?;
             return Ok(text.into_response());
@@ -228,7 +228,6 @@ impl AppState {
 
         // stream the response
         let input_stream = api_res.bytes_stream();
-        // let my_stream = ClewdrStream::new(input_stream, self.clone());
         Ok(Body::from_stream(input_stream).into_response())
     }
 }

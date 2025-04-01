@@ -11,11 +11,13 @@ use tracing::debug;
 
 use crate::{client::NORMAL_CLIENT, messages::api_messages, state::AppState, utils::MODELS};
 
+/// RouterBuilder for the application
 pub struct RouterBuilder {
     inner: Router,
 }
 
 impl RouterBuilder {
+    /// Create a new RouterBuilder instance
     pub fn new(state: AppState) -> Self {
         Self {
             inner: Router::new()
@@ -29,11 +31,13 @@ impl RouterBuilder {
         }
     }
 
+    /// return the inner router
     pub fn build(self) -> Router {
         self.inner
     }
 }
 
+/// Handle the OpenAI API request
 async fn reject_openai() -> Json<Value> {
     debug!("Reject OpenAI API");
     let response = json!({
@@ -45,6 +49,8 @@ async fn reject_openai() -> Json<Value> {
     Json(response)
 }
 
+/// Handle the models request, probably not needed.
+/// Because SillyTavern already has a models list.
 async fn get_models(
     headers: HeaderMap,
     State(api_state): State<AppState>,
@@ -102,6 +108,7 @@ async fn get_models(
     Ok(Json(response))
 }
 
+/// Handle the fallback request
 async fn api_fallback(req: Request) -> Html<&'static str> {
     let url = req.uri().path();
     if !["/", "/v1", "/favicon.ico"].contains(&url) {
@@ -148,6 +155,7 @@ Clewdr "#,
     ))
 }
 
+/// Handle the CORS preflight request
 async fn api_options() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert("Access-Control-Allow-Origin", "*".parse().unwrap());

@@ -53,7 +53,7 @@ impl AppState {
             return Err(ClewdrError::InvalidCookie);
         }
         self.update_cookies(&config.cookie.to_string());
-        let end_point = config.endpoint("api/bootstrap");
+        let end_point = format!("{}/api/bootstrap", config.endpoint());
         let res = SUPER_CLIENT
             .get(end_point.clone())
             .append_headers("", self.header_cookie()?)

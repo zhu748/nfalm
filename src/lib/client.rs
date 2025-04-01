@@ -12,12 +12,15 @@ use tracing::warn;
 
 use crate::{types::message::ImageSource, utils::ENDPOINT};
 
+/// The default client to be used for requests
 pub static NORMAL_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()
         .build()
         .expect("Failed to create client")
 });
 
+/// The client to be used for requests to the Claude.ai
+/// This client is used for requests that require a specific emulation
 pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()
         .emulation(Emulation::Chrome134)
@@ -25,6 +28,7 @@ pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
         .expect("Failed to create client")
 });
 
+/// Helper function to add headers to a request
 pub trait AppendHeaders {
     fn append_headers(self, refer: impl AsRef<str>, cookies: impl AsRef<str>) -> Self;
 }
@@ -37,6 +41,7 @@ impl AppendHeaders for RequestBuilder {
     }
 }
 
+/// Helper function to get the header reference
 fn header_ref<S: AsRef<str>>(ref_path: S) -> String {
     if ref_path.as_ref().is_empty() {
         format!("{}/", ENDPOINT)
@@ -45,6 +50,7 @@ fn header_ref<S: AsRef<str>>(ref_path: S) -> String {
     }
 }
 
+/// Upload images to the Claude.ai
 pub async fn upload_images(
     imgs: Vec<ImageSource>,
     cookies: String,
@@ -54,16 +60,19 @@ pub async fn upload_images(
     let fut = imgs
         .into_iter()
         .map_while(|img| {
+            // check if the image is base64
             if img.type_ != "base64" {
                 warn!("Image type is not base64");
                 return None;
             }
+            // decode the image
             let bytes = BASE64_STANDARD
                 .decode(img.data.as_bytes())
                 .inspect_err(|e| {
                     warn!("Failed to decode image: {:?}", e);
                 })
                 .ok()?;
+            // choose the file name based on the media type
             let file_name = match img.media_type.as_str() {
                 "image/png" => "image.png",
                 "image/jpeg" => "image.jpg",
@@ -72,11 +81,12 @@ pub async fn upload_images(
                 "application/pdf" => "document.pdf",
                 _ => "file",
             };
+            // create the part and form
             let part = Part::bytes(bytes).file_name(file_name);
             let form = Form::new().part("file", part);
-
             let endpoint = format!("https://claude.ai/api/{}/upload", uuid_org);
             Some(
+                // send the request into future
                 SUPER_CLIENT
                     .post(endpoint)
                     .append_headers("new", cookies.as_str())
@@ -92,12 +102,15 @@ pub async fn upload_images(
         .await
         .into_iter()
         .map_while(|r| {
+            // check if the response is ok
             r.inspect_err(|e| {
                 warn!("Failed to upload image: {:?}", e);
             })
             .ok()
         })
         .map(|r| async {
+            // get the response json
+            // extract the file_uuid
             let json = r
                 .json::<Value>()
                 .await
@@ -109,6 +122,7 @@ pub async fn upload_images(
         })
         .collect::<Vec<_>>();
 
+    // collect the results
     join_all(fut)
         .await
         .into_iter()

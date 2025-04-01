@@ -1,11 +1,11 @@
-use figlet_rs::FIGfont;
 use serde_json::Value;
-use std::{path::PathBuf, sync::LazyLock};
+use std::path::PathBuf;
 use tracing::error;
 
 use crate::{config::CONFIG_NAME, error::ClewdrError};
 
-pub fn cwd_or_exec() -> Result<PathBuf, ClewdrError> {
+/// Get directory of the config file
+pub fn config_dir() -> Result<PathBuf, ClewdrError> {
     let cwd = std::env::current_dir().map_err(|_| ClewdrError::PathNotFound("cwd".to_string()))?;
     let cwd_config = cwd.join(CONFIG_NAME);
     if cwd_config.exists() {
@@ -26,13 +26,15 @@ pub fn cwd_or_exec() -> Result<PathBuf, ClewdrError> {
     ))
 }
 
+/// Helper function to print out json
 pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
     let text = serde_json::to_string_pretty(json).unwrap_or_default();
     print_out_text(&text, file_name);
 }
 
+/// Helper function to print out text
 pub fn print_out_text(text: &str, file_name: &str) {
-    let Ok(dir) = cwd_or_exec() else {
+    let Ok(dir) = config_dir() else {
         error!("No config found in cwd or exec dir");
         return;
     };
@@ -58,6 +60,7 @@ pub fn print_out_text(text: &str, file_name: &str) {
     }
 }
 
+/// Mimic the behavior of JavaScript's truthiness
 pub trait JsBool {
     fn js_bool(&self) -> bool;
 }
@@ -99,18 +102,7 @@ impl JsBool for Value {
     }
 }
 
-pub static BANNER: LazyLock<String> = LazyLock::new(|| {
-    let standard_font = FIGfont::standard().unwrap();
-    let figure = standard_font.convert("ClewdR");
-    let banner = figure.unwrap().to_string();
-    format!(
-        "{}\nv{} by {}\n",
-        banner,
-        env!("CARGO_PKG_VERSION"),
-        env!("CARGO_PKG_AUTHORS")
-    )
-});
-
+/// Models for the API
 pub const MODELS: [&str; 10] = [
     "claude-3-7-sonnet-20250219",
     "claude-3-5-sonnet-20240620",
@@ -124,6 +116,8 @@ pub const MODELS: [&str; 10] = [
     "claude-instant-1.1",
 ];
 
+/// Endpoint for the API
 pub const ENDPOINT: &str = "https://api.claude.ai";
 
+/// Timezone for the API
 pub const TIME_ZONE: &str = "America/New_York";

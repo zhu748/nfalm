@@ -43,18 +43,21 @@ pub enum ClewdrError {
     CookieRotating,
 }
 
+/// HTTP error response
 #[derive(Debug, Deserialize, Serialize)]
 pub struct HttpError {
     pub error: InnerHttpError,
     r#type: String,
 }
 
+/// Inner HTTP error response
 #[derive(Debug, Serialize)]
 pub struct InnerHttpError {
     pub message: Value,
     pub r#type: String,
 }
 
+/// Raw Inner HTTP error response
 #[derive(Debug, Serialize, Deserialize)]
 struct InnerHttpErrorRaw {
     pub message: String,
@@ -62,11 +65,11 @@ struct InnerHttpErrorRaw {
 }
 
 impl<'de> Deserialize<'de> for InnerHttpError {
+    /// when message is a json string, try parse it as a object
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        // when message is a json string, try pass it as a object
         let raw = InnerHttpErrorRaw::deserialize(deserializer)?;
         if let Ok(message) = serde_json::from_str::<Value>(&raw.message) {
             return Ok(InnerHttpError {
@@ -89,6 +92,7 @@ impl Display for InnerHttpError {
     }
 }
 
+/// Check response from Claude Web
 pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     let status = res.status();
     if status.is_success() {
@@ -97,7 +101,9 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     debug!("Error response status: {}", status);
     let err = res.json::<HttpError>().await?;
     let err = err.error;
+    // check if the error is a rate limit error
     if status == 429 {
+        // get the reset time from the error message
         if let Some(time) = err.message["resetsAt"].as_i64() {
             let reset_time = chrono::DateTime::from_timestamp(time, 0)
                 .ok_or(ClewdrError::TimestampError(time))?
@@ -112,6 +118,8 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     Err(ClewdrError::OtherHttpError(status, err))
 }
 
+
+/// Convert a ClewdrError to a Stream of Claude API events
 pub fn error_stream(e: ClewdrError) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> {
     let msg_start_content = MessageStartContent::default();
     let msg_start_block = StreamEvent::MessageStart {
@@ -147,6 +155,7 @@ pub fn error_stream(e: ClewdrError) -> impl Stream<Item = Result<axum::body::Byt
     ];
     let vec = vec.into_iter().map(|e| {
         let e = serde_json::to_string(&e).unwrap();
+        // SSE format
         let e = format!("data: {e}\n\n");
         let bytes = axum::body::Bytes::from(e);
         Ok::<axum::body::Bytes, Infallible>(bytes)

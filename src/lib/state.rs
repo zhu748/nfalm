@@ -19,6 +19,11 @@ use crate::config::UselessReason;
 use crate::error::ClewdrError;
 use crate::{config::Config, utils::ENDPOINT};
 
+/// Inner state of the application
+/// 
+/// Mutable fields are all Atomic or RwLock
+/// 
+/// Caution for deadlocks
 #[derive(Default)]
 pub struct InnerState {
     pub config: RwLock<Config>,
@@ -34,18 +39,24 @@ pub struct InnerState {
 
 impl Deref for AppState {
     type Target = InnerState;
-
+    /// Implement Deref trait for AppState for easier access to inner state
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
+/// Arc wrapper for the inner state
+/// 
+/// Mutable fields are all Atomic or RwLock
+/// 
+/// Caution for deadlocks
 #[derive(Clone)]
 pub struct AppState {
     inner: Arc<InnerState>,
 }
 
 impl AppState {
+    /// Create a new AppState instance
     pub fn new(config: Config) -> Self {
         let m = InnerState {
             init_length: config.cookie_array_len() as u64,
@@ -56,11 +67,13 @@ impl AppState {
         AppState { inner: m }
     }
 
+    /// increase the number of consequence requests
     pub fn increase_cons_requests(&self) {
         let mut cons_requests = self.cons_requests.load(Ordering::Relaxed);
         debug!("Current concurrent requests: {}", cons_requests);
         cons_requests += 1;
         let max_cons_requests = self.config.read().max_cons_requests;
+        // if consequence requests is greater than max, rotate cookie
         if cons_requests > max_cons_requests {
             cons_requests = 0;
             warn!("Reached max concurrent requests, rotating cookie");
@@ -69,6 +82,7 @@ impl AppState {
         self.cons_requests.store(cons_requests, Ordering::Relaxed);
     }
 
+    /// Update cookie from the server response
     pub fn update_cookie_from_res(&self, res: &Response) {
         if let Some(s) = res
             .headers()
@@ -79,6 +93,7 @@ impl AppState {
         }
     }
 
+    /// Update cookies from string
     pub fn update_cookies(&self, str: &str) {
         let str = str.split("\n").to_owned().collect::<Vec<_>>().join("");
         if str.is_empty() {
@@ -103,7 +118,9 @@ impl AppState {
             });
     }
 
+    /// Current cookie string that are used in requests
     pub fn header_cookie(&self) -> Result<String, ClewdrError> {
+        // check rotating guard
         if self.rotating.load(Ordering::Relaxed) {
             return Err(ClewdrError::CookieRotating);
         }
@@ -117,12 +134,14 @@ impl AppState {
             .to_string())
     }
 
+    /// Rotate the cookie for the given reason
     pub fn cookie_rotate(&self, reason: UselessReason) {
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
         if SHIFTS.load(Ordering::Relaxed) == self.init_length {
             error!("Cookie used up, not rotating");
             return;
         }
+        // create scope to avoid deadlock
         {
             let mut config = self.config.write();
             let Some(current_cookie) = config.current_cookie_info() else {
@@ -173,6 +192,7 @@ impl AppState {
         });
     }
 
+    /// Delete current chat conversation
     pub async fn delete_chat(&self) -> Result<(), ClewdrError> {
         let uuid = self.conv_uuid.write().take();
         let config = self.config.read().clone();
@@ -181,12 +201,17 @@ impl AppState {
             return Ok(());
         }
         let uuid = uuid.unwrap();
+        // if preserve_chats is true, do not delete chat
         if config.settings.preserve_chats {
             return Ok(());
         }
         debug!("Deleting chat: {}", uuid);
-        let endpoint = config.endpoint("api/organizations");
-        let endpoint = format!("{}/{}/chat_conversations/{}", endpoint, uuid_org, uuid);
+        let endpoint = format!(
+            "{}/api/organizations/{}/chat_conversations/{}",
+            config.endpoint(),
+            uuid_org,
+            uuid
+        );
         let res = SUPER_CLIENT
             .delete(endpoint.clone())
             .append_headers("", self.header_cookie()?)
