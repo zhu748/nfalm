@@ -43,5 +43,5 @@ pub struct Args {
     pub cookie_file: Option<String>,
     /// Index of cookie
     #[clap(long, short)]
-    pub index: Option<i32>,
+    pub index: Option<usize>,
 }

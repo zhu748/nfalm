@@ -25,7 +25,7 @@ pub struct Config {
     pub wait_time: u64,
 
     // Network settings
-    cookie_index: i32,
+    cookie_index: usize,
     pub proxy: String,
     ip: String,
     port: u16,
@@ -268,7 +268,7 @@ impl Default for Config {
             max_cons_requests: 3,
             wait_time: 15,
             wasted_cookie: Vec::new(),
-            cookie_index: -1,
+            cookie_index: 0,
             proxy: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
@@ -344,7 +344,7 @@ impl Config {
                 // load command line arguments
                 let args = Args::parse();
                 if let Some(index) = args.index {
-                    if index < config.cookie_array.len() as i32 {
+                    if index < config.cookie_array.len() {
                         info!("Setting cookie index to {}", index);
                         config.cookie_index = index;
                     } else {
@@ -469,10 +469,7 @@ impl Config {
 
     /// Get current cookie info
     pub fn current_cookie_info(&mut self) -> Option<&mut CookieInfo> {
-        if self.cookie_index < 0 {
-            return None;
-        }
-        if self.cookie_index < self.cookie_array.len() as i32 {
+        if self.cookie_index < self.cookie_array.len() {
             Some(&mut self.cookie_array[self.cookie_index as usize])
         } else {
             None
@@ -480,25 +477,18 @@ impl Config {
     }
 
     /// Get current cookie index
-    pub fn index(&self) -> i32 {
+    pub fn index(&self) -> usize {
         self.cookie_index
     }
 
     /// Remove the current cookie from the array
     /// and return it, also change index
     fn delete_current_cookie(&mut self) -> Option<CookieInfo> {
-        if self.cookie_index < 0 {
-            return None;
-        }
-        if self.cookie_index < self.cookie_array.len() as i32 {
-            let index = self.cookie_index as usize;
+        if self.cookie_index < self.cookie_array.len() {
+            let index = self.cookie_index;
             let removed = self.cookie_array.remove(index);
             if index == self.cookie_array.len() {
-                if index == 0 {
-                    self.cookie_index = -1;
-                } else {
-                    self.cookie_index = 0;
-                }
+                self.cookie_index = 0;
             }
             warn!("Removed cookie: {}", removed.cookie.to_string().red());
             return Some(removed);
@@ -518,7 +508,7 @@ impl Config {
         }
         let array_len = self.cookie_array.len();
         let mut index = self.cookie_index;
-        index = (index + 1) % array_len as i32;
+        index = (index + 1) % array_len;
         while let Some(cookie) = self.cookie_array.get_mut(index as usize) {
             debug!("Checking cookie in {}", index);
             if index == self.cookie_index {
@@ -530,7 +520,7 @@ impl Config {
             if cookie.check_timer() {
                 break;
             }
-            index = (index + 1) % array_len as i32;
+            index = (index + 1) % array_len;
         }
         self.cookie_index = index;
         self.save().unwrap_or_else(|e| {
@@ -540,8 +530,8 @@ impl Config {
 
     /// Validate the configuration
     fn validate(mut self) -> Self {
-        if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() as i32 {
-            self.cookie_index = rng().random_range(0..self.cookie_array.len() as i32);
+        if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() {
+            self.cookie_index = rng().random_range(0..self.cookie_array.len());
         }
         self.ip = self.ip.trim().to_string();
         self.rproxy = self.rproxy.trim().to_string();

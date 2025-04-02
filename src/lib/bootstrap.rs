@@ -116,11 +116,7 @@ impl AppState {
             }
         }
         let config = self.config.read().clone();
-        let index = if config.index() < 0 {
-            "".to_string()
-        } else {
-            format!("(Index: {}) ", config.index()).blue().to_string()
-        };
+        let index = format!("(Index: {}) ", config.index()).blue().to_string();
         let name = boot_acc_info
             .get("name")
             .and_then(|n| n.as_str())
