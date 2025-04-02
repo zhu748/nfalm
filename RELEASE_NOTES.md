@@ -1,22 +1,15 @@
-# v0.2.0
-
-## Bug Fix
-
-- Fix android dynamic library loading issue.
-
-## Break Change
-
-- Total remove single cookie mode.
-<!-- ## Documentation
-
-- Improve readability by adding more comments. -->
-
-<!-- ## Feature
-
-- Add `-i`/`--index` option to specify the cookie index.
-- Support pad text as prompt. -->
+# v0.3.0
 
 ## Improvement
 
-- Improve error handling.
-- Show request info and time in the log.
+- Padtxt now pad txt at the front of the prompt. Change default pad length to 1024.
+
+## Break Change
+
+- Change config file field and format. Please regenerate the config file.
+- Now ClewdR will require a password to request messages API. Please set the password in the config file,
+or ClewdR will generate a random password for you.
+
+## Feature
+
+- Support x-api-key authorization.
