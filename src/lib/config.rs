@@ -279,7 +279,7 @@ impl Default for Config {
             use_real_roles: false,
             custom_prompt: String::new(),
             padtxt_file: String::new(),
-            padtxt_len: 0,
+            padtxt_len: 4000,
             custom_h: None,
             custom_a: None,
             rquest_proxy: None,

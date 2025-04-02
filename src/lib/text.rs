@@ -137,6 +137,9 @@ impl AppState {
 
     /// Generate padding text
     fn generate_padding(&self, length: usize) -> String {
+        if length == 0 {
+            return String::new();
+        }
         let conf = &self.config.read();
         let tokens = conf
             .pad_tokens
@@ -163,11 +166,12 @@ impl AppState {
             }
         }
         print_out_text(result.as_str(), "padding.txt");
-        result.push_str("\n\n\n\n");
+        result.push_str("\n\n");
         result
     }
 }
 
+/// Merge system message into a string
 fn merge_system(sys: Value) -> String {
     if let Some(str) = sys.as_str() {
         return str.to_string();
