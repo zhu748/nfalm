@@ -23,9 +23,7 @@ impl RouterBuilder {
             inner: Router::new()
                 .route("/", options(api_options))
                 .route("/v1", options(api_options))
-                .route("/chat/completions", post(reject_openai))
                 .route("/v1/chat/completions", post(reject_openai))
-                .route("/messages", post(api_messages))
                 .route("/v1/messages", post(api_messages))
                 .fallback(api_fallback)
                 .with_state(state),

@@ -4,7 +4,6 @@ use serde_json::Value;
 use std::fmt::Write;
 
 use crate::{
-    config::PromptPolyfill,
     messages::{Attachment, ClientRequestBody, RequestBody},
     state::AppState,
     types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
@@ -54,12 +53,19 @@ impl AppState {
             .clone()
             .unwrap_or("Assistant".to_string());
 
-        let user_real_roles = self.config.read().user_real_roles;
+        let user_real_roles = self.config.read().use_real_roles;
         let line_breaks = if user_real_roles { "\n\n\x08" } else { "\n\n" };
         let system = system.trim().to_string();
         let size = size_of_val(&msgs);
         // preallocate string to avoid reallocations
         let mut w = String::with_capacity(size);
+        // generate padding text
+        if !self.config.read().pad_tokens.is_empty() {
+            let len = self.config.read().padtxt_len;
+            let padding = self.generate_padding(len);
+            w.push_str(padding.as_str());
+        }
+
         let mut imgs: Vec<ImageSource> = vec![];
 
         let chunks = msgs
@@ -120,30 +126,30 @@ impl AppState {
         print_out_text(w.as_str(), "paste.txt");
 
         // prompt polyfill
-        let prompt_polyfill = self.config.read().prompt_polyfill.clone();
-        let polyfill = match prompt_polyfill {
-            PromptPolyfill::CustomPrompt(p) => p,
-            PromptPolyfill::PadTxt(_) => self.generate_padding(),
-        };
+        let p = self.config.read().custom_prompt.clone();
 
         Some(Merged {
             paste: w,
-            prompt: polyfill,
+            prompt: p,
             images: imgs,
         })
     }
 
     /// Generate padding text
-    fn generate_padding(&self) -> String {
+    fn generate_padding(&self, length: usize) -> String {
         let conf = &self.config.read();
-        let tokens = conf.padtxt.iter().map(|s| s.as_str()).collect::<Vec<_>>();
-        assert!(tokens.len() >= 4096, "Padding tokens too short");
+        let tokens = conf
+            .pad_tokens
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>();
+        assert!(tokens.len() >= length, "Padding tokens too short");
 
-        let mut result = String::with_capacity(4096 * 8);
+        let mut result = String::with_capacity(length * 8);
         let mut rng = rng();
         let mut pushed = 0;
         loop {
-            let slice_len = rng.random_range(8..64);
+            let slice_len = rng.random_range(16..64);
             let slice_start = rng.random_range(0..tokens.len() - slice_len);
             let slice = &tokens[slice_start..slice_start + slice_len];
             result.push_str(slice.join(" ").as_str());
@@ -152,11 +158,12 @@ impl AppState {
             if rng.random_range(0..100) < 5 {
                 result.push('\n');
             }
-            if pushed > 4000 {
+            if pushed > length {
                 break;
             }
         }
         print_out_text(result.as_str(), "padding.txt");
+        result.push_str("\n\n\n\n");
         result
     }
 }

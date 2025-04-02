@@ -21,7 +21,7 @@ async fn main() -> Result<(), ClewdrError> {
 
     // print the title and address
     const TITLE: &str = formatc!(
-        "Clewdr v{} by {}",
+        "ClewdR v{} by {}",
         env!("CARGO_PKG_VERSION"),
         env!("CARGO_PKG_AUTHORS")
     );

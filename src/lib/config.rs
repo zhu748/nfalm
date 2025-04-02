@@ -18,7 +18,6 @@ pub const ENDPOINT: &str = "https://api.claude.ai";
 pub struct Config {
     // Cookie configurations
     #[serde(default)]
-    pub prompt_polyfill: PromptPolyfill,
     cookie_array: Vec<CookieInfo>,
     pub wasted_cookie: Vec<UselessCookie>,
     pub max_cons_requests: u64,
@@ -26,6 +25,7 @@ pub struct Config {
 
     // Network settings
     cookie_index: usize,
+    password: String,
     pub proxy: String,
     ip: String,
     port: u16,
@@ -34,10 +34,13 @@ pub struct Config {
     // Proxy configurations
     pub rproxy: String,
 
-    // Prompt templates
-    pub user_real_roles: bool,
+    // Prompt configurations
+    pub use_real_roles: bool,
     pub custom_h: Option<String>,
     pub custom_a: Option<String>,
+    pub custom_prompt: String,
+    pub padtxt_file: String,
+    pub padtxt_len: usize,
 
     // Nested settings section
     #[serde(default)]
@@ -47,7 +50,7 @@ pub struct Config {
     #[serde(skip)]
     pub rquest_proxy: Option<Proxy>,
     #[serde(skip)]
-    pub padtxt: Vec<String>,
+    pub pad_tokens: Vec<String>,
 }
 
 /// Reason why a cookie is considered useless
@@ -61,21 +64,6 @@ pub enum UselessReason {
     Invalid,
     Exhausted(i64),
     CoolDown,
-}
-
-/// Prompt polyfill method
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub enum PromptPolyfill {
-    /// User provided custom prompt, inside is custom prompt
-    CustomPrompt(String),
-    /// Pad txt from random text, inside is txt file name
-    PadTxt(String),
-}
-
-impl Default for PromptPolyfill {
-    fn default() -> Self {
-        Self::CustomPrompt("".to_string())
-    }
 }
 
 impl Display for UselessReason {
@@ -258,6 +246,18 @@ impl<'de> Deserialize<'de> for Cookie {
     }
 }
 
+/// Generate a random password of given length
+fn generate_password(length: usize) -> String {
+    println!(
+        "{}",
+        "Generating random password, paste it to your proxy setting in SillyTavern".green()
+    );
+    let mut rng = rng();
+    (0..length)
+        .map(|_| rng.random_range(33..=126) as u8 as char) // 33–126 inclusive
+        .collect()
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -269,18 +269,21 @@ impl Default for Config {
             wait_time: 15,
             wasted_cookie: Vec::new(),
             cookie_index: 0,
+            password: String::new(),
             proxy: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
             local_tunnel: false,
             rproxy: String::new(),
             settings: Settings::default(),
-            user_real_roles: false,
-            prompt_polyfill: PromptPolyfill::default(),
+            use_real_roles: false,
+            custom_prompt: String::new(),
+            padtxt_file: String::new(),
+            padtxt_len: 0,
             custom_h: None,
             custom_a: None,
             rquest_proxy: None,
-            padtxt: Vec::new(),
+            pad_tokens: Vec::new(),
         }
     }
 }
@@ -290,10 +293,12 @@ impl Display for Config {
         // one line per field
         write!(
             f,
-            "Cookie index: {}\n\
+            "Password: {}\n\
+            Cookie index: {}\n\
             Forward Proxy: {}\n\
             Reverse Proxy: {}\n\
             Available Cookies in array: {}\n",
+            self.password.yellow(),
             self.cookie_index.to_string().blue(),
             self.proxy.to_string().blue(),
             self.rproxy.to_string().blue(),
@@ -304,11 +309,11 @@ impl Display for Config {
                 .to_string()
                 .blue()
         )?;
-        if let PromptPolyfill::PadTxt(_) = &self.prompt_polyfill {
+        if !self.pad_tokens.is_empty() {
             Ok(writeln!(
                 f,
                 "Pad txt token count: {}",
-                self.padtxt.len().to_string().blue()
+                self.pad_tokens.len().to_string().blue()
             )?)
         } else {
             Ok(())
@@ -317,6 +322,15 @@ impl Display for Config {
 }
 
 impl Config {
+    pub fn auth(&self, key: &str) -> bool {
+        if key == self.password {
+            return true;
+        } else {
+            warn!("Invalid password");
+            return false;
+        }
+    }
+
     /// Load the configuration from the file
     pub fn load() -> Result<Self, ClewdrError> {
         // try to read from pwd
@@ -350,8 +364,8 @@ impl Config {
                     } else {
                         warn!("Index out of range");
                     }
-                    config.save()?;
                 }
+                config.save()?;
                 Ok(config)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -377,9 +391,10 @@ impl Config {
     }
 
     fn load_padtxt(&mut self) {
-        let PromptPolyfill::PadTxt(padtxt) = &self.prompt_polyfill else {
+        let padtxt = self.padtxt_file.clone();
+        if padtxt.trim().is_empty() {
             return;
-        };
+        }
 
         let Ok(dir) = config_dir() else {
             error!("No config found in cwd or exec dir");
@@ -406,7 +421,7 @@ impl Config {
         if tokens.len() < 4096 {
             panic!("Pad txt file is too short: {}", padtxt_path.display());
         }
-        self.padtxt = tokens;
+        self.pad_tokens = tokens;
     }
 
     /// Clean current cookie and add it to the wasted cookie list
@@ -530,6 +545,10 @@ impl Config {
 
     /// Validate the configuration
     fn validate(mut self) -> Self {
+        if self.password.trim().is_empty() {
+            self.password = generate_password(32);
+            self.save().expect("Failed to save config");
+        }
         if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() {
             self.cookie_index = rng().random_range(0..self.cookie_array.len());
         }

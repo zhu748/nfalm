@@ -4,10 +4,11 @@ use axum::{
     Json,
     body::Body,
     extract::State,
+    http::HeaderMap,
     response::{IntoResponse, Response},
 };
 use colored::Colorize;
-use rquest::header::ACCEPT;
+use rquest::{StatusCode, header::ACCEPT};
 use scopeguard::defer;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -99,8 +100,18 @@ pub struct Thinking {
 /// Axum handler for the API messages
 pub async fn api_messages(
     State(state): State<AppState>,
+    header: HeaderMap,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
+    // TODO: Authorization
+    let key = header
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    if !state.config.read().auth(key) {
+        warn!("Invalid password: {}", key);
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
     let stream = p.stream;
     let stopwatch = chrono::Utc::now();
     println!(
