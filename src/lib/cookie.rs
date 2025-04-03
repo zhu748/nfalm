@@ -53,13 +53,13 @@ impl CookieManager {
             }
         }));
         let exhaust = HashSet::from_iter(config.cookie_array.iter().filter_map(|c| {
-            if let Some(_) = c.reset_time {
+            if c.reset_time.is_some() {
                 Some(c.clone())
             } else {
                 None
             }
         }));
-        let invalid = HashSet::from_iter(config.wasted_cookie.iter().map(|c| c.clone()));
+        let invalid = HashSet::from_iter(config.wasted_cookie.iter().cloned());
         let dispatched = HashSet::new();
         Self {
             valid,
@@ -70,6 +70,16 @@ impl CookieManager {
             ret_rx,
             dispatched,
         }
+    }
+
+    fn log(&self) {
+        info!(
+            "Valid: {}, Dispatched: {}, Exhausted: {}, Invalid: {}",
+            self.valid.len(),
+            self.dispatched.len(),
+            self.exhausted.len(),
+            self.invalid.len()
+        );
     }
 
     fn save(&mut self) {
@@ -121,6 +131,10 @@ impl CookieManager {
 
     /// Collect the cookie and update the state
     fn collect(&mut self, mut cookie: CookieInfo, reason: Option<Reason>) {
+        if !self.dispatched.contains(&cookie) {
+            error!("Unknown dispatched");
+            return;
+        }
         if let Some(reason) = reason {
             match reason {
                 Reason::Exhausted(i) => {
@@ -144,6 +158,7 @@ impl CookieManager {
     /// from the channels
     pub async fn run(mut self) {
         loop {
+            self.log();
             select! {
                 biased;
                 Some((cookie, reason)) = self.ret_rx.recv() => self.collect(cookie, reason),

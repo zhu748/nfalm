@@ -99,19 +99,30 @@ pub struct Thinking {
 
 /// Axum handler for the API messages
 pub async fn api_messages(
-    State(state): State<AppState>,
+    State(mut state): State<AppState>,
     header: HeaderMap,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
-    // TODO: Authorization
     let key = header
         .get("x-api-key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or_default();
-    if !state.config.read().auth(key) {
+    if !state.config.auth(key) {
         warn!("Invalid password: {}", key);
         return StatusCode::UNAUTHORIZED.into_response();
     }
+
+    // Check if the request is a test message
+    if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
+        // respond with a test message
+        return serde_json::ser::to_string(&Message::new_text(
+            Role::Assistant,
+            "Test message".to_string(),
+        ))
+        .unwrap()
+        .into_response();
+    }
+
     let stream = p.stream;
     let stopwatch = chrono::Utc::now();
     println!(
@@ -121,7 +132,7 @@ pub async fn api_messages(
     );
 
     // check if request is successful
-    match state.try_message(p).await {
+    match state.bootstrap().await.and(state.try_message(p).await) {
         Ok(b) => {
             // delete chat after a successful request
             defer! {
@@ -134,8 +145,13 @@ pub async fn api_messages(
                     if let Err(e) = state.delete_chat().await {
                         warn!("Failed to delete chat: {}", e);
                     }
-                    // increment the request count
-                    state.increase_cons_requests();
+                    state
+                        .ret_tx
+                        .send((state.cookie.clone(), None))
+                        .await
+                        .unwrap_or_else(|e| {
+                            warn!("Failed to send cookie: {}", e);
+                        });
                 });
             }
             b.into_response()
@@ -145,11 +161,42 @@ pub async fn api_messages(
             if let Err(e) = state.delete_chat().await {
                 warn!("Failed to delete chat: {}", e);
             }
-            // 429 error
-            if let ClewdrError::TooManyRequest(i) = e {
-                state.cookie_rotate(Reason::Exhausted(i));
-            }
             warn!("Error: {}", e);
+            // 429 error
+            if let ClewdrError::TooManyRequest(i) = &e {
+                state
+                    .ret_tx
+                    .send((state.cookie.clone(), Some(Reason::Exhausted(*i))))
+                    .await
+                    .unwrap_or_else(|e| {
+                        warn!("Failed to send cookie: {}", e);
+                    });
+            } else if let ClewdrError::ExhaustedCookie(i) = &e {
+                state
+                    .ret_tx
+                    .send((state.cookie.clone(), Some(Reason::Exhausted(*i))))
+                    .await
+                    .unwrap_or_else(|e| {
+                        warn!("Failed to send cookie: {}", e);
+                    });
+            } else if let ClewdrError::InvalidCookie(r) = &e {
+                state
+                    .ret_tx
+                    .send((state.cookie.clone(), Some(r.clone())))
+                    .await
+                    .unwrap_or_else(|e| {
+                        warn!("Failed to send cookie: {}", e);
+                    });
+            } else {
+                // if the error is not a rate limit error, send the cookie back
+                state
+                    .ret_tx
+                    .send((state.cookie.clone(), None))
+                    .await
+                    .unwrap_or_else(|e| {
+                        warn!("Failed to send cookie: {}", e);
+                    });
+            }
             if stream {
                 // stream the error as a response
                 Body::from_stream(error_stream(e)).into_response()
@@ -168,29 +215,18 @@ pub async fn api_messages(
 
 impl AppState {
     /// Try to send a message to the Claude API
-    async fn try_message(&self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
+    async fn try_message(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
-        let proxy = self.config.read().rquest_proxy.clone();
-
-        // Check if the request is a test message
-        if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
-            // respond with a test message
-            return Ok(serde_json::ser::to_string(&Message::new_text(
-                Role::Assistant,
-                "Test message".to_string(),
-            ))
-            .unwrap()
-            .into_response());
-        }
+        let proxy = self.config.rquest_proxy.clone();
 
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
-        *self.conv_uuid.write() = Some(new_uuid.to_string());
+        self.conv_uuid = Some(new_uuid.to_string());
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
-            self.config.read().endpoint(),
-            self.uuid_org.read()
+            self.config.endpoint(),
+            self.org_uuid
         );
         let mut body = json!({
             "uuid": new_uuid,
@@ -205,7 +241,7 @@ impl AppState {
         let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .append_headers("", &self.header_cookie()?, proxy.clone())
+            .append_headers("", self.header_cookie(), proxy.clone())
             .send()
             .await?;
         debug!("New conversation created: {}", new_uuid);
@@ -229,23 +265,23 @@ impl AppState {
         let images = mem::take(&mut body.images);
 
         // upload images
-        let uuid_org = self.uuid_org.read().clone();
-        let files = upload_images(images, self.header_cookie()?, uuid_org, proxy.clone()).await;
+        let uuid_org = self.org_uuid.clone();
+        let files = upload_images(images, self.header_cookie(), uuid_org, proxy.clone()).await;
         body.files = files;
 
         // send the request
         print_out_json(&body, "4.req.json");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}/completion",
-            self.config.read().endpoint(),
-            self.uuid_org.read(),
+            self.config.endpoint(),
+            self.org_uuid,
             new_uuid
         );
 
         let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .append_headers("", self.header_cookie()?, proxy.clone())
+            .append_headers("", self.header_cookie(), proxy.clone())
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;

@@ -1,5 +1,6 @@
 use colored::Colorize;
 use serde_json::Value;
+use tokio::sync::oneshot;
 use tracing::{error, warn};
 
 use crate::{
@@ -11,55 +12,24 @@ use crate::{
 };
 
 impl AppState {
-    pub async fn bootstrap(&self) {
-        let res = self.try_bootstrap().await;
-        match res {
-            Err(ClewdrError::OtherHttpError(c, _)) if c == 401 || c == 403 => {
-                // Invalid authorization
-                error!("{}", "Invalid authorization, Cookie is useless");
-                self.cookie_rotate(Reason::Invalid);
-            }
-            Err(ClewdrError::ExhaustedCookie(i)) => {
-                // Cookie is exhausted
-                error!("Cookie is exhausted, until: {}", i);
-                self.cookie_rotate(Reason::Exhausted(i));
-            }
-            Err(ClewdrError::InvalidCookie) => {
-                // Invalid cookie
-                error!("Cookie is invalid");
-                self.cookie_rotate(Reason::Invalid);
-            }
-            Err(ClewdrError::OtherHttpError(c, e)) => {
-                error!("HTTP Error, code: {}, error: {}", c, e);
-            }
-            Err(e) => {
-                error!("Error: {}", e);
-            }
-            _ => {}
-        }
-    }
-
-    async fn try_bootstrap(&self) -> Result<(), ClewdrError> {
-        let proxy = self.config.read().rquest_proxy.clone();
-        {
-            let mut config = self.config.write();
-            let Some(cookie) = config.current_cookie_info().cloned() else {
-                error!("No cookie found.");
-                return Err(ClewdrError::InvalidCookie);
-            };
-            self.update_cookies(&cookie.cookie.to_string());
-        }
-        let end_point = format!("{}/api/bootstrap", self.config.read().endpoint());
+    pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
+        let proxy = self.config.rquest_proxy.clone();
+        let (one_tx, one_rx) = oneshot::channel();
+        self.req_tx.send(one_tx).await?;
+        let res = one_rx.await??;
+        self.cookie = res.clone();
+        self.update_cookies(res.cookie.to_string().as_str());
+        let end_point = format!("{}/api/bootstrap", self.config.endpoint());
         let res = SUPER_CLIENT
             .get(end_point.clone())
-            .append_headers("", self.header_cookie()?, proxy.clone())
+            .append_headers("", self.header_cookie(), proxy.clone())
             .send()
             .await?;
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
         if bootstrap["account"].is_null() {
             error!("Null Error, Useless Cookie");
-            return Err(ClewdrError::InvalidCookie);
+            return Err(ClewdrError::InvalidCookie(Reason::Null));
         }
         let memberships = bootstrap["account"]["memberships"]
             .as_array()
@@ -98,25 +68,7 @@ impl AppState {
                 pro = Some("claude_team_pro".to_string())
             }
         }
-        *self.pro.write() = pro.clone();
-
-        // Check if is a pro account
-        {
-            // drop lock by using a new scope
-            let mut config = self.config.write();
-
-            let model_name = pro.clone().or(cookie_model.clone()).unwrap_or_default();
-            if let Some(current_cookie) = config.current_cookie_info() {
-                if !model_name.is_empty() {
-                    current_cookie.model = Some(model_name);
-                    config.save().unwrap_or_else(|e| {
-                        error!("Failed to save config: {}", e);
-                    });
-                }
-            }
-        }
-        let config = self.config.read().clone();
-        let index = format!("(Index: {}) ", config.index()).blue().to_string();
+        self.pro = pro.clone();
         let name = boot_acc_info
             .get("name")
             .and_then(|n| n.as_str())
@@ -137,8 +89,7 @@ impl AppState {
             .collect::<Vec<_>>()
             .join(", ");
         println!(
-            "{}Logged in \nname: {}\nmail: {}\ncookieModel: {}\ncapabilities: {}",
-            index,
+            "Logged in \nname: {}\nmail: {}\ncookieModel: {}\ncapabilities: {}",
             name.blue(),
             email.blue(),
             cookie_model.unwrap_or_default().blue(),
@@ -147,7 +98,7 @@ impl AppState {
         let uuid = boot_acc_info["uuid"]
             .as_str()
             .ok_or(ClewdrError::UnexpectedNone)?;
-        let uuid_included = self.uuid_org_array.read().clone();
+        let uuid_included = self.uuid_org_array.clone();
         let uuid_included = boot_acc_info["uuid"]
             .as_str()
             .is_some_and(|uuid| uuid_included.iter().any(|u| u.as_str() == uuid));
@@ -157,7 +108,7 @@ impl AppState {
             .get("account")
             .and_then(|a| a.get("completed_verification_at"))
             .js_bool();
-        if (uuid_included && !config.cookie_array_len() == 0)
+        if uuid_included
             || (api_disabled_reason && !api_disabled_until)
             || !completed_verification_at
         {
@@ -169,17 +120,17 @@ impl AppState {
                 Reason::Overlap
             };
             error!("Cookie is useless, reason: {}", reason.to_string().red());
-            return Err(ClewdrError::InvalidCookie);
+            return Err(ClewdrError::InvalidCookie(reason));
         } else {
-            self.uuid_org_array.write().push(uuid.to_string());
+            self.uuid_org_array.push(uuid.to_string());
         }
 
         // Bootstrap complete
-        let end_point = config.endpoint();
+        let end_point = self.config.endpoint();
         let end_point = format!("{}/api/organizations", end_point);
         let res = SUPER_CLIENT
             .get(end_point.clone())
-            .append_headers("", self.header_cookie()?, proxy.clone())
+            .append_headers("", self.header_cookie(), proxy.clone())
             .send()
             .await?;
         self.update_cookie_from_res(&res);
@@ -203,7 +154,7 @@ impl AppState {
             .get("uuid")
             .and_then(|u| u.as_str())
             .ok_or(ClewdrError::UnexpectedNone)?;
-        *self.uuid_org.write() = u.to_string();
+        self.org_uuid = u.to_string();
         Ok(())
     }
 
@@ -260,11 +211,11 @@ impl AppState {
                 "{}",
                 "Your account is banned, please use another account.".red()
             );
-            return Err(ClewdrError::InvalidCookie);
+            return Err(ClewdrError::InvalidCookie(Reason::Banned));
         } else {
             // Restricted
             println!("{}", "Your account is restricted.".red());
-            if self.config.read().settings.skip_restricted && restrict_until > 0 {
+            if self.config.settings.skip_restricted && restrict_until > 0 {
                 warn!("skip_restricted is enabled, skipping...");
                 return Err(ClewdrError::ExhaustedCookie(restrict_until));
             }

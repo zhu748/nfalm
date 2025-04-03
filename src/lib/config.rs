@@ -1,12 +1,14 @@
-use clap::Parser;
 use claude_tokenizer::tokenize;
 use colored::Colorize;
 use rand::{Rng, rng};
 use regex::Regex;
 use rquest::Proxy;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Display};
-use tracing::{debug, error, info, warn};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
+use tracing::{error, info, warn};
 
 use crate::{Args, error::ClewdrError, utils::config_dir};
 
@@ -20,11 +22,8 @@ pub struct Config {
     #[serde(default)]
     pub cookie_array: Vec<CookieInfo>,
     pub wasted_cookie: Vec<UselessCookie>,
-    pub max_cons_requests: u64,
-    pub wait_time: u64,
 
     // Network settings
-    cookie_index: usize,
     password: String,
     pub proxy: String,
     ip: String,
@@ -81,7 +80,7 @@ impl Display for Reason {
 }
 
 /// A struct representing a useless cookie
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UselessCookie {
     pub cookie: Cookie,
     pub reason: Reason,
@@ -92,6 +91,11 @@ impl PartialEq for UselessCookie {
     }
 }
 impl Eq for UselessCookie {}
+impl Hash for UselessCookie {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.cookie.hash(state);
+    }
+}
 
 impl UselessCookie {
     pub fn new(cookie: Cookie, reason: Reason) -> Self {
@@ -100,7 +104,7 @@ impl UselessCookie {
 }
 
 /// A struct representing a cookie with its information
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CookieInfo {
     pub cookie: Cookie,
     pub model: Option<String>,
@@ -115,6 +119,11 @@ impl PartialEq for CookieInfo {
     }
 }
 impl Eq for CookieInfo {}
+impl Hash for CookieInfo {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.cookie.hash(state);
+    }
+}
 
 /// Additional settings, ported from clewd, may be merged into config in the future
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -192,6 +201,14 @@ pub struct Cookie {
     inner: String,
 }
 
+impl Default for Cookie {
+    fn default() -> Self {
+        Self {
+            inner: PLACEHOLDER_COOKIE.to_string(),
+        }
+    }
+}
+
 impl Cookie {
     /// Check if the cookie is valid format
     pub fn validate(&self) -> bool {
@@ -208,9 +225,9 @@ impl Cookie {
 
 impl From<&str> for Cookie {
     /// Create a new cookie from a string
-    fn from(cookie: &str) -> Self {
+    fn from(original: &str) -> Self {
         // split off first '@' to keep compatibility with clewd
-        let cookie = cookie.split_once('@').map_or(cookie, |(_, c)| c);
+        let cookie = original.split_once('@').map_or(original, |(_, c)| c);
         // only keep '=' '_' '-' and alphanumeric characters
         let cookie = cookie
             .chars()
@@ -220,7 +237,7 @@ impl From<&str> for Cookie {
             .to_string();
         let cookie = Self { inner: cookie };
         if !cookie.validate() {
-            warn!("Invalid cookie format: {}", cookie);
+            warn!("Invalid cookie format: {}", original);
         }
         cookie
     }
@@ -277,10 +294,7 @@ impl Default for Config {
                 CookieInfo::new(PLACEHOLDER_COOKIE, None, None),
                 CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro"), None),
             ],
-            max_cons_requests: 3,
-            wait_time: 15,
             wasted_cookie: Vec::new(),
-            cookie_index: 0,
             password: String::new(),
             proxy: String::new(),
             ip: "127.0.0.1".to_string(),
@@ -305,12 +319,10 @@ impl Display for Config {
         write!(
             f,
             "Password: {}\n\
-            Cookie index: {}\n\
             Forward Proxy: {}\n\
             Reverse Proxy: {}\n\
             Available Cookies in array: {}\n",
             self.password.yellow(),
-            self.cookie_index.to_string().blue(),
             self.proxy.to_string().blue(),
             self.rproxy.to_string().blue(),
             self.cookie_array
@@ -335,10 +347,10 @@ impl Display for Config {
 impl Config {
     pub fn auth(&self, key: &str) -> bool {
         if key == self.password {
-            return true;
+            true
         } else {
             warn!("Invalid password");
-            return false;
+            false
         }
     }
 
@@ -366,16 +378,6 @@ impl Config {
                 config.load_from_arg_file();
                 config.load_padtxt();
                 config = config.validate();
-                // load command line arguments
-                let args = Args::parse();
-                if let Some(index) = args.index {
-                    if index < config.cookie_array.len() {
-                        info!("Setting cookie index to {}", index);
-                        config.cookie_index = index;
-                    } else {
-                        warn!("Index out of range");
-                    }
-                }
                 config.save()?;
                 Ok(config)
             }
@@ -435,24 +437,6 @@ impl Config {
         self.pad_tokens = tokens;
     }
 
-    /// Clean current cookie and add it to the wasted cookie list
-    pub fn cookie_cleaner(&mut self, reason: Reason) {
-        if let Reason::Exhausted(_) = reason {
-            debug!("Temporary useless cookie, not cleaning");
-            return;
-        }
-        let Some(current_cookie) = self.delete_current_cookie() else {
-            warn!("No current cookie found");
-            return;
-        };
-        self.wasted_cookie
-            .push(UselessCookie::new(current_cookie.cookie, reason));
-        self.save().unwrap_or_else(|e| {
-            error!("Failed to save config: {}", e);
-        });
-        debug!("Cleaning Cookie...");
-    }
-
     /// API endpoint of server
     pub fn endpoint(&self) -> String {
         if self.rproxy.is_empty() {
@@ -493,75 +477,11 @@ impl Config {
         Ok(())
     }
 
-    /// Get current cookie info
-    pub fn current_cookie_info(&mut self) -> Option<&mut CookieInfo> {
-        if self.cookie_index < self.cookie_array.len() {
-            Some(&mut self.cookie_array[self.cookie_index as usize])
-        } else {
-            None
-        }
-    }
-
-    /// Get current cookie index
-    pub fn index(&self) -> usize {
-        self.cookie_index
-    }
-
-    /// Remove the current cookie from the array
-    /// and return it, also change index
-    fn delete_current_cookie(&mut self) -> Option<CookieInfo> {
-        if self.cookie_index < self.cookie_array.len() {
-            let index = self.cookie_index;
-            let removed = self.cookie_array.remove(index);
-            if index == self.cookie_array.len() {
-                self.cookie_index = 0;
-            }
-            warn!("Removed cookie: {}", removed.cookie.to_string().red());
-            return Some(removed);
-        }
-        None
-    }
-
-    /// length of cookie array
-    pub fn cookie_array_len(&self) -> usize {
-        self.cookie_array.len()
-    }
-
-    /// Rotate the cookie index to the next usable cookie
-    pub fn rotate_cookie(&mut self) {
-        if self.cookie_array.is_empty() {
-            return;
-        }
-        let array_len = self.cookie_array.len();
-        let mut index = self.cookie_index;
-        index = (index + 1) % array_len;
-        while let Some(cookie) = self.cookie_array.get_mut(index as usize) {
-            debug!("Checking cookie in {}", index);
-            if index == self.cookie_index {
-                // Terminate if all cookies are useless
-                error!("All cookies are useless");
-                return;
-            }
-            // Check if the cookie is usable
-            if cookie.check_timer() {
-                break;
-            }
-            index = (index + 1) % array_len;
-        }
-        self.cookie_index = index;
-        self.save().unwrap_or_else(|e| {
-            error!("Failed to save config: {}", e);
-        });
-    }
-
     /// Validate the configuration
     fn validate(mut self) -> Self {
         if self.password.trim().is_empty() {
             self.password = generate_password(32);
             self.save().expect("Failed to save config");
-        }
-        if !self.cookie_array.is_empty() && self.cookie_index >= self.cookie_array.len() {
-            self.cookie_index = rng().random_range(0..self.cookie_array.len());
         }
         self.ip = self.ip.trim().to_string();
         self.rproxy = self.rproxy.trim().to_string();

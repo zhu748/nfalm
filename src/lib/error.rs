@@ -3,18 +3,26 @@ use rquest::{Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{convert::Infallible, fmt::Display};
+use tokio::sync::{mpsc::error::SendError, oneshot};
 use tracing::{debug, error};
 
-use crate::types::message::{
-    ContentBlock, ContentBlockDelta, MessageDeltaContent, MessageStartContent, StreamEvent,
+use crate::{
+    config::{CookieInfo, Reason},
+    types::message::{
+        ContentBlock, ContentBlockDelta, MessageDeltaContent, MessageStartContent, StreamEvent,
+    },
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Tokio oneshot recv error: {0}")]
+    OneshotRecvError(#[from] oneshot::error::RecvError),
+    #[error("Tokio mpsc send error: {0}")]
+    MpscSendError(#[from] SendError<oneshot::Sender<Result<CookieInfo, ClewdrError>>>),
     #[error("No cookie available")]
     NoCookieAvailable,
     #[error("Invalid Cookie")]
-    InvalidCookie,
+    InvalidCookie(Reason),
     #[error("Exhausted Cookie: {0}")]
     ExhaustedCookie(i64),
     #[error("Json error: {0}")]

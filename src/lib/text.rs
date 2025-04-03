@@ -40,28 +40,22 @@ impl AppState {
         if msgs.is_empty() {
             return None;
         }
-        let h = self
-            .config
-            .read()
-            .custom_h
-            .clone()
-            .unwrap_or("Human".to_string());
+        let h = self.config.custom_h.clone().unwrap_or("Human".to_string());
         let a = self
             .config
-            .read()
             .custom_a
             .clone()
             .unwrap_or("Assistant".to_string());
 
-        let user_real_roles = self.config.read().use_real_roles;
+        let user_real_roles = self.config.use_real_roles;
         let line_breaks = if user_real_roles { "\n\n\x08" } else { "\n\n" };
         let system = system.trim().to_string();
         let size = size_of_val(&msgs);
         // preallocate string to avoid reallocations
         let mut w = String::with_capacity(size);
         // generate padding text
-        if !self.config.read().pad_tokens.is_empty() {
-            let len = self.config.read().padtxt_len;
+        if !self.config.pad_tokens.is_empty() {
+            let len = self.config.padtxt_len;
             let padding = self.generate_padding(len);
             w.push_str(padding.as_str());
         }
@@ -126,7 +120,7 @@ impl AppState {
         print_out_text(w.as_str(), "paste.txt");
 
         // prompt polyfill
-        let p = self.config.read().custom_prompt.clone();
+        let p = self.config.custom_prompt.clone();
 
         Some(Merged {
             paste: w,
@@ -140,7 +134,7 @@ impl AppState {
         if length == 0 {
             return String::new();
         }
-        let conf = &self.config.read();
+        let conf = &self.config;
         let tokens = conf
             .pad_tokens
             .iter()

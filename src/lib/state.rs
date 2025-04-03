@@ -1,21 +1,16 @@
-use parking_lot::RwLock;
 use regex::Regex;
 use regex::RegexBuilder;
 use rquest::Response;
-use std::ops::Deref;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
-use std::{collections::HashMap, sync::Arc};
-use tokio::time::sleep;
-use tokio::{spawn, time::Duration};
+use tokio::sync::mpsc::Sender;
+use tokio::sync::oneshot;
 use tracing::debug;
-use tracing::error;
-use tracing::warn;
+
+use std::collections::HashMap;
 
 use crate::client::AppendHeaders;
 use crate::client::SUPER_CLIENT;
 use crate::config::Config;
+use crate::config::CookieInfo;
 use crate::config::Reason;
 use crate::error::ClewdrError;
 
@@ -24,64 +19,41 @@ use crate::error::ClewdrError;
 /// Mutable fields are all Atomic or RwLock
 ///
 /// Caution for deadlocks
-#[derive(Default)]
-pub struct InnerState {
-    pub config: RwLock<Config>,
-    cons_requests: AtomicU64,
-    rotating: AtomicBool,
-    pub pro: RwLock<Option<String>>,
-    pub uuid_org: RwLock<String>,
-    cookies: RwLock<HashMap<String, String>>,
-    pub uuid_org_array: RwLock<Vec<String>>,
-    pub conv_uuid: RwLock<Option<String>>,
-}
-
-impl Deref for AppState {
-    type Target = InnerState;
-    /// Implement Deref trait for AppState for easier access to inner state
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-/// Arc wrapper for the inner state
-///
-/// Mutable fields are all Atomic or RwLock
-///
-/// Caution for deadlocks
 #[derive(Clone)]
 pub struct AppState {
-    inner: Arc<InnerState>,
+    pub req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
+    pub ret_tx: Sender<(CookieInfo, Option<Reason>)>,
+    pub cookie: CookieInfo,
+    pub config: Config,
+    pub pro: Option<String>,
+    pub org_uuid: String,
+    cookies: HashMap<String, String>,
+    pub uuid_org_array: Vec<String>,
+    pub conv_uuid: Option<String>,
 }
 
 impl AppState {
     /// Create a new AppState instance
-    pub fn new(config: Config) -> Self {
-        let m = InnerState {
-            config: RwLock::new(config),
-            ..Default::default()
-        };
-        let m = Arc::new(m);
-        AppState { inner: m }
-    }
-
-    /// increase the number of consequence requests
-    pub fn increase_cons_requests(&self) {
-        let mut cons_requests = self.cons_requests.load(Ordering::Relaxed);
-        debug!("Current concurrent requests: {}", cons_requests);
-        cons_requests += 1;
-        let max_cons_requests = self.config.read().max_cons_requests;
-        // if consequence requests is greater than max, rotate cookie
-        if cons_requests > max_cons_requests {
-            cons_requests = 0;
-            warn!("Reached max concurrent requests, rotating cookie");
-            self.cookie_rotate(Reason::CoolDown);
+    pub fn new(
+        config: Config,
+        req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
+        ret_tx: Sender<(CookieInfo, Option<Reason>)>,
+    ) -> Self {
+        AppState {
+            config,
+            req_tx,
+            ret_tx,
+            cookie: CookieInfo::default(),
+            pro: None,
+            org_uuid: String::new(),
+            cookies: HashMap::new(),
+            uuid_org_array: Vec::new(),
+            conv_uuid: None,
         }
-        self.cons_requests.store(cons_requests, Ordering::Relaxed);
     }
 
     /// Update cookie from the server response
-    pub fn update_cookie_from_res(&self, res: &Response) {
+    pub fn update_cookie_from_res(&mut self, res: &Response) {
         if let Some(s) = res
             .headers()
             .get("set-cookie")
@@ -92,7 +64,7 @@ impl AppState {
     }
 
     /// Update cookies from string
-    pub fn update_cookies(&self, str: &str) {
+    pub fn update_cookies(&mut self, str: &str) {
         let str = str.split("\n").to_owned().collect::<Vec<_>>().join("");
         if str.is_empty() {
             return;
@@ -110,107 +82,49 @@ impl AppState {
                 if let Some(caps) = caps {
                     let key = caps[1].to_string();
                     let value = caps[2].to_string();
-                    let mut cookies = self.cookies.write();
-                    cookies.insert(key, value);
+                    self.cookies.insert(key, value);
                 }
             });
     }
 
     /// Current cookie string that are used in requests
-    pub fn header_cookie(&self) -> Result<String, ClewdrError> {
+    pub fn header_cookie(&self) -> String {
         // check rotating guard
-        if self.rotating.load(Ordering::Relaxed) {
-            return Err(ClewdrError::CookieRotating);
-        }
-        let cookies = self.cookies.read();
-        Ok(cookies
+        self.cookies
             .iter()
             .map(|(name, value)| format!("{}={}", name, value))
             .collect::<Vec<_>>()
             .join("; ")
             .trim()
-            .to_string())
-    }
-
-    /// Rotate the cookie for the given reason
-    pub fn cookie_rotate(&self, reason: Reason) {
-        static SHIFTS: AtomicU64 = AtomicU64::new(0);
-        // create scope to avoid deadlock
-        {
-            let mut config = self.config.write();
-            let Some(current_cookie) = config.current_cookie_info() else {
-                return;
-            };
-            match reason {
-                Reason::CoolDown => {
-                    config.rotate_cookie();
-                }
-                Reason::Exhausted(i) => {
-                    current_cookie.reset_time = Some(i);
-                    config.save().unwrap_or_else(|e| {
-                        error!("Failed to save config: {}", e);
-                    });
-                    config.rotate_cookie();
-                }
-                _ => {
-                    // if reason is not temporary, clean cookie
-                    config.cookie_cleaner(reason);
-                }
-            }
-        }
-        let config = self.config.read();
-        // rotate the cookie
-        config.save().unwrap_or_else(|e| {
-            error!("Failed to save config: {}", e);
-        });
-        // set timeout callback
-        let dur = if config.rproxy.is_empty() {
-            let time = config.wait_time;
-            warn!("Waiting {time} seconds to change cookie");
-            time
-        } else {
-            0
-        };
-        let dur = Duration::from_secs(dur);
-        let self_clone = self.clone();
-        SHIFTS.fetch_add(1, Ordering::Relaxed);
-        spawn(async move {
-            self_clone.rotating.store(true, Ordering::Relaxed);
-            self_clone.cons_requests.store(0, Ordering::Relaxed);
-            sleep(dur).await;
-            warn!("Cookie rotating complete");
-            self_clone.rotating.store(false, Ordering::Relaxed);
-            self_clone.bootstrap().await;
-        });
+            .to_string()
     }
 
     /// Delete current chat conversation
     pub async fn delete_chat(&self) -> Result<(), ClewdrError> {
-        let uuid = self.conv_uuid.write().take();
-        let config = self.config.read().clone();
-        let uuid_org = self.uuid_org.read().clone();
+        let uuid = self.conv_uuid.clone();
+        let config = &self.config;
+        let org_uuid = self.org_uuid.clone();
         if uuid.clone().is_none_or(|u| u.is_empty()) {
             return Ok(());
         }
         let uuid = uuid.unwrap();
         // if preserve_chats is true, do not delete chat
-        if config.settings.preserve_chats {
+        if self.config.settings.preserve_chats {
             return Ok(());
         }
         debug!("Deleting chat: {}", uuid);
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}",
             config.endpoint(),
-            uuid_org,
+            org_uuid,
             uuid
         );
         let proxy = config.rquest_proxy.clone();
-        let res = SUPER_CLIENT
+        let _ = SUPER_CLIENT
             .delete(endpoint.clone())
-            .append_headers("", self.header_cookie()?, proxy)
+            .append_headers("", self.header_cookie(), proxy)
             .send()
             .await?;
-        self.update_cookie_from_res(&res);
         debug!("Chat deleted");
         Ok(())
     }
