@@ -35,8 +35,8 @@ async fn main() -> Result<(), ClewdrError> {
     // initialize the application state
     let (req_tx, req_rx) = mpsc::channel(100);
     let (ret_tx, ret_rx) = mpsc::channel(100);
-    let state = AppState::new(config, req_tx, ret_tx);
-    let cm = CookieManager::new(state.config.clone(), req_rx, ret_rx);
+    let state = AppState::new(config.clone(), req_tx, ret_tx);
+    let cm = CookieManager::new(config, req_rx, ret_rx);
     // build axum router
     let router = clewdr::router::RouterBuilder::new(state.clone()).build();
     // create a TCP listener

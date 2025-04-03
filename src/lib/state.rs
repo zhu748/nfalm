@@ -6,6 +6,7 @@ use tokio::sync::oneshot;
 use tracing::debug;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::client::AppendHeaders;
 use crate::client::SUPER_CLIENT;
@@ -20,7 +21,7 @@ pub struct AppState {
     pub req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
     pub ret_tx: Sender<(CookieInfo, Option<Reason>)>,
     pub cookie: CookieInfo,
-    pub config: Config,
+    pub config: Arc<Config>,
     pub pro: Option<String>,
     pub org_uuid: String,
     cookies: HashMap<String, String>,
@@ -36,7 +37,7 @@ impl AppState {
         ret_tx: Sender<(CookieInfo, Option<Reason>)>,
     ) -> Self {
         AppState {
-            config,
+            config: Arc::new(config),
             req_tx,
             ret_tx,
             cookie: CookieInfo::default(),

@@ -1,10 +1,10 @@
-# v0.4.0
+# v0.4.1
 
-## Feature
+## Bug fixes
 
-- Support concurrent!
+- Save dispatched cookies to config file.
 
 ## Improvement
 
-- Refactor architecture to support concurrent execution of multiple tasks.
-- Use channel instead of mutex, so deadlock will not happen.
+- Automatically collect unreturned cookies after a certain period of time.
+- Share config between different handlers.
