@@ -8,6 +8,8 @@ If you find any issue, feel free to tell me.
 
 ## Advantages
 
+- **Concurrent**: ClewdR implies a event-driven architecture, which means it can handle multiple requests at the same time. Clewd only handles one request at a time. This is a huge advantage when you are using it as a reverse proxy for SillyTavern.
+- **Configurable Proxy**: You can use your own HTTP/HTTPS/SOCKS5 proxy. ClewdR will use the proxy you set in `config.toml` to send requests to Claude. Clewd doesn't support this feature and needs TUN to work with proxy.
 - **No Node.js**: ~~Although I'm sure all of you playing SillyTavern have it installed~~
 - **No external binaries**: Clewd spawns a `superfetch` command for every request to mimic browser behavior. ClewdR uses native Rust `rquest` library.
 - **Support macOS**: Clewd doesn't provide `superfetch` for macOS, so it doesn't work on macOS.

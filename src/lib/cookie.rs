@@ -1,4 +1,3 @@
-use rand::{rng, seq::IteratorRandom};
 use std::collections::{HashMap, HashSet};
 use tokio::{
     select,
@@ -21,6 +20,7 @@ pub struct CookieManager {
     ret_rx: Receiver<(CookieInfo, Option<Reason>)>,
     config: Config,
     interval: Interval,
+    last_idx: usize,
 }
 
 impl CookieInfo {
@@ -74,6 +74,7 @@ impl CookieManager {
             ret_rx,
             dispatched,
             interval,
+            last_idx: 0,
         }
     }
 
@@ -88,14 +89,13 @@ impl CookieManager {
     }
 
     fn save(&mut self) {
-        let cookies = self
+        self.config.cookie_array = self
             .valid
             .iter()
             .chain(self.exhausted.iter())
             .chain(self.dispatched.keys())
             .cloned()
             .collect::<Vec<_>>();
-        self.config.cookie_array = cookies;
         self.config.wasted_cookie = self.invalid.iter().cloned().collect();
         self.config.save().unwrap_or_else(|e| {
             error!("Failed to save config: {}", e);
@@ -117,13 +117,12 @@ impl CookieManager {
         self.valid.extend(reset_cookies);
         self.save();
         // randomly select a cookie from valid cookies and remove it from the set
-        let mut rng = rng();
-        let cookie = self
-            .valid
-            .iter()
-            .choose(&mut rng)
-            .ok_or(ClewdrError::NoCookieAvailable)?
-            .clone();
+        if self.valid.is_empty() {
+            return Err(ClewdrError::NoCookieAvailable);
+        }
+        let mut cycle = self.valid.iter().cycle();
+        let cookie = cycle.nth(self.last_idx).unwrap().clone();
+        self.last_idx += 1;
         self.valid.remove(&cookie);
         let instant = Instant::now();
         self.dispatched.insert(cookie.clone(), instant);
@@ -171,7 +170,7 @@ impl CookieManager {
                         .filter(|(_, time)| now.duration_since(**time).as_secs() > 5 * 60)
                         .map(|(cookie, _)| cookie.clone())
                         .collect();
-                    
+
                     for cookie in expired {
                         info!("Timing out dispatched cookie: {:?}", cookie);
                         self.dispatched.remove(&cookie);
