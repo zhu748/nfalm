@@ -104,23 +104,17 @@ impl CookieManager {
 
     /// Try to dispatch a cookie from the valid set
     fn dispatch(&mut self) -> Result<CookieInfo, ClewdrError> {
-        // remove reset cookies
-        let exhausted = self
-            .exhausted
-            .clone()
-            .into_iter()
-            .map(|c| c.reset())
-            .collect::<HashSet<_>>();
-        self.valid.extend(
-            exhausted
-                .clone()
-                .into_iter()
-                .filter(|c| c.reset_time.is_none()),
-        );
-        self.exhausted = exhausted
-            .into_iter()
-            .filter(|c| c.reset_time.is_some())
-            .collect();
+        let mut reset_cookies = Vec::new();
+        self.exhausted.retain(|cookie| {
+            let reset_cookie = cookie.clone().reset();
+            if reset_cookie.reset_time.is_none() {
+                reset_cookies.push(reset_cookie);
+                false
+            } else {
+                true
+            }
+        });
+        self.valid.extend(reset_cookies);
         self.save();
         // randomly select a cookie from valid cookies and remove it from the set
         let mut rng = rng();
@@ -172,16 +166,18 @@ impl CookieManager {
                 _ = self.interval.tick() => {
                     // collect cookies that are not returned for 5 mins
                     let now = Instant::now();
-                    let mut to_remove = vec![];
-                    for (cookie, instant) in self.dispatched.iter() {
-                        if now.duration_since(*instant).as_secs() > 5 * 60 {
-                            to_remove.push(cookie.clone());
-                        }
-                    }
-                    for cookie in to_remove {
-                        self.valid.insert(cookie.clone());
+                    let expired: Vec<CookieInfo> = self.dispatched
+                        .iter()
+                        .filter(|(_, time)| now.duration_since(**time).as_secs() > 5 * 60)
+                        .map(|(cookie, _)| cookie.clone())
+                        .collect();
+                    
+                    for cookie in expired {
+                        info!("Timing out dispatched cookie: {:?}", cookie);
                         self.dispatched.remove(&cookie);
+                        self.valid.insert(cookie);
                     }
+                    self.save();
                 }
                 Some(sender) = self.req_rx.recv() => {
                     let cookie = self.dispatch();

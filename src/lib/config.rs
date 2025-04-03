@@ -173,26 +173,6 @@ impl CookieInfo {
             reset_time,
         }
     }
-
-    /// Check if the cookie is a pro cookie
-    pub fn is_pro(&self) -> bool {
-        self.model
-            .as_ref()
-            .is_some_and(|model| model.contains("claude") && model.contains("_pro"))
-    }
-
-    /// Check if cookie is usable. Besides, reset the cookie if it is expired
-    pub fn check_timer(&mut self) -> bool {
-        if let Some(reset_time) = self.reset_time {
-            let now = chrono::Utc::now();
-            if reset_time < now.timestamp() {
-                self.reset_time = None;
-                return true;
-            }
-            return false;
-        }
-        true
-    }
 }
 
 /// A struct representing a cookie
