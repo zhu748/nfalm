@@ -14,11 +14,7 @@ use crate::config::CookieInfo;
 use crate::config::Reason;
 use crate::error::ClewdrError;
 
-/// Inner state of the application
-///
-/// Mutable fields are all Atomic or RwLock
-///
-/// Caution for deadlocks
+/// State of current connection
 #[derive(Clone)]
 pub struct AppState {
     pub req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,

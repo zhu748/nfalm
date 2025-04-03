@@ -31,7 +31,6 @@ tracing = { version = "0.1", features = [
 tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
 rand = "0.9"
 chrono = "0.4"
-parking_lot = { version = "0.12", features = ["send_guard"] }
 futures = "0.3"
 thiserror = "2"
 uuid = { version = "1", features = ["v4"] }
