@@ -1,8 +1,9 @@
 use rand::{rng, seq::IteratorRandom};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use tokio::{
     select,
     sync::{mpsc::Receiver, oneshot},
+    time::{Instant, Interval},
 };
 use tracing::{error, info};
 
@@ -13,12 +14,13 @@ use crate::{
 
 pub struct CookieManager {
     valid: HashSet<CookieInfo>,
-    dispatched: HashSet<CookieInfo>,
+    dispatched: HashMap<CookieInfo, Instant>,
     exhausted: HashSet<CookieInfo>,
     invalid: HashSet<UselessCookie>,
     req_rx: Receiver<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
     ret_rx: Receiver<(CookieInfo, Option<Reason>)>,
     config: Config,
+    interval: Interval,
 }
 
 impl CookieInfo {
@@ -60,7 +62,9 @@ impl CookieManager {
             }
         }));
         let invalid = HashSet::from_iter(config.wasted_cookie.iter().cloned());
-        let dispatched = HashSet::new();
+        let dispatched = HashMap::new();
+        // wait 5 mins to collect unreturned cookies
+        let interval = tokio::time::interval(std::time::Duration::from_secs(5 * 60));
         Self {
             valid,
             exhausted: exhaust,
@@ -69,6 +73,7 @@ impl CookieManager {
             config,
             ret_rx,
             dispatched,
+            interval,
         }
     }
 
@@ -87,6 +92,7 @@ impl CookieManager {
             .valid
             .iter()
             .chain(self.exhausted.iter())
+            .chain(self.dispatched.iter().map(|(c, _)| c))
             .cloned()
             .collect::<Vec<_>>();
         self.config.cookie_array = cookies;
@@ -125,13 +131,14 @@ impl CookieManager {
             .ok_or(ClewdrError::NoCookieAvailable)?
             .clone();
         self.valid.remove(&cookie);
-        self.dispatched.insert(cookie.clone());
+        let instant = Instant::now();
+        self.dispatched.insert(cookie.clone(), instant);
         Ok(cookie)
     }
 
     /// Collect the cookie and update the state
     fn collect(&mut self, mut cookie: CookieInfo, reason: Option<Reason>) {
-        if !self.dispatched.contains(&cookie) {
+        if !self.dispatched.contains_key(&cookie) {
             error!("Unknown dispatched");
             return;
         }
@@ -162,6 +169,20 @@ impl CookieManager {
             select! {
                 biased;
                 Some((cookie, reason)) = self.ret_rx.recv() => self.collect(cookie, reason),
+                _ = self.interval.tick() => {
+                    // collect cookies that are not returned for 5 mins
+                    let now = Instant::now();
+                    let mut to_remove = vec![];
+                    for (cookie, instant) in self.dispatched.iter() {
+                        if now.duration_since(*instant).as_secs() > 5 * 60 {
+                            to_remove.push(cookie.clone());
+                        }
+                    }
+                    for cookie in to_remove {
+                        self.valid.insert(cookie.clone());
+                        self.dispatched.remove(&cookie);
+                    }
+                }
                 Some(sender) = self.req_rx.recv() => {
                     let cookie = self.dispatch();
                     if let Err(e) = sender.send(cookie) {
