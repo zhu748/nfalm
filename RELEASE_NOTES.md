@@ -1,7 +1,10 @@
-# v0.3.1
+# v0.4.0
+
+## Feature
+
+- Support concurrent!
 
 ## Improvement
 
-- Improve padding handling.
-- Make default padding tokens to 4000.
-- It's recommend to enable padtxt if you want to generate NSFW.
+- Refactor architecture to support concurrent execution of multiple tasks.
+- Use channel instead of mutex, so deadlock will not happen.
