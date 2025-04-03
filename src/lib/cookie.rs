@@ -92,7 +92,7 @@ impl CookieManager {
             .valid
             .iter()
             .chain(self.exhausted.iter())
-            .chain(self.dispatched.iter().map(|(c, _)| c))
+            .chain(self.dispatched.keys())
             .cloned()
             .collect::<Vec<_>>();
         self.config.cookie_array = cookies;

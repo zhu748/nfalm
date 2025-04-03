@@ -7,6 +7,7 @@ use figlet_rs::FIGfont;
 pub mod bootstrap;
 pub mod client;
 pub mod config;
+pub mod cookie;
 pub mod error;
 pub mod messages;
 pub mod router;
@@ -14,7 +15,6 @@ pub mod state;
 pub mod text;
 pub mod types;
 pub mod utils;
-pub mod cookie;
 
 /// Header for the application
 pub static BANNER: LazyLock<String> = LazyLock::new(|| {
