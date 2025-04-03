@@ -33,15 +33,15 @@ async fn main() -> Result<(), ClewdrError> {
     println!("{}", config);
 
     // initialize the application state
-    let (req_tx, req_rx) = mpsc::channel(100);
-    let (ret_tx, ret_rx) = mpsc::channel(100);
+    let (req_tx, req_rx) = mpsc::channel(config.max_connections);
+    let (ret_tx, ret_rx) = mpsc::channel(config.max_connections);
     let state = AppState::new(config.clone(), req_tx, ret_tx);
     let cm = CookieManager::new(config, req_rx, ret_rx);
     // build axum router
-    let router = clewdr::router::RouterBuilder::new(state.clone()).build();
     // create a TCP listener
     let addr = state.config.address().to_string();
     let listener = tokio::net::TcpListener::bind(addr).await?;
+    let router = clewdr::router::RouterBuilder::new(state.clone()).build();
     // serve the application
     spawn(cm.run());
     axum::serve(listener, router).await?;

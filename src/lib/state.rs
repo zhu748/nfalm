@@ -22,11 +22,9 @@ pub struct AppState {
     pub ret_tx: Sender<(CookieInfo, Option<Reason>)>,
     pub cookie: CookieInfo,
     pub config: Arc<Config>,
-    pub pro: Option<String>,
     pub org_uuid: String,
-    cookies: HashMap<String, String>,
-    pub uuid_org_array: Vec<String>,
     pub conv_uuid: Option<String>,
+    cookies: HashMap<String, String>,
 }
 
 impl AppState {
@@ -41,10 +39,8 @@ impl AppState {
             req_tx,
             ret_tx,
             cookie: CookieInfo::default(),
-            pro: None,
             org_uuid: String::new(),
             cookies: HashMap::new(),
-            uuid_org_array: Vec::new(),
             conv_uuid: None,
         }
     }

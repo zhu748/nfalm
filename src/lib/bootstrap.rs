@@ -12,6 +12,9 @@ use crate::{
 };
 
 impl AppState {
+    /// Bootstrap the app state
+    /// This function will send a request to the server to get the bootstrap data
+    /// It will also check if the cookie is valid
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
         let proxy = self.config.rquest_proxy.clone();
         let (one_tx, one_rx) = oneshot::channel();
@@ -57,18 +60,6 @@ impl AppState {
                 cookie_model = Some(model.to_string());
             }
         }
-        let mut pro = None;
-        if let Some(capabilities) = boot_acc_info["capabilities"].as_array() {
-            if capabilities
-                .iter()
-                .any(|c| c.as_str() == Some("claude_pro"))
-            {
-                pro = Some("claude_pro".to_string());
-            } else if capabilities.iter().any(|c| c.as_str() == Some("raven")) {
-                pro = Some("claude_team_pro".to_string())
-            }
-        }
-        self.pro = pro.clone();
         let name = boot_acc_info
             .get("name")
             .and_then(|n| n.as_str())
@@ -95,23 +86,13 @@ impl AppState {
             cookie_model.unwrap_or_default().blue(),
             caps.blue()
         );
-        let uuid = boot_acc_info["uuid"]
-            .as_str()
-            .ok_or(ClewdrError::UnexpectedNone)?;
-        let uuid_included = self.uuid_org_array.clone();
-        let uuid_included = boot_acc_info["uuid"]
-            .as_str()
-            .is_some_and(|uuid| uuid_included.iter().any(|u| u.as_str() == uuid));
         let api_disabled_reason = boot_acc_info.get("api_disabled_reason").js_bool();
         let api_disabled_until = boot_acc_info.get("api_disabled_until").js_bool();
         let completed_verification_at = bootstrap
             .get("account")
             .and_then(|a| a.get("completed_verification_at"))
             .js_bool();
-        if uuid_included
-            || (api_disabled_reason && !api_disabled_until)
-            || !completed_verification_at
-        {
+        if (api_disabled_reason && !api_disabled_until) || !completed_verification_at {
             let reason = if api_disabled_reason {
                 Reason::Disabled
             } else if !completed_verification_at {
@@ -121,8 +102,6 @@ impl AppState {
             };
             error!("Cookie is useless, reason: {}", reason.to_string().red());
             return Err(ClewdrError::InvalidCookie(reason));
-        } else {
-            self.uuid_org_array.push(uuid.to_string());
         }
 
         // Bootstrap complete
@@ -158,6 +137,10 @@ impl AppState {
         Ok(())
     }
 
+    /// Check if the account is restricted or banned
+    /// If the account is restricted, check if the restriction is expired
+    /// If the account is banned, return an error
+    /// If the account is not restricted or banned, return Ok
     fn check_flags(&self, acc_info: &Value) -> Result<(), ClewdrError> {
         let active_flags = acc_info
             .get("active_flags")

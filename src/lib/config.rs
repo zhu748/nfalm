@@ -24,6 +24,8 @@ pub struct Config {
     pub wasted_cookie: Vec<UselessCookie>,
 
     // Network settings
+    #[serde(default)]
+    pub max_connections: usize,
     password: String,
     pub proxy: String,
     ip: String,
@@ -279,6 +281,7 @@ impl Default for Config {
             proxy: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
+            max_connections: 16,
             rproxy: String::new(),
             settings: Settings::default(),
             use_real_roles: false,
