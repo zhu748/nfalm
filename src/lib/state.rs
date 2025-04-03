@@ -16,7 +16,7 @@ use tracing::warn;
 use crate::client::AppendHeaders;
 use crate::client::SUPER_CLIENT;
 use crate::config::Config;
-use crate::config::UselessReason;
+use crate::config::Reason;
 use crate::error::ClewdrError;
 
 /// Inner state of the application
@@ -75,7 +75,7 @@ impl AppState {
         if cons_requests > max_cons_requests {
             cons_requests = 0;
             warn!("Reached max concurrent requests, rotating cookie");
-            self.cookie_rotate(UselessReason::CoolDown);
+            self.cookie_rotate(Reason::CoolDown);
         }
         self.cons_requests.store(cons_requests, Ordering::Relaxed);
     }
@@ -133,7 +133,7 @@ impl AppState {
     }
 
     /// Rotate the cookie for the given reason
-    pub fn cookie_rotate(&self, reason: UselessReason) {
+    pub fn cookie_rotate(&self, reason: Reason) {
         static SHIFTS: AtomicU64 = AtomicU64::new(0);
         // create scope to avoid deadlock
         {
@@ -142,10 +142,10 @@ impl AppState {
                 return;
             };
             match reason {
-                UselessReason::CoolDown => {
+                Reason::CoolDown => {
                     config.rotate_cookie();
                 }
-                UselessReason::Exhausted(i) => {
+                Reason::Exhausted(i) => {
                     current_cookie.reset_time = Some(i);
                     config.save().unwrap_or_else(|e| {
                         error!("Failed to save config: {}", e);

@@ -4,7 +4,7 @@ use tracing::{error, warn};
 
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT},
-    config::UselessReason,
+    config::Reason,
     error::{ClewdrError, check_res_err},
     state::AppState,
     utils::JsBool,
@@ -17,17 +17,17 @@ impl AppState {
             Err(ClewdrError::OtherHttpError(c, _)) if c == 401 || c == 403 => {
                 // Invalid authorization
                 error!("{}", "Invalid authorization, Cookie is useless");
-                self.cookie_rotate(UselessReason::Invalid);
+                self.cookie_rotate(Reason::Invalid);
             }
             Err(ClewdrError::ExhaustedCookie(i)) => {
                 // Cookie is exhausted
                 error!("Cookie is exhausted, until: {}", i);
-                self.cookie_rotate(UselessReason::Exhausted(i));
+                self.cookie_rotate(Reason::Exhausted(i));
             }
             Err(ClewdrError::InvalidCookie) => {
                 // Invalid cookie
                 error!("Cookie is invalid");
-                self.cookie_rotate(UselessReason::Invalid);
+                self.cookie_rotate(Reason::Invalid);
             }
             Err(ClewdrError::OtherHttpError(c, e)) => {
                 error!("HTTP Error, code: {}, error: {}", c, e);
@@ -162,11 +162,11 @@ impl AppState {
             || !completed_verification_at
         {
             let reason = if api_disabled_reason {
-                UselessReason::Disabled
+                Reason::Disabled
             } else if !completed_verification_at {
-                UselessReason::Unverified
+                Reason::Unverified
             } else {
-                UselessReason::Overlap
+                Reason::Overlap
             };
             error!("Cookie is useless, reason: {}", reason.to_string().red());
             return Err(ClewdrError::InvalidCookie);

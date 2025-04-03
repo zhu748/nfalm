@@ -17,7 +17,7 @@ use tracing::{debug, warn};
 
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT, upload_images},
-    config::UselessReason,
+    config::Reason,
     error::{ClewdrError, check_res_err, error_stream},
     state::AppState,
     types::message::{ContentBlock, ImageSource, Message, Role},
@@ -147,7 +147,7 @@ pub async fn api_messages(
             }
             // 429 error
             if let ClewdrError::TooManyRequest(i) = e {
-                state.cookie_rotate(UselessReason::Exhausted(i));
+                state.cookie_rotate(Reason::Exhausted(i));
             }
             warn!("Error: {}", e);
             if stream {

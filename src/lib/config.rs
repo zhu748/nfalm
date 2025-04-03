@@ -18,7 +18,7 @@ pub const ENDPOINT: &str = "https://api.claude.ai";
 pub struct Config {
     // Cookie configurations
     #[serde(default)]
-    cookie_array: Vec<CookieInfo>,
+    pub cookie_array: Vec<CookieInfo>,
     pub wasted_cookie: Vec<UselessCookie>,
     pub max_cons_requests: u64,
     pub wait_time: u64,
@@ -29,7 +29,6 @@ pub struct Config {
     pub proxy: String,
     ip: String,
     port: u16,
-    pub local_tunnel: bool,
 
     // Proxy configurations
     pub rproxy: String,
@@ -54,8 +53,8 @@ pub struct Config {
 }
 
 /// Reason why a cookie is considered useless
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub enum UselessReason {
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+pub enum Reason {
     Null,
     Disabled,
     Unverified,
@@ -66,36 +65,42 @@ pub enum UselessReason {
     CoolDown,
 }
 
-impl Display for UselessReason {
+impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UselessReason::Null => write!(f, "Null"),
-            UselessReason::Disabled => write!(f, "Disabled"),
-            UselessReason::Unverified => write!(f, "Unverified"),
-            UselessReason::Overlap => write!(f, "Overlap"),
-            UselessReason::Banned => write!(f, "Banned"),
-            UselessReason::Invalid => write!(f, "Invalid"),
-            UselessReason::Exhausted(i) => write!(f, "Temporarily Exhausted: {}", i),
-            UselessReason::CoolDown => write!(f, "CoolDown"),
+            Reason::Null => write!(f, "Null"),
+            Reason::Disabled => write!(f, "Disabled"),
+            Reason::Unverified => write!(f, "Unverified"),
+            Reason::Overlap => write!(f, "Overlap"),
+            Reason::Banned => write!(f, "Banned"),
+            Reason::Invalid => write!(f, "Invalid"),
+            Reason::Exhausted(i) => write!(f, "Temporarily Exhausted: {}", i),
+            Reason::CoolDown => write!(f, "CoolDown"),
         }
     }
 }
 
 /// A struct representing a useless cookie
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct UselessCookie {
     pub cookie: Cookie,
-    pub reason: UselessReason,
+    pub reason: Reason,
 }
+impl PartialEq for UselessCookie {
+    fn eq(&self, other: &Self) -> bool {
+        self.cookie == other.cookie
+    }
+}
+impl Eq for UselessCookie {}
 
 impl UselessCookie {
-    pub fn new(cookie: Cookie, reason: UselessReason) -> Self {
+    pub fn new(cookie: Cookie, reason: Reason) -> Self {
         Self { cookie, reason }
     }
 }
 
 /// A struct representing a cookie with its information
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct CookieInfo {
     pub cookie: Cookie,
     pub model: Option<String>,
@@ -103,6 +108,13 @@ pub struct CookieInfo {
     #[serde(default)]
     pub reset_time: Option<i64>,
 }
+
+impl PartialEq for CookieInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.cookie == other.cookie
+    }
+}
+impl Eq for CookieInfo {}
 
 /// Additional settings, ported from clewd, may be merged into config in the future
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -175,7 +187,7 @@ impl CookieInfo {
 }
 
 /// A struct representing a cookie
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Cookie {
     inner: String,
 }
@@ -273,7 +285,6 @@ impl Default for Config {
             proxy: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
-            local_tunnel: false,
             rproxy: String::new(),
             settings: Settings::default(),
             use_real_roles: false,
@@ -425,8 +436,8 @@ impl Config {
     }
 
     /// Clean current cookie and add it to the wasted cookie list
-    pub fn cookie_cleaner(&mut self, reason: UselessReason) {
-        if let UselessReason::Exhausted(_) = reason {
+    pub fn cookie_cleaner(&mut self, reason: Reason) {
+        if let Reason::Exhausted(_) = reason {
             debug!("Temporary useless cookie, not cleaning");
             return;
         }

@@ -11,6 +11,8 @@ use crate::types::message::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("No cookie available")]
+    NoCookieAvailable,
     #[error("Invalid Cookie")]
     InvalidCookie,
     #[error("Exhausted Cookie: {0}")]
