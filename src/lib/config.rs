@@ -14,6 +14,9 @@ use crate::{Args, error::ClewdrError, utils::config_dir};
 
 pub const CONFIG_NAME: &str = "config.toml";
 pub const ENDPOINT: &str = "https://api.claude.ai";
+const fn default_max_connections() -> usize {
+    16
+}
 
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -24,7 +27,7 @@ pub struct Config {
     pub wasted_cookie: Vec<UselessCookie>,
 
     // Network settings
-    #[serde(default)]
+    #[serde(default = "default_max_connections")]
     pub max_connections: usize,
     password: String,
     pub proxy: String,
@@ -281,7 +284,7 @@ impl Default for Config {
             proxy: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
-            max_connections: 16,
+            max_connections: default_max_connections(),
             rproxy: String::new(),
             settings: Settings::default(),
             use_real_roles: false,
@@ -329,12 +332,7 @@ impl Display for Config {
 
 impl Config {
     pub fn auth(&self, key: &str) -> bool {
-        if key == self.password {
-            true
-        } else {
-            warn!("Invalid password");
-            false
-        }
+        if key == self.password { true } else { false }
     }
 
     /// Load the configuration from the file

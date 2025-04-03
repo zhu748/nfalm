@@ -3,8 +3,7 @@ use std::{fmt::Debug, mem, sync::LazyLock};
 use axum::{
     Json,
     body::Body,
-    extract::State,
-    http::HeaderMap,
+    extract::{FromRequestParts, State},
     response::{IntoResponse, Response},
 };
 use colored::Colorize;
@@ -97,21 +96,33 @@ pub struct Thinking {
     r#type: String,
 }
 
+pub struct Auth(pub String);
+
+impl FromRequestParts<AppState> for Auth {
+    type Rejection = StatusCode;
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let key = parts
+            .headers
+            .get("x-api-key")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default();
+        if !state.config.auth(key) {
+            warn!("Invalid password: {}", key);
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+        Ok(Auth(key.to_string()))
+    }
+}
+
 /// Axum handler for the API messages
 pub async fn api_messages(
+    Auth(_): Auth,
     State(mut state): State<AppState>,
-    header: HeaderMap,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
-    let key = header
-        .get("x-api-key")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or_default();
-    if !state.config.auth(key) {
-        warn!("Invalid password: {}", key);
-        return StatusCode::UNAUTHORIZED.into_response();
-    }
-
     // Check if the request is a test message
     if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
         // respond with a test message

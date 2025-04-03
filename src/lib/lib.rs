@@ -1,7 +1,6 @@
 use std::sync::LazyLock;
 
 use clap::Parser;
-use const_format::formatc;
 use figlet_rs::FIGfont;
 
 pub mod bootstrap;
@@ -28,13 +27,6 @@ pub static BANNER: LazyLock<String> = LazyLock::new(|| {
         env!("CARGO_PKG_AUTHORS")
     )
 });
-
-/// Title of the application
-pub const TITLE: &str = formatc!(
-    "Clewdr v{} by {}",
-    env!("CARGO_PKG_VERSION"),
-    env!("CARGO_PKG_AUTHORS")
-);
 
 /// Command line arguments for the application
 #[derive(Parser, Debug)]
