@@ -4,6 +4,7 @@ use axum::{
     Json,
     body::Body,
     extract::{FromRequestParts, State},
+    http,
     response::{IntoResponse, Response},
 };
 use colored::Colorize;
@@ -16,7 +17,6 @@ use tracing::{debug, warn};
 
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT, upload_images},
-    config::Reason,
     error::{ClewdrError, check_res_err},
     state::AppState,
     types::message::{ContentBlock, ImageSource, Message, Role},
@@ -45,7 +45,7 @@ pub struct Attachment {
 impl Attachment {
     pub fn new(content: String) -> Self {
         Attachment {
-            file_size: content.bytes().len() as u64,
+            file_size: content.len() as u64,
             extracted_content: content,
             file_name: "paste.txt".to_string(),
             file_type: "txt".to_string(),
@@ -172,14 +172,13 @@ pub async fn api_messages(
             }
             warn!("Error: {}", e);
             // 429 error
-            if let ClewdrError::TooManyRequest(i) = &e {
-                state.return_cookie(Some(Reason::Exhausted(*i))).await;
-            } else if let ClewdrError::ExhaustedCookie(i) = &e {
-                state.return_cookie(Some(Reason::Exhausted(*i))).await;
-            } else if let ClewdrError::InvalidCookie(r) = &e {
-                state.return_cookie(Some(r.clone())).await;
-            } else {
-                state.return_cookie(None).await;
+            match e {
+                ClewdrError::InvalidCookie(ref r) => {
+                    state.return_cookie(Some(r.clone())).await;
+                }
+                _ => {
+                    state.return_cookie(None).await;
+                }
             }
             if stream {
                 // stream the error as a response
@@ -269,8 +268,8 @@ impl AppState {
 
         // if not streaming, return the response
         if !stream {
-            let text = api_res.text().await?;
-            return Ok(text.into_response());
+            let res: http::Response<_> = api_res.into();
+            return Ok(res.into_response());
         }
 
         // stream the response

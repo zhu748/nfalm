@@ -65,7 +65,8 @@ pub enum Reason {
     Overlap,
     Banned,
     Invalid,
-    Exhausted(i64),
+    Restricted(i64),
+    TooManyRequest(i64),
     CoolDown,
 }
 
@@ -78,7 +79,8 @@ impl Display for Reason {
             Reason::Overlap => write!(f, "Overlap"),
             Reason::Banned => write!(f, "Banned"),
             Reason::Invalid => write!(f, "Invalid"),
-            Reason::Exhausted(i) => write!(f, "Temporarily Exhausted: {}", i),
+            Reason::Restricted(i) => write!(f, "Restricted: {}", i),
+            Reason::TooManyRequest(i) => write!(f, "Too many request: {}", i),
             Reason::CoolDown => write!(f, "CoolDown"),
         }
     }
@@ -332,7 +334,7 @@ impl Display for Config {
 
 impl Config {
     pub fn auth(&self, key: &str) -> bool {
-        if key == self.password { true } else { false }
+        key == self.password
     }
 
     /// Load the configuration from the file

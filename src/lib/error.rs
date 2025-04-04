@@ -24,8 +24,6 @@ pub enum ClewdrError {
     NoCookieAvailable,
     #[error("Invalid Cookie")]
     InvalidCookie(Reason),
-    #[error("Exhausted Cookie: {0}")]
-    ExhaustedCookie(i64),
     #[error("Json error: {0}")]
     JsonError(#[from] serde_json::Error),
     #[error("TOML Deserialize error: {0}")]
@@ -40,8 +38,6 @@ pub enum ClewdrError {
     UTF8Error(#[from] std::string::FromUtf8Error),
     #[error("Http error: code: {0}, body: {1}")]
     OtherHttpError(StatusCode, InnerHttpError),
-    #[error("429 Too many requests, until {0}")]
-    TooManyRequest(i64),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error("IO error: {0}")]
@@ -123,7 +119,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             let diff = reset_time - now;
             let hours = diff.num_hours();
             error!("Rate limit exceeded, expires in {} hours", hours);
-            return Err(ClewdrError::TooManyRequest(time));
+            return Err(ClewdrError::InvalidCookie(Reason::TooManyRequest(time)));
         }
     }
     Err(ClewdrError::OtherHttpError(status, err))

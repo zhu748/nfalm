@@ -137,7 +137,11 @@ impl CookieManager {
         }
         if let Some(reason) = reason {
             match reason {
-                Reason::Exhausted(i) => {
+                Reason::TooManyRequest(i) => {
+                    cookie.reset_time = Some(i);
+                    self.exhausted.insert(cookie.clone());
+                }
+                Reason::Restricted(i) => {
                     cookie.reset_time = Some(i);
                     self.exhausted.insert(cookie.clone());
                 }

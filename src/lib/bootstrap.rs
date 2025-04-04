@@ -198,7 +198,9 @@ impl AppState {
             println!("{}", "Your account is restricted.".red());
             if self.config.settings.skip_restricted && restrict_until > 0 {
                 warn!("skip_restricted is enabled, skipping...");
-                return Err(ClewdrError::ExhaustedCookie(restrict_until));
+                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
+                    restrict_until,
+                )));
             }
         }
         Ok(())
