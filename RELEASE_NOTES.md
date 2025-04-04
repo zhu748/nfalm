@@ -1,9 +1,9 @@
-# v0.4.3
+# v0.4.4
 
-<!-- ## Bug fixes
+## Bug fixes
 
-- Non-stream mode now works correctly. -->
-
+- Chat is now properly deleted after response.
+<!-- 
 ## Improvement
 
-- Print Cookie for every request.
+- Print Cookie for every request. -->
