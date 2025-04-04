@@ -6,6 +6,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tracing::debug;
 use tracing::error;
+use tracing::info;
 
 use std::str::FromStr;
 use std::sync::Arc;
@@ -108,7 +109,7 @@ impl AppState {
             .append_headers("", proxy)
             .send()
             .await?;
-        debug!("Chat deleted");
+        info!("Chat deleted");
         Ok(())
     }
 }

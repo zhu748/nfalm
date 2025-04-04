@@ -146,21 +146,24 @@ pub async fn api_messages(
     }
     let mut state_clone = state.clone();
     defer! {
+        // ensure the cookie is returned
         spawn(async move {
             let dur = chrono::Utc::now().signed_duration_since(stopwatch);
             println!(
                 "Request finished, elapsed time: {} seconds",
                 dur.num_seconds().to_string().green()
             );
-            if let Err(e) = state_clone.delete_chat().await {
-                warn!("Failed to delete chat: {}", e);
-            }
             state_clone.return_cookie(None).await;
         });
     }
     // check if request is successful
     match state.bootstrap().await.and(state.try_message(p).await) {
-        Ok(b) => b.into_response(),
+        Ok(b) => {
+            if let Err(e) = state.delete_chat().await {
+                warn!("Failed to delete chat: {}", e);
+            }
+            b.into_response()
+        }
         Err(e) => {
             // delete chat after an error
             if let Err(e) = state.delete_chat().await {
