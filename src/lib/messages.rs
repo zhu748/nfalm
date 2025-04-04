@@ -17,7 +17,7 @@ use tracing::{debug, warn};
 use crate::{
     client::{AppendHeaders, SUPER_CLIENT, upload_images},
     config::Reason,
-    error::{ClewdrError, check_res_err, error_stream},
+    error::{ClewdrError, check_res_err},
     state::AppState,
     types::message::{ContentBlock, ImageSource, Message, Role},
     utils::print_out_json,
@@ -142,6 +142,10 @@ pub async fn api_messages(
         p.messages.len().to_string().green()
     );
 
+    if let Err(e) = state.request_cookie().await {
+        return e.error_body().into_response();
+    }
+
     // check if request is successful
     match state.bootstrap().await.and(state.try_message(p).await) {
         Ok(b) => {
@@ -156,13 +160,7 @@ pub async fn api_messages(
                     if let Err(e) = state.delete_chat().await {
                         warn!("Failed to delete chat: {}", e);
                     }
-                    state
-                        .ret_tx
-                        .send((state.cookie.clone(), None))
-                        .await
-                        .unwrap_or_else(|e| {
-                            warn!("Failed to send cookie: {}", e);
-                        });
+                    state.return_cookie(None).await;
                 });
             }
             b.into_response()
@@ -175,50 +173,20 @@ pub async fn api_messages(
             warn!("Error: {}", e);
             // 429 error
             if let ClewdrError::TooManyRequest(i) = &e {
-                state
-                    .ret_tx
-                    .send((state.cookie.clone(), Some(Reason::Exhausted(*i))))
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!("Failed to send cookie: {}", e);
-                    });
+                state.return_cookie(Some(Reason::Exhausted(*i))).await;
             } else if let ClewdrError::ExhaustedCookie(i) = &e {
-                state
-                    .ret_tx
-                    .send((state.cookie.clone(), Some(Reason::Exhausted(*i))))
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!("Failed to send cookie: {}", e);
-                    });
+                state.return_cookie(Some(Reason::Exhausted(*i))).await;
             } else if let ClewdrError::InvalidCookie(r) = &e {
-                state
-                    .ret_tx
-                    .send((state.cookie.clone(), Some(r.clone())))
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!("Failed to send cookie: {}", e);
-                    });
+                state.return_cookie(Some(r.clone())).await;
             } else {
-                // if the error is not a rate limit error, send the cookie back
-                state
-                    .ret_tx
-                    .send((state.cookie.clone(), None))
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!("Failed to send cookie: {}", e);
-                    });
+                state.return_cookie(None).await;
             }
             if stream {
                 // stream the error as a response
-                Body::from_stream(error_stream(e)).into_response()
+                Body::from_stream(e.error_stream()).into_response()
             } else {
                 // return the error as a response
-                serde_json::ser::to_string(&Message::new_text(
-                    Role::Assistant,
-                    format!("Error: {}", e),
-                ))
-                .unwrap()
-                .into_response()
+                e.error_body().into_response()
             }
         }
     }

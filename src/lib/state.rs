@@ -4,6 +4,7 @@ use rquest::Response;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tracing::debug;
+use tracing::error;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -20,7 +21,7 @@ use crate::error::ClewdrError;
 pub struct AppState {
     pub req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
     pub ret_tx: Sender<(CookieInfo, Option<Reason>)>,
-    pub cookie: CookieInfo,
+    pub cookie: Option<CookieInfo>,
     pub config: Arc<Config>,
     pub org_uuid: String,
     pub conv_uuid: Option<String>,
@@ -38,10 +39,31 @@ impl AppState {
             config: Arc::new(config),
             req_tx,
             ret_tx,
-            cookie: CookieInfo::default(),
+            cookie: None,
             org_uuid: String::new(),
             cookies: HashMap::new(),
             conv_uuid: None,
+        }
+    }
+
+    pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
+        // request a new cookie from cookie manager
+        let (one_tx, one_rx) = oneshot::channel();
+        self.req_tx.send(one_tx).await?;
+        let res = one_rx.await??;
+        self.cookie = Some(res.clone());
+        Ok(())
+    }
+
+    pub async fn return_cookie(&mut self, reason: Option<Reason>) {
+        // return the cookie to the cookie manager
+        if let Some(cookie) = self.cookie.take() {
+            self.ret_tx
+                .send((cookie, reason))
+                .await
+                .unwrap_or_else(|e| {
+                    error!("Failed to send cookie: {}", e);
+                });
         }
     }
 

@@ -9,16 +9,17 @@ use tracing::{debug, error};
 use crate::{
     config::{CookieInfo, Reason},
     types::message::{
-        ContentBlock, ContentBlockDelta, MessageDeltaContent, MessageStartContent, StreamEvent,
+        ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent, Role,
+        StreamEvent,
     },
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
     #[error("Tokio oneshot recv error: {0}")]
-    OneshotRecvError(#[from] oneshot::error::RecvError),
+    CookieDispatchError(#[from] oneshot::error::RecvError),
     #[error("Tokio mpsc send error: {0}")]
-    MpscSendError(#[from] SendError<oneshot::Sender<Result<CookieInfo, ClewdrError>>>),
+    CookieReqError(#[from] SendError<oneshot::Sender<Result<CookieInfo, ClewdrError>>>),
     #[error("No cookie available")]
     NoCookieAvailable,
     #[error("Invalid Cookie")]
@@ -127,47 +128,58 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     }
     Err(ClewdrError::OtherHttpError(status, err))
 }
+impl ClewdrError {
+    /// Convert a ClewdrError to a Stream of Claude API events
+    pub fn error_stream(
+        &self,
+    ) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> + use<> {
+        let msg_start_content = MessageStartContent::default();
+        let msg_start_block = StreamEvent::MessageStart {
+            message: msg_start_content,
+        };
+        let content_block = ContentBlock::Text {
+            text: String::new(),
+        };
+        let content_block_start = StreamEvent::ContentBlockStart {
+            index: 0,
+            content_block,
+        };
+        let content_block_delta = ContentBlockDelta::TextDelta {
+            text: format!("ClewdR Error: {self}"),
+        };
+        let content_block_delta = StreamEvent::ContentBlockDelta {
+            index: 0,
+            delta: content_block_delta,
+        };
+        let content_block_end = StreamEvent::ContentBlockStop { index: 0 };
+        let message_delta = StreamEvent::MessageDelta {
+            delta: MessageDeltaContent::default(),
+            usage: None,
+        };
+        let message_stop = StreamEvent::MessageStop;
+        let vec = vec![
+            msg_start_block,
+            content_block_start,
+            content_block_delta,
+            content_block_end,
+            message_delta,
+            message_stop,
+        ];
+        let vec = vec.into_iter().map(|e| {
+            let e = serde_json::to_string(&e).unwrap();
+            // SSE format
+            let e = format!("data: {e}\n\n");
+            let bytes = axum::body::Bytes::from(e);
+            Ok::<axum::body::Bytes, Infallible>(bytes)
+        });
+        stream::iter(vec)
+    }
 
-/// Convert a ClewdrError to a Stream of Claude API events
-pub fn error_stream(e: ClewdrError) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> {
-    let msg_start_content = MessageStartContent::default();
-    let msg_start_block = StreamEvent::MessageStart {
-        message: msg_start_content,
-    };
-    let content_block = ContentBlock::Text {
-        text: String::new(),
-    };
-    let content_block_start = StreamEvent::ContentBlockStart {
-        index: 0,
-        content_block,
-    };
-    let content_block_delta = ContentBlockDelta::TextDelta {
-        text: format!("ClewdR Error: {e}"),
-    };
-    let content_block_delta = StreamEvent::ContentBlockDelta {
-        index: 0,
-        delta: content_block_delta,
-    };
-    let content_block_end = StreamEvent::ContentBlockStop { index: 0 };
-    let message_delta = StreamEvent::MessageDelta {
-        delta: MessageDeltaContent::default(),
-        usage: None,
-    };
-    let message_stop = StreamEvent::MessageStop;
-    let vec = vec![
-        msg_start_block,
-        content_block_start,
-        content_block_delta,
-        content_block_end,
-        message_delta,
-        message_stop,
-    ];
-    let vec = vec.into_iter().map(|e| {
-        let e = serde_json::to_string(&e).unwrap();
-        // SSE format
-        let e = format!("data: {e}\n\n");
-        let bytes = axum::body::Bytes::from(e);
-        Ok::<axum::body::Bytes, Infallible>(bytes)
-    });
-    stream::iter(vec)
+    pub fn error_body(&self) -> String {
+        serde_json::ser::to_string(&Message::new_text(
+            Role::Assistant,
+            format!("Error: {}", self),
+        ))
+        .unwrap()
+    }
 }

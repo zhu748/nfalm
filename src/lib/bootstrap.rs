@@ -1,6 +1,5 @@
 use colored::Colorize;
 use serde_json::Value;
-use tokio::sync::oneshot;
 use tracing::{error, warn};
 
 use crate::{
@@ -16,12 +15,11 @@ impl AppState {
     /// This function will send a request to the server to get the bootstrap data
     /// It will also check if the cookie is valid
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
+        let Some(cookie) = self.cookie.clone() else {
+            return Err(ClewdrError::NoCookieAvailable);
+        };
         let proxy = self.config.rquest_proxy.clone();
-        let (one_tx, one_rx) = oneshot::channel();
-        self.req_tx.send(one_tx).await?;
-        let res = one_rx.await??;
-        self.cookie = res.clone();
-        self.update_cookies(res.cookie.to_string().as_str());
+        self.update_cookies(cookie.cookie.to_string().as_str());
         let end_point = format!("{}/api/bootstrap", self.config.endpoint());
         let res = SUPER_CLIENT
             .get(end_point.clone())
