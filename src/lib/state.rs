@@ -1,3 +1,4 @@
+use colored::Colorize;
 use rquest::Client;
 use rquest::Url;
 use rquest::cookie::Cookie;
@@ -53,7 +54,8 @@ impl AppState {
         self.req_tx.send(one_tx).await?;
         let res = one_rx.await??;
         self.cookie = Some(res.clone());
-        self.store_cookie(res)?;
+        self.store_cookie(res.clone())?;
+        println!("Cookie: {}", res.cookie.to_string().green());
         Ok(())
     }
 

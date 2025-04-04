@@ -1,13 +1,9 @@
-# v0.4.2
+# v0.4.3
 
-## Bug fixes
+<!-- ## Bug fixes
 
-- Non-stream mode now works correctly.
+- Non-stream mode now works correctly. -->
 
 ## Improvement
 
-- Improve HttpError handling.
-- Simplify Error enum.
-- Simplify client creation.
-- Improve cookie management.
-- Delete unused code.
+- Print Cookie for every request.
