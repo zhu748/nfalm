@@ -1,10 +1,13 @@
-# v0.4.1
+# v0.4.2
 
 ## Bug fixes
 
-- Save dispatched cookies to config file.
+- Non-stream mode now works correctly.
 
 ## Improvement
 
-- Automatically collect unreturned cookies after a certain period of time.
-- Share config between different handlers.
+- Improve HttpError handling.
+- Simplify Error enum.
+- Simplify client creation.
+- Improve cookie management.
+- Delete unused code.
