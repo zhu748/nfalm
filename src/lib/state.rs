@@ -53,20 +53,17 @@ impl AppState {
         self.req_tx.send(one_tx).await?;
         let res = one_rx.await??;
         self.cookie = Some(res.clone());
-        self.store_cookie()?;
+        self.store_cookie(res)?;
         Ok(())
     }
 
     /// store the cookie in the client
-    fn store_cookie(&mut self) -> Result<(), ClewdrError> {
-        if let Some(cookie) = self.cookie.clone() {
-            self.client.set_cookie(
-                &Url::from_str(self.config.endpoint().as_str())?,
-                Cookie::parse(cookie.cookie.to_string().as_str())?,
-            );
-            return Ok(());
-        }
-        Err(ClewdrError::NoCookieAvailable)
+    fn store_cookie(&self, cookie: CookieInfo) -> Result<(), ClewdrError> {
+        self.client.set_cookie(
+            &Url::from_str(self.config.endpoint().as_str())?,
+            Cookie::parse(cookie.cookie.to_string().as_str())?,
+        );
+        Ok(())
     }
 
     /// return the cookie to the cookie manager

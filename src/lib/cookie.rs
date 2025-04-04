@@ -132,7 +132,6 @@ impl CookieManager {
     /// Collect the cookie and update the state
     fn collect(&mut self, mut cookie: CookieInfo, reason: Option<Reason>) {
         if !self.dispatched.contains_key(&cookie) {
-            error!("Unknown dispatched");
             return;
         }
         if let Some(reason) = reason {

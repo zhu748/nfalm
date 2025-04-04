@@ -8,8 +8,9 @@ use tracing::{debug, error};
 
 use crate::{
     config::{CookieInfo, Reason},
+    messages::non_stream_message,
     types::message::{
-        ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent, Role,
+        ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent,
         StreamEvent,
     },
 };
@@ -39,7 +40,7 @@ pub enum ClewdrError {
     #[error("UTF8 error: {0}")]
     UTF8Error(#[from] std::string::FromUtf8Error),
     #[error("Http error: code: {0}, body: {1}")]
-    OtherHttpError(StatusCode, InnerHttpError),
+    OtherHttpError(StatusCode, HttpError),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error("IO error: {0}")]
@@ -53,14 +54,22 @@ pub enum ClewdrError {
 }
 
 /// HTTP error response
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct HttpError {
     pub error: InnerHttpError,
     r#type: String,
 }
 
+impl Display for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        serde_json::to_string(self)
+            .map_err(|_| std::fmt::Error)?
+            .fmt(f)
+    }
+}
+
 /// Inner HTTP error response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct InnerHttpError {
     pub message: Value,
     pub r#type: String,
@@ -108,12 +117,24 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         return Ok(res);
     }
     debug!("Error response status: {}", status);
-    let err = res.json::<HttpError>().await?;
-    let err = err.error;
+    let Ok(err) = res.json::<HttpError>().await else {
+        error!("Failed to parse error response");
+        let inner = InnerHttpError {
+            message: json!("Failed to parse error response"),
+            r#type: "error".to_string(),
+        };
+        let http_error = HttpError {
+            error: inner,
+            r#type: "error".to_string(),
+        };
+        return Err(ClewdrError::OtherHttpError(status, http_error));
+    };
+    let err_clone = err.clone();
+    let inner_error = err.error;
     // check if the error is a rate limit error
     if status == 429 {
         // get the reset time from the error message
-        if let Some(time) = err.message["resetsAt"].as_i64() {
+        if let Some(time) = inner_error.message["resetsAt"].as_i64() {
             let reset_time = chrono::DateTime::from_timestamp(time, 0)
                 .ok_or(ClewdrError::TimestampError(time))?
                 .to_utc();
@@ -124,7 +145,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             return Err(ClewdrError::InvalidCookie(Reason::TooManyRequest(time)));
         }
     }
-    Err(ClewdrError::OtherHttpError(status, err))
+    Err(ClewdrError::OtherHttpError(status, err_clone))
 }
 impl ClewdrError {
     /// Convert a ClewdrError to a Stream of Claude API events
@@ -173,11 +194,7 @@ impl ClewdrError {
         stream::iter(vec)
     }
 
-    pub fn error_body(&self) -> String {
-        serde_json::ser::to_string(&Message::new_text(
-            Role::Assistant,
-            format!("Error: {}", self),
-        ))
-        .unwrap()
+    pub fn error_body(&self) -> Message {
+        non_stream_message(self.to_string())
     }
 }

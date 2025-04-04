@@ -127,9 +127,8 @@ pub async fn api_messages(
     // Check if the request is a test message
     if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
         // respond with a test message
-        return Json(Message::new_text(
-            Role::Assistant,
-            "Test message".to_string(),
+        return Json(non_stream_message(
+            "Claude Reverse Proxy is working, please send a real message.".to_string(),
         ))
         .into_response();
     }
@@ -143,28 +142,25 @@ pub async fn api_messages(
     );
 
     if let Err(e) = state.request_cookie().await {
-        return e.error_body().into_response();
+        return Json(e.error_body()).into_response();
     }
-
+    let mut state_clone = state.clone();
+    defer! {
+        spawn(async move {
+            let dur = chrono::Utc::now().signed_duration_since(stopwatch);
+            println!(
+                "Request finished, elapsed time: {} seconds",
+                dur.num_seconds().to_string().green()
+            );
+            if let Err(e) = state_clone.delete_chat().await {
+                warn!("Failed to delete chat: {}", e);
+            }
+            state_clone.return_cookie(None).await;
+        });
+    }
     // check if request is successful
     match state.bootstrap().await.and(state.try_message(p).await) {
-        Ok(b) => {
-            // delete chat after a successful request
-            defer! {
-                spawn(async move {
-                    let dur = chrono::Utc::now().signed_duration_since(stopwatch);
-                    println!(
-                        "Request finished, elapsed time: {} seconds",
-                        dur.num_seconds().to_string().green()
-                    );
-                    if let Err(e) = state.delete_chat().await {
-                        warn!("Failed to delete chat: {}", e);
-                    }
-                    state.return_cookie(None).await;
-                });
-            }
-            b.into_response()
-        }
+        Ok(b) => b.into_response(),
         Err(e) => {
             // delete chat after an error
             if let Err(e) = state.delete_chat().await {
@@ -176,6 +172,10 @@ pub async fn api_messages(
                 ClewdrError::InvalidCookie(ref r) => {
                     state.return_cookie(Some(r.clone())).await;
                 }
+                ClewdrError::OtherHttpError(c, e) => {
+                    state.return_cookie(None).await;
+                    return (c, Json(e)).into_response();
+                }
                 _ => {
                     state.return_cookie(None).await;
                 }
@@ -185,7 +185,7 @@ pub async fn api_messages(
                 Body::from_stream(e.error_stream()).into_response()
             } else {
                 // return the error as a response
-                e.error_body().into_response()
+                Json(e.error_body()).into_response()
             }
         }
     }
@@ -230,9 +230,8 @@ impl AppState {
         // generate the request body
         // check if the request is empty
         let Some(mut body) = self.transform(p) else {
-            return Ok(Json(Message::new_text(
-                Role::Assistant,
-                "Empty message?".to_string(),
+            return Ok(Json(non_stream_message(
+                "Empty request, please send a message.".to_string(),
             ))
             .into_response());
         };
@@ -269,15 +268,16 @@ impl AppState {
             let stream = api_res.bytes_stream().eventsource();
             let text = merge_sse(stream).await;
             print_out_text(&text, "non_stream.txt");
-            return Ok(Json(Message::new_blocks(
-                Role::Assistant,
-                vec![ContentBlock::Text { text }],
-            ))
-            .into_response());
+            return Ok(Json(non_stream_message(text)).into_response());
         }
 
         // stream the response
         let input_stream = api_res.bytes_stream();
         Ok(Body::from_stream(input_stream).into_response())
     }
+}
+
+/// Transform a string to a message
+pub fn non_stream_message(str: String) -> Message {
+    Message::new_blocks(Role::Assistant, vec![ContentBlock::Text { text: str }])
 }
