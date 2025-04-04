@@ -144,6 +144,7 @@ pub async fn api_messages(
     if let Err(e) = state.request_cookie().await {
         return Json(e.error_body()).into_response();
     }
+    println!("Model: {}", p.model.green());
     let mut state_clone = state.clone();
     defer! {
         // ensure the cookie is returned
@@ -200,6 +201,12 @@ impl AppState {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
         let proxy = self.config.rquest_proxy.clone();
+        let Some(ref org_uuid) = self.org_uuid else {
+            return Ok(Json(non_stream_message(
+                "No organization found, please check your cookie.".to_string(),
+            ))
+            .into_response());
+        };
 
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
@@ -207,7 +214,7 @@ impl AppState {
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
             self.config.endpoint(),
-            self.org_uuid
+            org_uuid
         );
         let mut body = json!({
             "uuid": new_uuid,
@@ -251,7 +258,7 @@ impl AppState {
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}/completion",
             self.config.endpoint(),
-            self.org_uuid,
+            org_uuid,
             new_uuid
         );
 
@@ -259,7 +266,7 @@ impl AppState {
             .client
             .post(endpoint)
             .json(&body)
-            .append_headers("", proxy.clone())
+            .append_headers("", proxy)
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;

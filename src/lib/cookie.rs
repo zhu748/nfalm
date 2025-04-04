@@ -7,23 +7,23 @@ use tokio::{
 use tracing::{error, info};
 
 use crate::{
-    config::{Config, CookieInfo, Reason, UselessCookie},
+    config::{Config, CookieStatus, Reason, UselessCookie},
     error::ClewdrError,
 };
 
 pub struct CookieManager {
-    valid: HashSet<CookieInfo>,
-    dispatched: HashMap<CookieInfo, Instant>,
-    exhausted: HashSet<CookieInfo>,
+    valid: HashSet<CookieStatus>,
+    dispatched: HashMap<CookieStatus, Instant>,
+    exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
-    req_rx: Receiver<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
-    ret_rx: Receiver<(CookieInfo, Option<Reason>)>,
+    req_rx: Receiver<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
+    ret_rx: Receiver<(CookieStatus, Option<Reason>)>,
     config: Config,
     interval: Interval,
     last_idx: usize,
 }
 
-impl CookieInfo {
+impl CookieStatus {
     /// check if the cookie is expired
     /// if expired, set the reset time to None
     pub fn reset(self) -> Self {
@@ -43,8 +43,8 @@ impl CookieInfo {
 impl CookieManager {
     pub fn new(
         mut config: Config,
-        req_rx: Receiver<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
-        ret_rx: Receiver<(CookieInfo, Option<Reason>)>,
+        req_rx: Receiver<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
+        ret_rx: Receiver<(CookieStatus, Option<Reason>)>,
     ) -> Self {
         config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
         let valid = HashSet::from_iter(config.cookie_array.iter().filter_map(|c| {
@@ -103,7 +103,7 @@ impl CookieManager {
     }
 
     /// Try to dispatch a cookie from the valid set
-    fn dispatch(&mut self) -> Result<CookieInfo, ClewdrError> {
+    fn dispatch(&mut self) -> Result<CookieStatus, ClewdrError> {
         let mut reset_cookies = Vec::new();
         self.exhausted.retain(|cookie| {
             let reset_cookie = cookie.clone().reset();
@@ -130,7 +130,7 @@ impl CookieManager {
     }
 
     /// Collect the cookie and update the state
-    fn collect(&mut self, mut cookie: CookieInfo, reason: Option<Reason>) {
+    fn collect(&mut self, mut cookie: CookieStatus, reason: Option<Reason>) {
         if !self.dispatched.contains_key(&cookie) {
             return;
         }
@@ -168,7 +168,7 @@ impl CookieManager {
                 _ = self.interval.tick() => {
                     // collect cookies that are not returned for 5 mins
                     let now = Instant::now();
-                    let expired: Vec<CookieInfo> = self.dispatched
+                    let expired: Vec<CookieStatus> = self.dispatched
                         .iter()
                         .filter(|(_, time)| now.duration_since(**time).as_secs() > 5 * 60)
                         .map(|(cookie, _)| cookie.clone())

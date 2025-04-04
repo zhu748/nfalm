@@ -19,7 +19,7 @@ impl AppState {
         let end_point = format!("{}/api/bootstrap", self.config.endpoint());
         let res = self
             .client
-            .get(end_point.clone())
+            .get(end_point)
             .append_headers("", proxy.clone())
             .send()
             .await?;
@@ -31,7 +31,6 @@ impl AppState {
         }
         let memberships = bootstrap["account"]["memberships"]
             .as_array()
-            .cloned()
             .ok_or(ClewdrError::UnexpectedNone)?;
         let boot_acc_info = memberships
             .iter()
@@ -42,19 +41,6 @@ impl AppState {
             })
             .and_then(|m| m["organization"].as_object())
             .ok_or(ClewdrError::UnexpectedNone)?;
-        let mut cookie_model = None;
-        if let Some(model) = bootstrap.pointer("/statsig/values/layer_configs/HPOHwBLNLQLxkj5Yn4bfSkgCQnBX28kPR7h~1BNKdVLw=/value/console_default_model_override/model")
-            .and_then(|m| m.as_str())
-        {
-            cookie_model = Some(model.to_string());
-        }
-        if cookie_model.is_none() {
-            if let Some(model) = bootstrap.pointer("/statsig/values/dynamic_configs/6zA9wvTedwkzjLxWy9PVe7yydI00XDQ6L5Fejjq~12o8=/value/model")
-                .and_then(|m| m.as_str())
-            {
-                cookie_model = Some(model.to_string());
-            }
-        }
         let name = boot_acc_info
             .get("name")
             .and_then(|n| n.as_str())
@@ -68,17 +54,17 @@ impl AppState {
         let caps = boot_acc_info
             .get("capabilities")
             .and_then(|c| c.as_array())
-            .cloned()
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|c| c.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
+            .map(|a| {
+                a.iter()
+                    .filter_map(|c| c.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_default();
         println!(
-            "Logged in \nname: {}\nmail: {}\ncookieModel: {}\ncapabilities: {}",
+            "Logged in \nname: {}\nmail: {}\ncapabilities: {}",
             name.blue(),
             email.blue(),
-            cookie_model.unwrap_or_default().blue(),
             caps.blue()
         );
         let api_disabled_reason = boot_acc_info.get("api_disabled_reason").js_bool();
@@ -104,8 +90,8 @@ impl AppState {
         let end_point = format!("{}/api/organizations", end_point);
         let res = self
             .client
-            .get(end_point.clone())
-            .append_headers("", proxy.clone())
+            .get(end_point)
+            .append_headers("", proxy)
             .send()
             .await?;
         let res = check_res_err(res).await?;
@@ -128,7 +114,7 @@ impl AppState {
             .get("uuid")
             .and_then(|u| u.as_str())
             .ok_or(ClewdrError::UnexpectedNone)?;
-        self.org_uuid = u.to_string();
+        self.org_uuid = Some(u.to_string());
         Ok(())
     }
 
@@ -137,14 +123,9 @@ impl AppState {
     /// If the account is banned, return an error
     /// If the account is not restricted or banned, return Ok
     fn check_flags(&self, acc_info: &Value) -> Result<(), ClewdrError> {
-        let active_flags = acc_info
-            .get("active_flags")
-            .and_then(|a| a.as_array())
-            .cloned()
-            .unwrap_or_default();
-        if active_flags.is_empty() {
+        let Some(active_flags) = acc_info.get("active_flags").and_then(|a| a.as_array()) else {
             return Ok(());
-        }
+        };
         let now = chrono::Utc::now();
         let mut restrict_until = 0;
         let formatted_flags = active_flags

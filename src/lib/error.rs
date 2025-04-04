@@ -7,7 +7,7 @@ use tokio::sync::{mpsc::error::SendError, oneshot};
 use tracing::{debug, error};
 
 use crate::{
-    config::{CookieInfo, Reason},
+    config::{CookieStatus, Reason},
     messages::non_stream_message,
     types::message::{
         ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent,
@@ -22,7 +22,7 @@ pub enum ClewdrError {
     #[error("Tokio oneshot recv error: {0}")]
     CookieDispatchError(#[from] oneshot::error::RecvError),
     #[error("Tokio mpsc send error: {0}")]
-    CookieReqError(#[from] SendError<oneshot::Sender<Result<CookieInfo, ClewdrError>>>),
+    CookieReqError(#[from] SendError<oneshot::Sender<Result<CookieStatus, ClewdrError>>>),
     #[error("No cookie available")]
     NoCookieAvailable,
     #[error("Invalid Cookie, reason: {0}")]
@@ -49,8 +49,6 @@ pub enum ClewdrError {
     PathNotFound(String),
     #[error("Invalid timestamp: {0}")]
     TimestampError(i64),
-    #[error("Wait for cookie rotation")]
-    CookieRotating,
 }
 
 /// HTTP error response

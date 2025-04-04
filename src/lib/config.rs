@@ -23,7 +23,7 @@ const fn default_max_connections() -> usize {
 pub struct Config {
     // Cookie configurations
     #[serde(default)]
-    pub cookie_array: Vec<CookieInfo>,
+    pub cookie_array: Vec<CookieStatus>,
     pub wasted_cookie: Vec<UselessCookie>,
 
     // Network settings
@@ -110,21 +110,20 @@ impl UselessCookie {
 
 /// A struct representing a cookie with its information
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct CookieInfo {
+pub struct CookieStatus {
     pub cookie: Cookie,
-    pub model: Option<String>,
     #[serde(deserialize_with = "validate_reset")]
     #[serde(default)]
     pub reset_time: Option<i64>,
 }
 
-impl PartialEq for CookieInfo {
+impl PartialEq for CookieStatus {
     fn eq(&self, other: &Self) -> bool {
         self.cookie == other.cookie
     }
 }
-impl Eq for CookieInfo {}
-impl Hash for CookieInfo {
+impl Eq for CookieStatus {}
+impl Hash for CookieStatus {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.cookie.hash(state);
     }
@@ -170,11 +169,10 @@ where
     Ok(Some(v))
 }
 
-impl CookieInfo {
-    pub fn new(cookie: &str, model: Option<&str>, reset_time: Option<i64>) -> Self {
+impl CookieStatus {
+    pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
         Self {
             cookie: Cookie::from(cookie),
-            model: model.map(|m| m.to_string()),
             reset_time,
         }
     }
@@ -276,8 +274,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             cookie_array: vec![
-                CookieInfo::new(PLACEHOLDER_COOKIE, None, None),
-                CookieInfo::new(PLACEHOLDER_COOKIE, Some("claude_pro"), None),
+                CookieStatus::new(PLACEHOLDER_COOKIE, None),
+                CookieStatus::new(PLACEHOLDER_COOKIE, Some(114514000)),
             ],
             wasted_cookie: Vec::new(),
             password: String::new(),
@@ -385,7 +383,7 @@ impl Config {
     }
 
     fn load_padtxt(&mut self) {
-        let padtxt = self.padtxt_file.clone();
+        let padtxt = &self.padtxt_file;
         if padtxt.trim().is_empty() {
             return;
         }
@@ -399,7 +397,7 @@ impl Config {
             error!("Pad txt file not found: {}", padtxt_path.display());
             return;
         }
-        let Ok(padtxt_string) = std::fs::read_to_string(padtxt_path.clone()) else {
+        let Ok(padtxt_string) = std::fs::read_to_string(padtxt_path.as_path()) else {
             error!("Failed to read pad txt file: {}", padtxt_path.display());
             return;
         };
@@ -507,9 +505,8 @@ impl Config {
                     warn!("Wasted cookie: {}", line);
                     return None;
                 }
-                Some(CookieInfo {
+                Some(CookieStatus {
                     cookie: c,
-                    model: None,
                     reset_time: None,
                 })
             })

@@ -14,18 +14,18 @@ use std::sync::Arc;
 use crate::client::AppendHeaders;
 use crate::client::SUPER_CLIENT;
 use crate::config::Config;
-use crate::config::CookieInfo;
+use crate::config::CookieStatus;
 use crate::config::Reason;
 use crate::error::ClewdrError;
 
 /// State of current connection
 #[derive(Clone)]
 pub struct AppState {
-    pub req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
-    pub ret_tx: Sender<(CookieInfo, Option<Reason>)>,
-    pub cookie: Option<CookieInfo>,
+    pub req_tx: Sender<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
+    pub ret_tx: Sender<(CookieStatus, Option<Reason>)>,
+    pub cookie: Option<CookieStatus>,
     pub config: Arc<Config>,
-    pub org_uuid: String,
+    pub org_uuid: Option<String>,
     pub conv_uuid: Option<String>,
     pub client: Client,
 }
@@ -34,8 +34,8 @@ impl AppState {
     /// Create a new AppState instance
     pub fn new(
         config: Config,
-        req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
-        ret_tx: Sender<(CookieInfo, Option<Reason>)>,
+        req_tx: Sender<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
+        ret_tx: Sender<(CookieStatus, Option<Reason>)>,
     ) -> Self {
         let client = SUPER_CLIENT.cloned();
         AppState {
@@ -43,7 +43,7 @@ impl AppState {
             req_tx,
             ret_tx,
             cookie: None,
-            org_uuid: String::new(),
+            org_uuid: None,
             conv_uuid: None,
             client,
         }
@@ -61,7 +61,7 @@ impl AppState {
     }
 
     /// store the cookie in the client
-    fn store_cookie(&self, cookie: CookieInfo) -> Result<(), ClewdrError> {
+    fn store_cookie(&self, cookie: CookieStatus) -> Result<(), ClewdrError> {
         self.client.set_cookie(
             &Url::from_str(self.config.endpoint().as_str())?,
             Cookie::parse(cookie.cookie.to_string().as_str())?,
@@ -84,25 +84,24 @@ impl AppState {
 
     /// Delete current chat conversation
     pub async fn delete_chat(&self) -> Result<(), ClewdrError> {
-        let uuid = self.conv_uuid.clone();
-        let config = &self.config;
-        let org_uuid = self.org_uuid.clone();
-        if uuid.clone().is_none_or(|u| u.is_empty()) {
+        let Some(ref org_uuid) = self.org_uuid else {
             return Ok(());
-        }
-        let uuid = uuid.unwrap();
+        };
+        let Some(ref conv_uuid) = self.conv_uuid else {
+            return Ok(());
+        };
         // if preserve_chats is true, do not delete chat
         if self.config.settings.preserve_chats {
             return Ok(());
         }
-        debug!("Deleting chat: {}", uuid);
+        debug!("Deleting chat: {}", conv_uuid);
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}",
-            config.endpoint(),
+            self.config.endpoint(),
             org_uuid,
-            uuid
+            conv_uuid
         );
-        let proxy = config.rquest_proxy.clone();
+        let proxy = self.config.rquest_proxy.clone();
         let _ = self
             .client
             .delete(endpoint)
