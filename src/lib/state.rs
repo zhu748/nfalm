@@ -91,7 +91,7 @@ impl AppState {
             return Ok(());
         };
         // if preserve_chats is true, do not delete chat
-        if self.config.settings.preserve_chats {
+        if self.config.preserve_chats {
             return Ok(());
         }
         debug!("Deleting chat: {}", conv_uuid);

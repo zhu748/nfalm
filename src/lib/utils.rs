@@ -1,4 +1,3 @@
-use serde_json::Value;
 use std::path::PathBuf;
 use tracing::error;
 
@@ -57,48 +56,6 @@ pub fn print_out_text(text: &str, file_name: &str) {
     };
     if let Err(e) = std::io::Write::write_all(&mut file, text.as_bytes()) {
         error!("Failed to write to file: {}\n", e);
-    }
-}
-
-/// Mimic the behavior of JavaScript's truthiness
-pub trait JsBool {
-    fn js_bool(&self) -> bool;
-}
-
-impl JsBool for Option<&Value> {
-    fn js_bool(&self) -> bool {
-        match self {
-            Some(v) => v.js_bool(),
-            None => false,
-        }
-    }
-}
-
-impl JsBool for Value {
-    fn js_bool(&self) -> bool {
-        match self {
-            Value::Null => false,
-            Value::Number(n) => {
-                // '-0'/'0'/NaN => false
-                // other numbers => true
-                if let Some(num) = n.as_f64() {
-                    if num == 0.0 || num.is_nan() {
-                        return false;
-                    }
-                }
-                true
-            }
-            Value::Bool(b) => *b,
-            Value::String(s) => {
-                // empty string => false
-                // other strings => true
-                if s.is_empty() {
-                    return false;
-                }
-                true
-            }
-            _ => true,
-        }
     }
 }
 

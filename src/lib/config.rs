@@ -34,6 +34,14 @@ pub struct Config {
     ip: String,
     port: u16,
 
+    // Api settings
+    #[serde(default)]
+    pub pass_params: bool,
+    #[serde(default)]
+    pub preserve_chats: bool,
+    #[serde(default)]
+    pub skip_restricted: bool,
+
     // Proxy configurations
     pub rproxy: String,
 
@@ -59,27 +67,21 @@ pub struct Config {
 /// Reason why a cookie is considered useless
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Reason {
-    Null,
-    Disabled,
-    Unverified,
-    Overlap,
     Banned,
+    Null,
+    Unverified,
     Restricted(i64),
     TooManyRequest(i64),
-    CoolDown,
 }
 
 impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Reason::Null => write!(f, "Null"),
-            Reason::Disabled => write!(f, "Disabled"),
-            Reason::Unverified => write!(f, "Unverified"),
-            Reason::Overlap => write!(f, "Overlap"),
             Reason::Banned => write!(f, "Banned"),
+            Reason::Null => write!(f, "Null"),
+            Reason::Unverified => write!(f, "Unverified"),
             Reason::Restricted(i) => write!(f, "Restricted: {}", i),
             Reason::TooManyRequest(i) => write!(f, "Too many request: {}", i),
-            Reason::CoolDown => write!(f, "CoolDown"),
         }
     }
 }
@@ -131,11 +133,7 @@ impl Hash for CookieStatus {
 
 /// Additional settings, ported from clewd, may be merged into config in the future
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct Settings {
-    pub pass_params: bool,
-    pub preserve_chats: bool,
-    pub skip_restricted: bool,
-}
+pub struct Settings {}
 
 /// Default cookie value for testing purposes
 const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";
@@ -293,6 +291,9 @@ impl Default for Config {
             custom_a: None,
             rquest_proxy: None,
             pad_tokens: Vec::new(),
+            pass_params: false,
+            preserve_chats: false,
+            skip_restricted: false,
         }
     }
 }

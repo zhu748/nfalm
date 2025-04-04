@@ -7,7 +7,6 @@ use crate::{
     config::Reason,
     error::{ClewdrError, check_res_err},
     state::AppState,
-    utils::JsBool,
 };
 
 impl AppState {
@@ -67,23 +66,6 @@ impl AppState {
             email.blue(),
             caps.blue()
         );
-        let api_disabled_reason = boot_acc_info.get("api_disabled_reason").js_bool();
-        let api_disabled_until = boot_acc_info.get("api_disabled_until").js_bool();
-        let completed_verification_at = bootstrap
-            .get("account")
-            .and_then(|a| a.get("completed_verification_at"))
-            .js_bool();
-        if (api_disabled_reason && !api_disabled_until) || !completed_verification_at {
-            let reason = if api_disabled_reason {
-                Reason::Disabled
-            } else if !completed_verification_at {
-                Reason::Unverified
-            } else {
-                Reason::Overlap
-            };
-            error!("Cookie is useless, reason: {}", reason.to_string().red());
-            return Err(ClewdrError::InvalidCookie(reason));
-        }
 
         // Bootstrap complete
         let end_point = self.config.endpoint();
@@ -118,10 +100,10 @@ impl AppState {
         Ok(())
     }
 
-    /// Check if the account is restricted or banned
-    /// If the account is restricted, check if the restriction is expired
-    /// If the account is banned, return an error
-    /// If the account is not restricted or banned, return Ok
+    /// Check if the account is restricted or banned.
+    /// If the account is restricted, check if the restriction is expired.
+    /// If the account is banned, return an error.
+    /// If the account is not restricted or banned, return Ok.
     fn check_flags(&self, acc_info: &Value) -> Result<(), ClewdrError> {
         let Some(active_flags) = acc_info.get("active_flags").and_then(|a| a.as_array()) else {
             return Ok(());
@@ -174,7 +156,7 @@ impl AppState {
         } else {
             // Restricted
             println!("{}", "Your account is restricted.".red());
-            if self.config.settings.skip_restricted && restrict_until > 0 {
+            if self.config.skip_restricted && restrict_until > 0 {
                 warn!("skip_restricted is enabled, skipping...");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     restrict_until,
