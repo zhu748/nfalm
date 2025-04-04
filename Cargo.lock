@@ -451,7 +451,7 @@ dependencies = [
 
 [[package]]
 name = "clewdr"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "async-trait",
  "axum",
