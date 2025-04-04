@@ -22,7 +22,7 @@ pub enum ClewdrError {
     CookieReqError(#[from] SendError<oneshot::Sender<Result<CookieInfo, ClewdrError>>>),
     #[error("No cookie available")]
     NoCookieAvailable,
-    #[error("Invalid Cookie")]
+    #[error("Invalid Cookie, reason: {0}")]
     InvalidCookie(Reason),
     #[error("Json error: {0}")]
     JsonError(#[from] serde_json::Error),

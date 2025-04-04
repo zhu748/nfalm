@@ -1,7 +1,13 @@
+use axum::body::Bytes;
+use eventsource_stream::EventStream;
+use futures::Stream;
+use futures::StreamExt;
+use futures::pin_mut;
 use itertools::Itertools;
 use rand::{Rng, rng};
 use serde_json::Value;
 use std::fmt::Write;
+use tracing::error;
 
 use crate::{
     messages::{Attachment, ClientRequestBody, RequestBody},
@@ -28,7 +34,11 @@ impl AppState {
             attachments: vec![Attachment::new(merged.paste)],
             files: vec![],
             model: value.model,
-            rendering_mode: "messages".to_string(),
+            rendering_mode: if value.stream {
+                "messages".to_string()
+            } else {
+                "raw".to_string()
+            },
             prompt: merged.prompt,
             timezone: TIME_ZONE.to_string(),
             images: merged.images,
@@ -179,4 +189,32 @@ fn merge_system(sys: Value) -> String {
         .to_owned()
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+pub async fn merge_sse(
+    stream: EventStream<impl Stream<Item = Result<Bytes, rquest::Error>>>,
+) -> String {
+    pin_mut!(stream);
+    let mut w = String::new();
+    while let Some(event) = stream.next().await {
+        match event {
+            Ok(event) => {
+                if event.event != "completion" {
+                    continue;
+                }
+                let data = event.data;
+                let Ok(json) = serde_json::from_str::<Value>(&data) else {
+                    error!("Failed to parse JSON: {}", data);
+                    continue;
+                };
+                let Some(completion) = json["completion"].as_str() else {
+                    error!("Failed to get completion from JSON: {}", json);
+                    continue;
+                };
+                w += completion;
+            }
+            Err(e) => error!("Stream Error: {}", e),
+        }
+    }
+    w
 }

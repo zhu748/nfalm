@@ -4,10 +4,10 @@ use axum::{
     Json,
     body::Body,
     extract::{FromRequestParts, State},
-    http,
     response::{IntoResponse, Response},
 };
 use colored::Colorize;
+use eventsource_stream::Eventsource;
 use rquest::{StatusCode, header::ACCEPT};
 use scopeguard::defer;
 use serde::{Deserialize, Serialize};
@@ -19,8 +19,9 @@ use crate::{
     client::{AppendHeaders, SUPER_CLIENT, upload_images},
     error::{ClewdrError, check_res_err},
     state::AppState,
+    text::merge_sse,
     types::message::{ContentBlock, ImageSource, Message, Role},
-    utils::print_out_json,
+    utils::{print_out_json, print_out_text},
 };
 
 /// Exact test message send by SillyTavern
@@ -126,11 +127,10 @@ pub async fn api_messages(
     // Check if the request is a test message
     if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
         // respond with a test message
-        return serde_json::ser::to_string(&Message::new_text(
+        return Json(Message::new_text(
             Role::Assistant,
             "Test message".to_string(),
         ))
-        .unwrap()
         .into_response();
     }
 
@@ -231,11 +231,10 @@ impl AppState {
         // generate the request body
         // check if the request is empty
         let Some(mut body) = self.transform(p) else {
-            return Ok(serde_json::ser::to_string(&Message::new_text(
+            return Ok(Json(Message::new_text(
                 Role::Assistant,
                 "Empty message?".to_string(),
             ))
-            .unwrap()
             .into_response());
         };
 
@@ -268,8 +267,14 @@ impl AppState {
 
         // if not streaming, return the response
         if !stream {
-            let res: http::Response<_> = api_res.into();
-            return Ok(res.into_response());
+            let stream = api_res.bytes_stream().eventsource();
+            let text = merge_sse(stream).await;
+            print_out_text(&text, "non_stream.txt");
+            return Ok(Json(Message::new_blocks(
+                Role::Assistant,
+                vec![ContentBlock::Text { text }],
+            ))
+            .into_response());
         }
 
         // stream the response
