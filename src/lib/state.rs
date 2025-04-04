@@ -1,12 +1,12 @@
-use regex::Regex;
-use regex::RegexBuilder;
-use rquest::Response;
+use rquest::Client;
+use rquest::Url;
+use rquest::cookie::Cookie;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tracing::debug;
 use tracing::error;
 
-use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::client::AppendHeaders;
@@ -25,7 +25,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub org_uuid: String,
     pub conv_uuid: Option<String>,
-    cookies: HashMap<String, String>,
+    pub client: Client,
 }
 
 impl AppState {
@@ -35,26 +35,41 @@ impl AppState {
         req_tx: Sender<oneshot::Sender<Result<CookieInfo, ClewdrError>>>,
         ret_tx: Sender<(CookieInfo, Option<Reason>)>,
     ) -> Self {
+        let client = SUPER_CLIENT.cloned();
         AppState {
             config: Arc::new(config),
             req_tx,
             ret_tx,
             cookie: None,
             org_uuid: String::new(),
-            cookies: HashMap::new(),
             conv_uuid: None,
+            client,
         }
     }
 
+    /// request a new cookie from cookie manager
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
-        // request a new cookie from cookie manager
         let (one_tx, one_rx) = oneshot::channel();
         self.req_tx.send(one_tx).await?;
         let res = one_rx.await??;
         self.cookie = Some(res.clone());
+        self.store_cookie()?;
         Ok(())
     }
 
+    /// store the cookie in the client
+    fn store_cookie(&mut self) -> Result<(), ClewdrError> {
+        if let Some(cookie) = self.cookie.clone() {
+            self.client.set_cookie(
+                &Url::from_str(self.config.endpoint().as_str())?,
+                Cookie::parse(cookie.cookie.to_string().as_str())?,
+            );
+            return Ok(());
+        }
+        Err(ClewdrError::NoCookieAvailable)
+    }
+
+    /// return the cookie to the cookie manager
     pub async fn return_cookie(&mut self, reason: Option<Reason>) {
         // return the cookie to the cookie manager
         if let Some(cookie) = self.cookie.take() {
@@ -65,53 +80,6 @@ impl AppState {
                     error!("Failed to send cookie: {}", e);
                 });
         }
-    }
-
-    /// Update cookie from the server response
-    pub fn update_cookie_from_res(&mut self, res: &Response) {
-        if let Some(s) = res
-            .headers()
-            .get("set-cookie")
-            .and_then(|h| h.to_str().ok())
-        {
-            self.update_cookies(s)
-        }
-    }
-
-    /// Update cookies from string
-    pub fn update_cookies(&mut self, str: &str) {
-        let str = str.split("\n").to_owned().collect::<Vec<_>>().join("");
-        if str.is_empty() {
-            return;
-        }
-        let re1 = Regex::new(r";\s?").unwrap();
-        let re2 = RegexBuilder::new(r"^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*")
-            .case_insensitive(true)
-            .build()
-            .unwrap();
-        let re3 = Regex::new(r"^(.*?)=\s*(.*)").unwrap();
-        re1.split(&str)
-            .filter(|s| !re2.is_match(s) && !s.is_empty())
-            .for_each(|s| {
-                let caps = re3.captures(s);
-                if let Some(caps) = caps {
-                    let key = caps[1].to_string();
-                    let value = caps[2].to_string();
-                    self.cookies.insert(key, value);
-                }
-            });
-    }
-
-    /// Current cookie string that are used in requests
-    pub fn header_cookie(&self) -> String {
-        // check rotating guard
-        self.cookies
-            .iter()
-            .map(|(name, value)| format!("{}={}", name, value))
-            .collect::<Vec<_>>()
-            .join("; ")
-            .trim()
-            .to_string()
     }
 
     /// Delete current chat conversation
@@ -135,9 +103,10 @@ impl AppState {
             uuid
         );
         let proxy = config.rquest_proxy.clone();
-        let _ = SUPER_CLIENT
-            .delete(endpoint.clone())
-            .append_headers("", self.header_cookie(), proxy)
+        let _ = self
+            .client
+            .delete(endpoint)
+            .append_headers("", proxy)
             .send()
             .await?;
         debug!("Chat deleted");

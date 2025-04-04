@@ -16,6 +16,8 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Failed to parse URL: {0}")]
+    UrlParseError(#[from] url::ParseError),
     #[error("Tokio oneshot recv error: {0}")]
     CookieDispatchError(#[from] oneshot::error::RecvError),
     #[error("Tokio mpsc send error: {0}")]

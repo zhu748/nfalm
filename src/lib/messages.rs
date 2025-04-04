@@ -16,7 +16,7 @@ use tokio::spawn;
 use tracing::{debug, warn};
 
 use crate::{
-    client::{AppendHeaders, SUPER_CLIENT, upload_images},
+    client::AppendHeaders,
     error::{ClewdrError, check_res_err},
     state::AppState,
     text::merge_sse,
@@ -216,16 +216,15 @@ impl AppState {
             body["paprika_mode"] = "extended".into();
             body["model"] = p.model.clone().into();
         }
-        let api_res = SUPER_CLIENT
+        let api_res = self
+            .client
             .post(endpoint)
             .json(&body)
-            .append_headers("", self.header_cookie(), proxy.clone())
+            .append_headers("", proxy.clone())
             .send()
             .await?;
         debug!("New conversation created: {}", new_uuid);
 
-        // update cookie
-        self.update_cookie_from_res(&api_res);
         check_res_err(api_res).await?;
 
         // generate the request body
@@ -242,8 +241,7 @@ impl AppState {
         let images = mem::take(&mut body.images);
 
         // upload images
-        let uuid_org = self.org_uuid.clone();
-        let files = upload_images(images, self.header_cookie(), uuid_org, proxy.clone()).await;
+        let files = self.upload_images(images).await;
         body.files = files;
 
         // send the request
@@ -255,14 +253,15 @@ impl AppState {
             new_uuid
         );
 
-        let api_res = SUPER_CLIENT
+        let api_res = self
+            .client
             .post(endpoint)
             .json(&body)
-            .append_headers("", self.header_cookie(), proxy.clone())
+            .append_headers("", proxy.clone())
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;
-        self.update_cookie_from_res(&api_res);
+
         let api_res = check_res_err(api_res).await?;
 
         // if not streaming, return the response
