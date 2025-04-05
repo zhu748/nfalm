@@ -53,10 +53,6 @@ pub struct Config {
     pub padtxt_file: String,
     pub padtxt_len: usize,
 
-    // Nested settings section
-    #[serde(default)]
-    pub settings: Settings,
-
     // Skip field
     #[serde(skip)]
     pub rquest_proxy: Option<Proxy>,
@@ -130,10 +126,6 @@ impl Hash for CookieStatus {
         self.cookie.hash(state);
     }
 }
-
-/// Additional settings, ported from clewd, may be merged into config in the future
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct Settings {}
 
 /// Default cookie value for testing purposes
 const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";
@@ -282,7 +274,6 @@ impl Default for Config {
             port: 8484,
             max_connections: default_max_connections(),
             rproxy: String::new(),
-            settings: Settings::default(),
             use_real_roles: false,
             custom_prompt: String::new(),
             padtxt_file: String::new(),
