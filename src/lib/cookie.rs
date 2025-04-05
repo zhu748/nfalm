@@ -142,6 +142,15 @@ impl CookieManager {
                 cookie.reset_time = Some(i);
                 self.exhausted.insert(cookie);
             }
+            Reason::NonPro => {
+                warn!(
+                    "疑似爆米了, id: {}, cookie: {}",
+                    cookie.discord.unwrap_or_default(),
+                    cookie.cookie
+                );
+                self.invalid
+                    .insert(UselessCookie::new(cookie.cookie, reason));
+            }
             r => {
                 self.invalid.insert(UselessCookie::new(cookie.cookie, r));
             }

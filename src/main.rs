@@ -1,3 +1,5 @@
+use std::fs::OpenOptions;
+
 use clap::Parser;
 use clewdr::{
     self, BANNER, config::Config, cookie::CookieManager, error::ClewdrError, state::AppState,
@@ -15,7 +17,16 @@ async fn main() -> Result<(), ClewdrError> {
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
-    tracing_subscriber::fmt().with_timer(timer).pretty().init();
+    let log_file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open("log/clewdr.log")
+        .unwrap();
+    tracing_subscriber::fmt()
+        .with_timer(timer)
+        .with_writer(log_file)
+        .pretty()
+        .init();
 
     println!("{}", *BANNER);
     // load config from file
