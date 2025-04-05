@@ -1,11 +1,11 @@
-# v0.4.5
+# v0.4.6
 
-<!-- ## Bug fixes
+## Bug fixes
 
-- Chat is now properly deleted after response. -->
+- Fix static C runtime linking to only apply for Windows builds
 
 ## Improvement
 
-- Dispatch cookie based on payment due.
-- API for hot submit cookies.
-- Delete useless code.
+- Add option to skip non-pro versions and refine submit API
+- Add skip_warning flag and modify skip_restricted role behavior
+- Refine logging implementation
