@@ -12,7 +12,7 @@ use rquest::{StatusCode, header::ACCEPT};
 use scopeguard::defer;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tokio::task::spawn_local;
+use tokio::spawn;
 use tracing::{debug, warn};
 
 use crate::{
@@ -148,7 +148,7 @@ pub async fn api_messages(
     let mut state_clone = state.clone();
     defer! {
         // ensure the cookie is returned
-        spawn_local(async move {
+        spawn(async move {
             let dur = chrono::Utc::now().signed_duration_since(stopwatch);
             println!(
                 "Request finished, elapsed time: {} seconds",

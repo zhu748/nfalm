@@ -7,6 +7,7 @@ use crate::{
     config::Reason,
     error::{ClewdrError, check_res_err},
     state::AppState,
+    utils::print_out_json,
 };
 
 impl AppState {
@@ -24,6 +25,7 @@ impl AppState {
             .await?;
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
+        print_out_json(&bootstrap, "bootstrap.json");
         if bootstrap["account"].is_null() {
             error!("Null Error, Useless Cookie");
             return Err(ClewdrError::InvalidCookie(Reason::Null));
@@ -75,7 +77,7 @@ impl AppState {
             .await?;
         let res = check_res_err(res).await?;
         let ret_json = res.json::<Value>().await?;
-        // print bootstrap to out.json, if it exists, overwrite it
+        print_out_json(&ret_json, "org.json");
         let acc_info = ret_json
             .as_array()
             .and_then(|a| {
