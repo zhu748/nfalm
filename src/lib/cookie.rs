@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct CookieManager {
-    valid: HashSet<CookieStatus>,
+    valid: Vec<CookieStatus>,
     dispatched: HashMap<CookieStatus, Instant>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
@@ -20,7 +20,6 @@ pub struct CookieManager {
     ret_rx: Receiver<(CookieStatus, Option<Reason>)>,
     config: Config,
     interval: Interval,
-    last_idx: usize,
 }
 
 impl CookieStatus {
@@ -47,7 +46,7 @@ impl CookieManager {
         ret_rx: Receiver<(CookieStatus, Option<Reason>)>,
     ) -> Self {
         config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
-        let valid = HashSet::from_iter(config.cookie_array.iter().filter_map(|c| {
+        let valid = Vec::from_iter(config.cookie_array.iter().filter_map(|c| {
             if c.reset_time.is_none() {
                 Some(c.clone())
             } else {
@@ -74,7 +73,6 @@ impl CookieManager {
             ret_rx,
             dispatched,
             interval,
-            last_idx: 0,
         }
     }
 
@@ -117,13 +115,7 @@ impl CookieManager {
         self.valid.extend(reset_cookies);
         self.save();
         // randomly select a cookie from valid cookies and remove it from the set
-        if self.valid.is_empty() {
-            return Err(ClewdrError::NoCookieAvailable);
-        }
-        let mut cycle = self.valid.iter().cycle();
-        let cookie = cycle.nth(self.last_idx).unwrap().clone();
-        self.last_idx += 1;
-        self.valid.remove(&cookie);
+        let cookie = self.valid.pop().ok_or(ClewdrError::NoCookieAvailable)?;
         let instant = Instant::now();
         self.dispatched.insert(cookie.clone(), instant);
         Ok(cookie)
@@ -131,29 +123,27 @@ impl CookieManager {
 
     /// Collect the cookie and update the state
     fn collect(&mut self, mut cookie: CookieStatus, reason: Option<Reason>) {
-        if !self.dispatched.contains_key(&cookie) {
+        let Some(_) = self.dispatched.remove(&cookie) else {
             return;
-        }
-        if let Some(reason) = reason {
-            match reason {
-                Reason::TooManyRequest(i) => {
-                    cookie.reset_time = Some(i);
-                    self.exhausted.insert(cookie.clone());
-                }
-                Reason::Restricted(i) => {
-                    cookie.reset_time = Some(i);
-                    self.exhausted.insert(cookie.clone());
-                }
-                r => {
-                    self.invalid
-                        .insert(UselessCookie::new(cookie.cookie.clone(), r));
-                }
+        };
+        let Some(reason) = reason else {
+            self.valid.push(cookie);
+            return;
+        };
+        match reason {
+            Reason::TooManyRequest(i) => {
+                cookie.reset_time = Some(i);
+                self.exhausted.insert(cookie);
             }
-            self.save();
-        } else {
-            self.valid.insert(cookie.clone());
+            Reason::Restricted(i) => {
+                cookie.reset_time = Some(i);
+                self.exhausted.insert(cookie);
+            }
+            r => {
+                self.invalid.insert(UselessCookie::new(cookie.cookie, r));
+            }
         }
-        self.dispatched.remove(&cookie);
+        self.save();
     }
 
     /// Run the cookie manager
@@ -177,7 +167,7 @@ impl CookieManager {
                     for cookie in expired {
                         info!("Timing out dispatched cookie: {:?}", cookie);
                         self.dispatched.remove(&cookie);
-                        self.valid.insert(cookie);
+                        self.valid.push(cookie);
                     }
                     self.save();
                 }
@@ -186,7 +176,7 @@ impl CookieManager {
                     if let Err(e) = sender.send(cookie) {
                         error!("Failed to send cookie");
                         if let Ok(c) = e {
-                            self.valid.insert(c);
+                            self.valid.push(c);
                         }
                     }
                 }

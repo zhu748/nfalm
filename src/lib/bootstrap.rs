@@ -40,19 +40,16 @@ impl AppState {
             })
             .and_then(|m| m["organization"].as_object())
             .ok_or(ClewdrError::UnexpectedNone)?;
-        let name = boot_acc_info
-            .get("name")
-            .and_then(|n| n.as_str())
+        let name = boot_acc_info["name"]
+            .as_str()
             .and_then(|n| n.split_once("@"))
             .map(|(n, _)| n)
             .unwrap_or_default();
-        let email = bootstrap
-            .pointer("/account/email_address")
-            .and_then(|e| e.as_str())
+        let email = bootstrap["account"]["email_address"]
+            .as_str()
             .unwrap_or_default();
-        let caps = boot_acc_info
-            .get("capabilities")
-            .and_then(|c| c.as_array())
+        let caps = boot_acc_info["capabilities"]
+            .as_array()
             .map(|a| {
                 a.iter()
                     .filter_map(|c| c.as_str())
