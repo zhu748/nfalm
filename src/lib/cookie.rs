@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use tokio::{
     select,
     sync::{mpsc::Receiver, oneshot},
     time::{Instant, Interval},
 };
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::{
     config::{Config, CookieStatus, Reason, UselessCookie},
@@ -12,12 +12,13 @@ use crate::{
 };
 
 pub struct CookieManager {
-    valid: VecDeque<CookieStatus>,
+    valid: BinaryHeap<CookieStatus>,
     dispatched: HashMap<CookieStatus, Instant>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
     req_rx: Receiver<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
     ret_rx: Receiver<(CookieStatus, Option<Reason>)>,
+    submit_rx: Receiver<CookieStatus>,
     config: Config,
     interval: Interval,
 }
@@ -44,9 +45,10 @@ impl CookieManager {
         mut config: Config,
         req_rx: Receiver<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
         ret_rx: Receiver<(CookieStatus, Option<Reason>)>,
+        submit_rx: Receiver<CookieStatus>,
     ) -> Self {
         config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
-        let valid = VecDeque::from_iter(config.cookie_array.iter().filter_map(|c| {
+        let valid = BinaryHeap::from_iter(config.cookie_array.iter().filter_map(|c| {
             if c.reset_time.is_none() {
                 Some(c.clone())
             } else {
@@ -71,6 +73,7 @@ impl CookieManager {
             req_rx,
             config,
             ret_rx,
+            submit_rx,
             dispatched,
             interval,
         }
@@ -115,10 +118,7 @@ impl CookieManager {
         self.valid.extend(reset_cookies);
         self.save();
         // randomly select a cookie from valid cookies and remove it from the set
-        let cookie = self
-            .valid
-            .pop_front()
-            .ok_or(ClewdrError::NoCookieAvailable)?;
+        let cookie = self.valid.pop().ok_or(ClewdrError::NoCookieAvailable)?;
         let instant = Instant::now();
         self.dispatched.insert(cookie.clone(), instant);
         Ok(cookie)
@@ -130,7 +130,7 @@ impl CookieManager {
             return;
         };
         let Some(reason) = reason else {
-            self.valid.push_back(cookie);
+            self.valid.push(cookie);
             return;
         };
         match reason {
@@ -149,6 +149,16 @@ impl CookieManager {
         self.save();
     }
 
+    fn accept(&mut self, cookie: CookieStatus) {
+        if self.config.cookie_array.contains(&cookie) {
+            warn!("Cookie already exists");
+            return;
+        }
+        self.config.cookie_array.push(cookie.clone());
+        self.save();
+        self.valid.push(cookie.clone());
+    }
+
     /// Run the cookie manager
     /// This function will run in a loop and handle the requests and returns
     /// from the channels
@@ -158,6 +168,9 @@ impl CookieManager {
             select! {
                 biased;
                 Some((cookie, reason)) = self.ret_rx.recv() => self.collect(cookie, reason),
+                Some(cookie) = self.submit_rx.recv() => {
+                    self.accept(cookie);
+                }
                 _ = self.interval.tick() => {
                     // collect cookies that are not returned for 5 mins
                     let now = Instant::now();
@@ -170,16 +183,15 @@ impl CookieManager {
                     for cookie in expired {
                         info!("Timing out dispatched cookie: {:?}", cookie);
                         self.dispatched.remove(&cookie);
-                        self.valid.push_back(cookie);
+                        self.valid.push(cookie);
                     }
-                    self.save();
                 }
                 Some(sender) = self.req_rx.recv() => {
                     let cookie = self.dispatch();
                     if let Err(e) = sender.send(cookie) {
                         error!("Failed to send cookie");
                         if let Ok(c) = e {
-                            self.valid.push_back(c);
+                            self.valid.push(c);
                         }
                     }
                 }

@@ -23,6 +23,7 @@ use crate::error::ClewdrError;
 pub struct AppState {
     pub req_tx: Sender<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
     pub ret_tx: Sender<(CookieStatus, Option<Reason>)>,
+    pub submit_tx: Sender<CookieStatus>,
     pub cookie: Option<CookieStatus>,
     pub config: Arc<Config>,
     pub org_uuid: Option<String>,
@@ -36,12 +37,14 @@ impl AppState {
         config: Config,
         req_tx: Sender<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
         ret_tx: Sender<(CookieStatus, Option<Reason>)>,
+        submit_tx: Sender<CookieStatus>,
     ) -> Self {
         let client = SUPER_CLIENT.cloned();
         AppState {
             config: Arc::new(config),
             req_tx,
             ret_tx,
+            submit_tx,
             cookie: None,
             org_uuid: None,
             conv_uuid: None,

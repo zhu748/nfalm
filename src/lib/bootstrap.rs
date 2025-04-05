@@ -59,6 +59,10 @@ impl AppState {
                     .join(", ")
             })
             .unwrap_or_default();
+        if !caps.contains("pro") && !caps.contains("enterprise") {
+            error!("Cookie is not pro or enterprise");
+            return Err(ClewdrError::InvalidCookie(Reason::NonPro));
+        }
         println!(
             "Logged in \nname: {}\nmail: {}\ncapabilities: {}",
             name.blue(),

@@ -9,7 +9,7 @@ use const_format::{concatc, formatc};
 use serde_json::{Value, json};
 use tracing::debug;
 
-use crate::{messages::api_messages, state::AppState};
+use crate::{messages::api_messages, state::AppState, submit::api_submit};
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
@@ -25,6 +25,7 @@ impl RouterBuilder {
                 .route("/v1", options(api_options))
                 .route("/v1/chat/completions", post(reject_openai))
                 .route("/v1/messages", post(api_messages))
+                .route("/v1/submit", post(api_submit))
                 .fallback(api_fallback)
                 .with_state(state),
         }

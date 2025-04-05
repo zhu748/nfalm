@@ -63,6 +63,7 @@ pub struct Config {
 /// Reason why a cookie is considered useless
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Reason {
+    NonPro,
     Banned,
     Null,
     Unverified,
@@ -73,6 +74,7 @@ pub enum Reason {
 impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Reason::NonPro => write!(f, "NonPro"),
             Reason::Banned => write!(f, "Banned"),
             Reason::Null => write!(f, "Null"),
             Reason::Unverified => write!(f, "Unverified"),
@@ -85,7 +87,7 @@ impl Display for Reason {
 /// A struct representing a useless cookie
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UselessCookie {
-    pub cookie: Cookie,
+    pub cookie: CookieInfo,
     pub reason: Reason,
 }
 impl PartialEq for UselessCookie {
@@ -101,7 +103,7 @@ impl Hash for UselessCookie {
 }
 
 impl UselessCookie {
-    pub fn new(cookie: Cookie, reason: Reason) -> Self {
+    pub fn new(cookie: CookieInfo, reason: Reason) -> Self {
         Self { cookie, reason }
     }
 }
@@ -109,10 +111,43 @@ impl UselessCookie {
 /// A struct representing a cookie with its information
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CookieStatus {
-    pub cookie: Cookie,
+    pub cookie: CookieInfo,
     #[serde(deserialize_with = "validate_reset")]
     #[serde(default)]
     pub reset_time: Option<i64>,
+    pub discord: Option<String>,
+    pub due: Option<i64>,
+}
+
+impl PartialOrd for CookieStatus {
+    /// small due > big due > none
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self.due.is_none() && other.due.is_none() {
+            return Some(std::cmp::Ordering::Equal);
+        }
+        if self.due.is_none() {
+            return Some(std::cmp::Ordering::Less);
+        }
+        if other.due.is_none() {
+            return Some(std::cmp::Ordering::Greater);
+        }
+        other.due.partial_cmp(&self.due)
+    }
+}
+
+impl Ord for CookieStatus {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.due.is_none() && other.due.is_none() {
+            return std::cmp::Ordering::Equal;
+        }
+        if self.due.is_none() {
+            return std::cmp::Ordering::Less;
+        }
+        if other.due.is_none() {
+            return std::cmp::Ordering::Greater;
+        }
+        other.due.cmp(&self.due)
+    }
 }
 
 impl PartialEq for CookieStatus {
@@ -160,21 +195,28 @@ where
 }
 
 impl CookieStatus {
-    pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
+    pub fn new(
+        cookie: &str,
+        reset_time: Option<i64>,
+        discord: Option<String>,
+        due: Option<i64>,
+    ) -> Self {
         Self {
-            cookie: Cookie::from(cookie),
+            cookie: CookieInfo::from(cookie),
             reset_time,
+            discord,
+            due,
         }
     }
 }
 
 /// A struct representing a cookie
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Cookie {
+pub struct CookieInfo {
     inner: String,
 }
 
-impl Default for Cookie {
+impl Default for CookieInfo {
     fn default() -> Self {
         Self {
             inner: PLACEHOLDER_COOKIE.to_string(),
@@ -182,7 +224,7 @@ impl Default for Cookie {
     }
 }
 
-impl Cookie {
+impl CookieInfo {
     /// Check if the cookie is valid format
     pub fn validate(&self) -> bool {
         // Check if the cookie is valid
@@ -196,7 +238,7 @@ impl Cookie {
     }
 }
 
-impl From<&str> for Cookie {
+impl From<&str> for CookieInfo {
     /// Create a new cookie from a string
     fn from(original: &str) -> Self {
         // split off first '@' to keep compatibility with clewd
@@ -216,19 +258,19 @@ impl From<&str> for Cookie {
     }
 }
 
-impl Display for Cookie {
+impl Display for CookieInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "sessionKey={}", self.inner)
     }
 }
 
-impl Debug for Cookie {
+impl Debug for CookieInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "sessionKey={}", self.inner)
     }
 }
 
-impl Serialize for Cookie {
+impl Serialize for CookieInfo {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -238,13 +280,13 @@ impl Serialize for Cookie {
     }
 }
 
-impl<'de> Deserialize<'de> for Cookie {
+impl<'de> Deserialize<'de> for CookieInfo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(Cookie::from(s.as_str()))
+        Ok(CookieInfo::from(s.as_str()))
     }
 }
 
@@ -264,8 +306,13 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             cookie_array: vec![
-                CookieStatus::new(PLACEHOLDER_COOKIE, None),
-                CookieStatus::new(PLACEHOLDER_COOKIE, Some(114514000)),
+                CookieStatus::new(PLACEHOLDER_COOKIE, None, None, None),
+                CookieStatus::new(
+                    PLACEHOLDER_COOKIE,
+                    Some(114514000),
+                    Some("YJSNPI".to_string()),
+                    Some(114514000),
+                ),
             ],
             wasted_cookie: Vec::new(),
             password: String::new(),
@@ -484,7 +531,7 @@ impl Config {
         let mut new_array = file_string
             .lines()
             .filter_map(|line| {
-                let c = Cookie::from(line);
+                let c = CookieInfo::from(line);
                 if !c.validate() {
                     warn!("Invalid cookie format: {}", line);
                     return None;
@@ -500,6 +547,8 @@ impl Config {
                 Some(CookieStatus {
                     cookie: c,
                     reset_time: None,
+                    discord: None,
+                    due: None,
                 })
             })
             .collect::<Vec<_>>();
