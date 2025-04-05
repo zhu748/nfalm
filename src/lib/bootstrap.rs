@@ -157,10 +157,32 @@ impl AppState {
             );
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
         } else {
-            // Restricted
+            // Check if we should skip based on flag types
+            let should_skip =
+                active_flags
+                    .iter()
+                    .filter_map(|f| f["type"].as_str())
+                    .any(|flag_type| {
+                        // skip flags ending with warning
+                        let warning_match =
+                            self.config.skip_warning && flag_type.ends_with("warning");
+
+                        //  skip flags containing restricted
+                        let restricted_match =
+                            self.config.skip_restricted && flag_type.contains("restricted");
+
+                        warning_match || restricted_match
+                    });
+
             println!("{}", "Your account is restricted.".red());
-            if self.config.skip_restricted && restrict_until > 0 {
-                warn!("skip_restricted is enabled, skipping...");
+
+            if should_skip && restrict_until > 0 {
+                if self.config.skip_warning {
+                    warn!("skip_warning is enabled, skipping...");
+                }
+                if self.config.skip_restricted {
+                    warn!("skip_restricted is enabled, skipping...");
+                }
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     restrict_until,
                 )));
