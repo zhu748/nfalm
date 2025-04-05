@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::{
     select,
     sync::{mpsc::Receiver, oneshot},
@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct CookieManager {
-    valid: Vec<CookieStatus>,
+    valid: VecDeque<CookieStatus>,
     dispatched: HashMap<CookieStatus, Instant>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
@@ -46,7 +46,7 @@ impl CookieManager {
         ret_rx: Receiver<(CookieStatus, Option<Reason>)>,
     ) -> Self {
         config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
-        let valid = Vec::from_iter(config.cookie_array.iter().filter_map(|c| {
+        let valid = VecDeque::from_iter(config.cookie_array.iter().filter_map(|c| {
             if c.reset_time.is_none() {
                 Some(c.clone())
             } else {
@@ -115,7 +115,10 @@ impl CookieManager {
         self.valid.extend(reset_cookies);
         self.save();
         // randomly select a cookie from valid cookies and remove it from the set
-        let cookie = self.valid.pop().ok_or(ClewdrError::NoCookieAvailable)?;
+        let cookie = self
+            .valid
+            .pop_front()
+            .ok_or(ClewdrError::NoCookieAvailable)?;
         let instant = Instant::now();
         self.dispatched.insert(cookie.clone(), instant);
         Ok(cookie)
@@ -127,7 +130,7 @@ impl CookieManager {
             return;
         };
         let Some(reason) = reason else {
-            self.valid.push(cookie);
+            self.valid.push_back(cookie);
             return;
         };
         match reason {
@@ -167,7 +170,7 @@ impl CookieManager {
                     for cookie in expired {
                         info!("Timing out dispatched cookie: {:?}", cookie);
                         self.dispatched.remove(&cookie);
-                        self.valid.push(cookie);
+                        self.valid.push_back(cookie);
                     }
                     self.save();
                 }
@@ -176,7 +179,7 @@ impl CookieManager {
                     if let Err(e) = sender.send(cookie) {
                         error!("Failed to send cookie");
                         if let Ok(c) = e {
-                            self.valid.push(c);
+                            self.valid.push_back(c);
                         }
                     }
                 }
