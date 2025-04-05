@@ -1,9 +1,11 @@
-# v0.4.4
+# v0.4.5
 
-## Bug fixes
+<!-- ## Bug fixes
 
-- Chat is now properly deleted after response.
-<!-- 
+- Chat is now properly deleted after response. -->
+
 ## Improvement
 
-- Print Cookie for every request. -->
+- Dispatch cookie based on payment due.
+- API for hot submit cookies.
+- Delete useless code.
