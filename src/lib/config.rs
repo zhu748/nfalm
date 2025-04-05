@@ -40,6 +40,8 @@ pub struct Config {
     #[serde(default)]
     pub preserve_chats: bool,
     #[serde(default)]
+    pub skip_warning: bool,
+    #[serde(default)]
     pub skip_restricted: bool,
     #[serde(default)]
     pub skip_non_pro: bool,
@@ -324,6 +326,7 @@ impl Default for Config {
             pad_tokens: Vec::new(),
             pass_params: false,
             preserve_chats: false,
+            skip_warning: false,
             skip_restricted: false,
             skip_non_pro: false,
         }
