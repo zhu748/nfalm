@@ -1,2 +1,4 @@
 [target.aarch64-linux-android]
 rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN"]
+[build]
+rustflags = ["-C", "target-feature=+crt-static"]
