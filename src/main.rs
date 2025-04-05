@@ -24,6 +24,7 @@ async fn main() -> Result<(), ClewdrError> {
         .unwrap();
     tracing_subscriber::fmt()
         .with_timer(timer)
+        .with_writer(std::io::stdout)
         .with_writer(log_file)
         .pretty()
         .init();

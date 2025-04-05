@@ -7,7 +7,7 @@ use axum::{
 };
 use const_format::{concatc, formatc};
 use serde_json::{Value, json};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{messages::api_messages, state::AppState, submit::api_submit};
 
@@ -53,7 +53,7 @@ async fn reject_openai() -> Json<Value> {
 async fn api_fallback(req: Request) -> Html<&'static str> {
     let url = req.uri().path();
     if !["/", "/v1", "/favicon.ico"].contains(&url) {
-        println!("Unknown request url: {}", url);
+        error!("Unknown request url: {}", url);
     }
     const VX_BY_AUTHOR: &str = formatc!(
         "v{} by {}",

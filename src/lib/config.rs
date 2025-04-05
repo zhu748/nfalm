@@ -41,6 +41,8 @@ pub struct Config {
     pub preserve_chats: bool,
     #[serde(default)]
     pub skip_restricted: bool,
+    #[serde(default)]
+    pub skip_non_pro: bool,
 
     // Proxy configurations
     pub rproxy: String,
@@ -323,6 +325,7 @@ impl Default for Config {
             pass_params: false,
             preserve_chats: false,
             skip_restricted: false,
+            skip_non_pro: false,
         }
     }
 }

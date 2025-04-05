@@ -59,7 +59,7 @@ impl AppState {
                     .join(", ")
             })
             .unwrap_or_default();
-        if !caps.contains("pro") && !caps.contains("enterprise") {
+        if !caps.contains("pro") && !caps.contains("enterprise") && self.config.skip_non_pro {
             error!("Cookie is not pro or enterprise");
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
