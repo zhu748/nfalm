@@ -159,7 +159,13 @@ impl CookieManager {
     }
 
     fn accept(&mut self, cookie: CookieStatus) {
-        if self.config.cookie_array.contains(&cookie) {
+        if self.config.cookie_array.contains(&cookie)
+            || self
+                .config
+                .wasted_cookie
+                .iter()
+                .any(|c| c.cookie == cookie.cookie)
+        {
             warn!("Cookie already exists");
             return;
         }
@@ -190,7 +196,7 @@ impl CookieManager {
                         .collect();
 
                     for cookie in expired {
-                        info!("Timing out dispatched cookie: {:?}", cookie);
+                        warn!("Timing out dispatched cookie: {:?}", cookie);
                         self.dispatched.remove(&cookie);
                         self.valid.push(cookie);
                     }

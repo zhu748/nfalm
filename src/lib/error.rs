@@ -116,7 +116,6 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     }
     debug!("Error response status: {}", status);
     let Ok(err) = res.json::<HttpError>().await else {
-        error!("Failed to parse error response");
         let inner = InnerHttpError {
             message: json!("Failed to parse error response"),
             r#type: "error".to_string(),

@@ -1,6 +1,6 @@
 use colored::Colorize;
 use serde_json::Value;
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::{
     client::AppendHeaders,
@@ -27,7 +27,6 @@ impl AppState {
         let bootstrap = res.json::<Value>().await?;
         print_out_json(&bootstrap, "bootstrap.json");
         if bootstrap["account"].is_null() {
-            error!("Null Error, Useless Cookie");
             return Err(ClewdrError::InvalidCookie(Reason::Null));
         }
         let memberships = bootstrap["account"]["memberships"]
@@ -60,7 +59,6 @@ impl AppState {
             })
             .unwrap_or_default();
         if !caps.contains("pro") && !caps.contains("enterprise") && self.config.skip_non_pro {
-            error!("Cookie is not pro or enterprise");
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
@@ -146,7 +144,12 @@ impl AppState {
             "".to_string()
         };
 
-        println!("{}{}", banned_str, "Your account has warnings:".red());
+        warn!(
+            "Cookie {} is restricted, expires in {} hours",
+            self.cookie.clone().unwrap_or_default().cookie,
+            restrict_until
+        );
+        println!("{}{}", banned_str, "This account has warnings:".red());
         for flag in formatted_flags {
             println!("{}", flag);
         }

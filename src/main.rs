@@ -17,11 +17,14 @@ async fn main() -> Result<(), ClewdrError> {
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
+    // create log directory if it doesn't exist
+    if !std::path::Path::new("log").exists() {
+        std::fs::create_dir_all("log")?;
+    }
     let log_file = OpenOptions::new()
         .append(true)
         .create(true)
-        .open("log/clewdr.log")
-        .unwrap();
+        .open("log/clewdr.log")?;
     tracing_subscriber::fmt()
         .with_timer(timer)
         .with_writer(std::io::stdout)

@@ -6,14 +6,13 @@ use axum::{
     extract::{FromRequestParts, State},
     response::{IntoResponse, Response},
 };
-use colored::Colorize;
 use eventsource_stream::Eventsource;
 use rquest::{StatusCode, header::ACCEPT};
 use scopeguard::defer;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::spawn;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     client::AppendHeaders,
@@ -135,24 +134,24 @@ pub async fn api_messages(
 
     let stream = p.stream;
     let stopwatch = chrono::Utc::now();
-    println!(
-        "Request received, stream mode: {}, messages: {}",
-        stream.to_string().green(),
-        p.messages.len().to_string().green()
+    info!(
+        "Request received, stream mode: {}, messages: {}, model: {}",
+        stream,
+        p.messages.len(),
+        p.model
     );
 
     if let Err(e) = state.request_cookie().await {
         return Json(e.error_body()).into_response();
     }
-    println!("Model: {}", p.model.green());
     let mut state_clone = state.clone();
     defer! {
         // ensure the cookie is returned
         spawn(async move {
             let dur = chrono::Utc::now().signed_duration_since(stopwatch);
-            println!(
+            info!(
                 "Request finished, elapsed time: {} seconds",
-                dur.num_seconds().to_string().green()
+                dur.num_seconds()
             );
             state_clone.return_cookie(None).await;
         });
