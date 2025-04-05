@@ -122,16 +122,7 @@ pub struct CookieStatus {
 impl PartialOrd for CookieStatus {
     /// small due > big due > none
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.due.is_none() && other.due.is_none() {
-            return Some(std::cmp::Ordering::Equal);
-        }
-        if self.due.is_none() {
-            return Some(std::cmp::Ordering::Less);
-        }
-        if other.due.is_none() {
-            return Some(std::cmp::Ordering::Greater);
-        }
-        other.due.partial_cmp(&self.due)
+        Some(self.cmp(other))
     }
 }
 
