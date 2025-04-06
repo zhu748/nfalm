@@ -1,7 +1,9 @@
 use colored::Colorize;
 use rquest::Client;
+use rquest::ClientBuilder;
 use rquest::Url;
 use rquest::cookie::Cookie;
+use rquest_util::Emulation;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tracing::debug;
@@ -38,7 +40,8 @@ impl AppState {
         ret_tx: Sender<(CookieStatus, Option<Reason>)>,
         submit_tx: Sender<CookieStatus>,
     ) -> Self {
-        let client = SUPER_CLIENT.cloned();
+        // Placeholder Client
+        let client = SUPER_CLIENT.clone();
         AppState {
             config: Arc::new(config),
             req_tx,
@@ -53,6 +56,11 @@ impl AppState {
 
     /// request a new cookie from cookie manager
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
+        // real client
+        self.client = ClientBuilder::new()
+            .cookie_store(true)
+            .emulation(Emulation::Chrome134)
+            .build()?;
         let (one_tx, one_rx) = oneshot::channel();
         self.req_tx.send(one_tx).await?;
         let res = one_rx.await??;
@@ -73,6 +81,14 @@ impl AppState {
 
     /// return the cookie to the cookie manager
     pub async fn return_cookie(&mut self, reason: Option<Reason>) {
+        let c = self
+            .client
+            .get_cookies(&Url::from_str(self.config.endpoint().as_str()).unwrap());
+        debug!(
+            "Returning cookie: {}",
+            c.map(|c| c.to_str().unwrap().to_string())
+                .unwrap_or_default()
+        );
         // return the cookie to the cookie manager
         if let Some(cookie) = self.cookie.take() {
             self.ret_tx
