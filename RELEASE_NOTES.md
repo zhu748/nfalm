@@ -1,5 +1,5 @@
-# v0.4.9
+# v0.4.10
 
-## Improvement
+## Bug Fixes
 
-- Switch back to round robin for cookie rotation. This should fix the issue of not being able to use multiple cookies.
+- Create separate client for every request to avoid duplicate cookie use.
