@@ -1,4 +1,4 @@
-use std::fs::OpenOptions;
+use std::{fs::OpenOptions, sync::Mutex};
 
 use clap::Parser;
 use clewdr::{
@@ -8,7 +8,11 @@ use clewdr::{
 use colored::Colorize;
 use const_format::formatc;
 use tokio::{spawn, sync::mpsc};
-use tracing_subscriber::fmt::time::ChronoLocal;
+use tracing_subscriber::{
+    Registry,
+    fmt::{self, time::ChronoLocal},
+    layer::SubscriberExt,
+};
 
 /// Async main function using tokio runtime
 #[tokio::main]
@@ -25,16 +29,23 @@ async fn main() -> Result<(), ClewdrError> {
     if !log_dir.exists() {
         std::fs::create_dir_all(&log_dir)?
     }
-    let log_file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(log_dir.join("clewdr.log"))?;
-    tracing_subscriber::fmt()
-        .with_timer(timer)
-        .with_writer(std::io::stdout)
-        .with_writer(log_file)
-        .pretty()
-        .init();
+    // create log file
+    let file_appender = tracing_appender::rolling::hourly(log_dir, "rolling.log");
+    let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
+
+    let subscriber = Registry::default()
+        .with(
+            fmt::Layer::default()
+                .with_writer(file_writer)
+                .with_timer(timer.clone()),
+        )
+        .with(
+            fmt::Layer::default()
+                .with_writer(std::io::stdout)
+                .with_timer(timer),
+        );
+
+    tracing::subscriber::set_global_default(subscriber).expect("unable to set global subscriber");
 
     println!("{}", *BANNER);
     // load config from file
