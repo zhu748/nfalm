@@ -1,11 +1,6 @@
-# v0.4.6
-
-## Bug fixes
-
-- Fix static C runtime linking to only apply for Windows builds
+# v0.4.7
 
 ## Improvement
 
-- Add option to skip non-pro versions and refine submit API
-- Add skip_warning flag and modify skip_restricted role behavior
-- Refine logging implementation
+- Add ANSI color support for Windows 10+ command line
+- Simplify log directory creation logic
