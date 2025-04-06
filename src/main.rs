@@ -1,5 +1,3 @@
-use std::{fs::OpenOptions, sync::Mutex};
-
 use clap::Parser;
 use clewdr::{
     self, BANNER, config::Config, cookie::CookieManager, error::ClewdrError, state::AppState,
@@ -30,7 +28,7 @@ async fn main() -> Result<(), ClewdrError> {
         std::fs::create_dir_all(&log_dir)?
     }
     // create log file
-    let file_appender = tracing_appender::rolling::hourly(log_dir, "rolling.log");
+    let file_appender = tracing_appender::rolling::daily(log_dir, "rolling.log");
     let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
 
     let subscriber = Registry::default()

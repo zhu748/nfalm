@@ -2,5 +2,4 @@
 
 ## Improvement
 
-- Add ANSI color support for Windows 10+ command line
-- Simplify log directory creation logic
+- Improve logging file, rolling every 1 day.
