@@ -145,9 +145,8 @@ impl AppState {
         };
 
         warn!(
-            "Cookie {} is restricted, expires in {} hours",
+            "Cookie {} is restricted, warning, or banned.",
             self.cookie.clone().unwrap_or_default().cookie,
-            restrict_until
         );
         println!("{}{}", banned_str, "This account has warnings:".red());
         for flag in formatted_flags {

@@ -16,13 +16,7 @@ pub fn config_dir() -> Result<PathBuf, ClewdrError> {
         .parent()
         .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
         .to_path_buf();
-    let exec_config = exec_dir.join(CONFIG_NAME);
-    if exec_config.exists() {
-        return Ok(exec_dir);
-    }
-    Err(ClewdrError::PathNotFound(
-        "No config found in cwd or exec dir".to_string(),
-    ))
+    return Ok(exec_dir);
 }
 
 /// Helper function to print out json

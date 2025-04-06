@@ -3,6 +3,7 @@ use std::fs::OpenOptions;
 use clap::Parser;
 use clewdr::{
     self, BANNER, config::Config, cookie::CookieManager, error::ClewdrError, state::AppState,
+    utils::config_dir,
 };
 use colored::Colorize;
 use const_format::formatc;
@@ -18,13 +19,15 @@ async fn main() -> Result<(), ClewdrError> {
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
     // create log directory if it doesn't exist
-    if !std::path::Path::new("log").exists() {
-        std::fs::create_dir_all("log")?;
+    let path = config_dir()?;
+    let log_dir = path.join("log");
+    if !log_dir.exists() {
+        std::fs::create_dir_all(&log_dir)?
     }
     let log_file = OpenOptions::new()
         .append(true)
         .create(true)
-        .open("log/clewdr.log")?;
+        .open(log_dir.join("clewdr.log"))?;
     tracing_subscriber::fmt()
         .with_timer(timer)
         .with_writer(std::io::stdout)
