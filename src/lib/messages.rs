@@ -6,6 +6,7 @@ use axum::{
     extract::{FromRequestParts, State},
     response::{IntoResponse, Response},
 };
+use colored::Colorize;
 use eventsource_stream::Eventsource;
 use rquest::{StatusCode, header::ACCEPT};
 use scopeguard::defer;
@@ -136,9 +137,9 @@ pub async fn api_messages(
     let stopwatch = chrono::Utc::now();
     info!(
         "Request received, stream mode: {}, messages: {}, model: {}",
-        stream,
-        p.messages.len(),
-        p.model
+        stream.to_string().green(),
+        p.messages.len().to_string().green(),
+        p.model.to_string().green()
     );
 
     if let Err(e) = state.request_cookie().await {
