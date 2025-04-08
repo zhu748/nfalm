@@ -1,3 +1,4 @@
+use colored::Colorize;
 use futures::{Stream, stream};
 use rquest::{Response, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -39,7 +40,7 @@ pub enum ClewdrError {
     RquestError(#[from] rquest::Error),
     #[error("UTF8 error: {0}")]
     UTF8Error(#[from] std::string::FromUtf8Error),
-    #[error("Http error: code: {0}, body: {1}")]
+    #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1)]
     OtherHttpError(StatusCode, HttpError),
     #[error("Unexpected None")]
     UnexpectedNone,
