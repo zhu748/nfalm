@@ -84,14 +84,14 @@ impl Display for Reason {
             Reason::Unverified => write!(f, "Unverified"),
             Reason::Restricted(i) => {
                 let time = chrono::DateTime::from_timestamp(*i, 0)
-                    .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string())
-                    .unwrap_or("Invalid date".to_string());
+                    .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string().yellow())
+                    .unwrap_or("Invalid date".to_string().yellow());
                 write!(f, "Restricted: until {}", time)
             }
             Reason::TooManyRequest(i) => {
                 let time = chrono::DateTime::from_timestamp(*i, 0)
-                    .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string())
-                    .unwrap_or("Invalid date".to_string());
+                    .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string().yellow())
+                    .unwrap_or("Invalid date".to_string().yellow());
                 write!(f, "429 Too many request: until {}", time)
             }
         }
