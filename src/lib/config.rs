@@ -191,7 +191,10 @@ where
     let now = chrono::Utc::now();
     if time < now {
         // cookie have reset
-        info!("Cookie reset time is in the past: {}", time);
+        info!(
+            "Cookie reset time is in the past: {}",
+            time.to_string().green()
+        );
         return Ok(None);
     }
     let remaining_time = time - now;

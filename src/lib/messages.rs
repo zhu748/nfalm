@@ -152,7 +152,7 @@ pub async fn api_messages(
             let dur = chrono::Utc::now().signed_duration_since(stopwatch);
             info!(
                 "Request finished, elapsed time: {} seconds",
-                dur.num_seconds()
+                dur.num_seconds().to_string().green()
             );
             state_clone.return_cookie(None).await;
         });

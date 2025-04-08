@@ -149,8 +149,8 @@ impl CookieManager {
             Reason::NonPro => {
                 warn!(
                     "疑似爆米了, id: {}, cookie: {}",
-                    cookie.discord.unwrap_or_default(),
-                    cookie.cookie
+                    cookie.discord.unwrap_or_default().to_string().yellow(),
+                    cookie.cookie.to_string().red()
                 );
                 self.invalid
                     .insert(UselessCookie::new(cookie.cookie, reason));
