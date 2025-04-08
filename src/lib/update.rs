@@ -1,23 +1,19 @@
-use tracing::info;
 use colored::Colorize;
-use std::sync::Arc;
 use rquest::Client;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::{copy, BufReader};
 use std::env;
+use std::fs::File;
+use std::io::{BufReader, copy};
+use tracing::info;
 use zip::ZipArchive;
 
 use crate::config::Config;
+use crate::error::ClewdrError;
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
     tag_name: String,
     assets: Vec<GitHubAsset>,
-    // #[serde(default)]
-    // name: String,
-    // #[serde(default)]
-    // body: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,20 +23,20 @@ struct GitHubAsset {
 }
 
 pub struct Updater {
-    config: Arc<Config>,
+    config: Config,
     client: Client,
     user_agent: String,
-    repo_owner: String,
-    repo_name: String,
+    repo_owner: &'static str,
+    repo_name: &'static str,
 }
 
 impl Updater {
-    pub fn new(config: Arc<Config>) -> Self {
-        let authors = option_env!("CARGO_PKG_AUTHORS").unwrap_or("");
-        let repo_owner = authors.split(':').next().unwrap_or("Xerxes-2").to_string();
-        let repo_name = env!("CARGO_PKG_NAME").to_string();
+    pub fn new(config: Config) -> Result<Self, ClewdrError> {
+        let authors = option_env!("CARGO_PKG_AUTHORS").unwrap_or_default();
+        let repo_owner = authors.split(':').next().unwrap_or("Xerxes-2");
+        let repo_name = env!("CARGO_PKG_NAME");
         let policy = rquest::redirect::Policy::default();
-        let client = rquest::Client::builder().redirect(policy).build().unwrap();
+        let client = rquest::Client::builder().redirect(policy).build()?;
 
         let user_agent = format!(
             "clewdr/{} (+https://github.com/{}/{})",
@@ -49,16 +45,16 @@ impl Updater {
             repo_name
         );
 
-        Self {
+        Ok(Self {
             config,
-            client: client,
+            client,
             user_agent,
             repo_owner,
             repo_name,
-        }
+        })
     }
 
-    pub async fn check_for_updates(&self) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn check_for_updates(&self) -> Result<bool, ClewdrError> {
         if !self.config.check_update {
             return Ok(false);
         }
@@ -76,11 +72,8 @@ impl Updater {
             .get(&url)
             .header("User-Agent", &self.user_agent)
             .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(format!("Failed to check updates: HTTP {}", response.status()).into());
-        }
+            .await?
+            .error_for_status()?;
 
         let release: GitHubRelease = response.json().await?;
         let latest_version = release.tag_name.trim_start_matches('v');
@@ -88,29 +81,26 @@ impl Updater {
 
         let update_available = self.compare_versions(current_version, latest_version)?;
 
-        if update_available {
-            info!("New version {} available (current: {})", latest_version, current_version);
-            println!(
-                "{}",
-                format!("New version {} available! (current: {})", latest_version, current_version)
-                    .yellow()
-            );
-
-            // Auto update if enabled
-            if self.config.auto_update {
-                self.perform_update(&release).await?;
-            }
-
-            Ok(true)
-        } else {
-            info!("Already at the latest version {}", current_version);
-            Ok(false)
+        if !update_available {
+            info!("Already at the latest version {}", current_version.green());
+            return Ok(false);
         }
+        info!(
+            "New version {} available (current: {})",
+            latest_version.green().italic(),
+            current_version.yellow()
+        );
+        // Auto update if enabled
+        if self.config.auto_update {
+            self.perform_update(&release).await?;
+        }
+
+        Ok(true)
     }
 
-    async fn perform_update(&self, release: &GitHubRelease) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn perform_update(&self, release: &GitHubRelease) -> Result<(), ClewdrError> {
         let latest_version = release.tag_name.trim_start_matches('v');
-        
+
         // Find appropriate asset for this platform
         let asset = self.find_appropriate_asset(release)?;
 
@@ -126,11 +116,8 @@ impl Updater {
             .get(&asset.browser_download_url)
             .header("User-Agent", &self.user_agent)
             .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(format!("Failed to download update: HTTP {}", response.status()).into());
-        }
+            .await?
+            .error_for_status()?;
 
         // Save the downloaded file
         let content = response.bytes().await?;
@@ -148,11 +135,18 @@ impl Updater {
         // Extract all files
         archive.extract(&extract_dir)?;
 
-        let binary_name = if cfg!(windows) { "clewdr.exe" } else { "clewdr" };
+        let binary_name = if cfg!(windows) {
+            "clewdr.exe"
+        } else {
+            "clewdr"
+        };
         let binary_path = extract_dir.join(binary_name);
 
         if !binary_path.exists() {
-            return Err(format!("Binary not found in update package: {}", binary_name).into());
+            return Err(ClewdrError::AssetError(format!(
+                "Binary not found in the update package: {}",
+                binary_name
+            )));
         }
 
         // Make the binary executable on Unix systems
@@ -183,12 +177,15 @@ impl Updater {
         // Replace the current binary
         self_replace::self_replace(&binary_path)?;
 
-        println!("{}", format!("Successfully updated to version {}", latest_version).green());
+        println!("Successfully updated to version {}", latest_version.green());
         println!("{}", "Update complete, closing...".green());
         std::process::exit(0);
     }
 
-    fn find_appropriate_asset<'a>(&self, release: &'a GitHubRelease) -> Result<&'a GitHubAsset, Box<dyn std::error::Error + Send + Sync>> {
+    fn find_appropriate_asset<'a>(
+        &self,
+        release: &'a GitHubRelease,
+    ) -> Result<&'a GitHubAsset, ClewdrError> {
         // Determine platform and architecture
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
@@ -201,34 +198,40 @@ impl Updater {
                 } else {
                     "linux-x86_64"
                 }
-            },
+            }
             ("linux", "aarch64") => {
                 if cfg!(target_env = "musl") {
                     "musllinux-aarch64"
                 } else {
                     "linux-aarch64"
                 }
-            },
+            }
             ("macos", "x86_64") => "macos-x86_64",
             ("macos", "aarch64") => "macos-aarch64",
             ("android", "aarch64") => "android-aarch64",
-            _ => return Err(format!("Unsupported platform: {}-{}", os, arch).into()),
-        };
-
-        for asset in &release.assets {
-            if asset.name.contains(target) && asset.name.ends_with(".zip") {
-                return Ok(asset);
+            _ => {
+                return Err(ClewdrError::AssetError(format!(
+                    "Unsupported platform: {}-{}",
+                    os, arch
+                )));
             }
-        }
-
-        Err(format!("No suitable release asset found for {}-{}", os, arch).into())
+        };
+        info!("Detected platform: {}", target);
+        release
+            .assets
+            .iter()
+            .find(|asset| asset.name.contains(target) && asset.name.ends_with(".zip"))
+            .ok_or(ClewdrError::AssetError(format!(
+                "No suitable asset found for platform: {}",
+                target
+            )))
     }
 
-    fn compare_versions(&self, current: &str, latest: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        let parse_version = |v: &str| -> Result<(u32, u32, u32), Box<dyn std::error::Error + Send + Sync>> {
+    fn compare_versions(&self, current: &str, latest: &str) -> Result<bool, ClewdrError> {
+        let parse_version = |v: &str| -> Result<(u32, u32, u32), ClewdrError> {
             let parts: Vec<&str> = v.split('.').collect();
             if parts.len() < 3 {
-                return Err(format!("Invalid version format: {}", v).into());
+                return Err(ClewdrError::InvalidVersion(v.to_string()));
             }
             let major = parts[0].parse::<u32>()?;
             let minor = parts[1].parse::<u32>()?;
@@ -236,19 +239,9 @@ impl Updater {
             Ok((major, minor, patch))
         };
 
-        let (current_major, current_minor, current_patch) = parse_version(current)?;
-        let (latest_major, latest_minor, latest_patch) = parse_version(latest)?;
+        let current = parse_version(current)?;
+        let latest = parse_version(latest)?;
 
-        if latest_major > current_major {
-            return Ok(true);
-        }
-        if latest_major == current_major && latest_minor > current_minor {
-            return Ok(true);
-        }
-        if latest_major == current_major && latest_minor == current_minor && latest_patch > current_patch {
-            return Ok(true);
-        }
-
-        Ok(false)
+        Ok(current < latest)
     }
 }

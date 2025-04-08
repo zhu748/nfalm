@@ -18,6 +18,14 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Zip error: {0}")]
+    ZipError(#[from] zip::result::ZipError),
+    #[error("Asset Error: {0}")]
+    AssetError(String),
+    #[error("Invalid version: {0}")]
+    InvalidVersion(String),
+    #[error("Failed to parse integer: {0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
     #[error("Failed to parse URL: {0}")]
     UrlParseError(#[from] url::ParseError),
     #[error("Tokio oneshot recv error: {0}")]

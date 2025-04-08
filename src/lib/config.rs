@@ -337,7 +337,7 @@ impl Default for Config {
             port: 8484,
             max_connections: default_max_connections(),
             rproxy: String::new(),
-            use_real_roles: false,
+            use_real_roles: true,
             custom_prompt: String::new(),
             padtxt_file: String::new(),
             padtxt_len: 4000,
