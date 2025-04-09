@@ -92,7 +92,7 @@ impl AppState {
                     v.get("capabilities")
                         .and_then(|c| c.as_array())
                         .map(|c| c.len())
-                        .unwrap_or(0)
+                        .unwrap_or_default()
                 })
             })
             .ok_or(ClewdrError::UnexpectedNone)?;
