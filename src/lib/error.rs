@@ -18,6 +18,8 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Stream event source error: {0}")]
+    EventSourceError(#[from] eventsource_stream::EventStreamError<rquest::Error>),
     #[error("Zip error: {0}")]
     ZipError(#[from] zip::result::ZipError),
     #[error("Asset Error: {0}")]

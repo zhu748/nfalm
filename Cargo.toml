@@ -9,7 +9,13 @@ path = "src/lib/lib.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-rquest = { version = "5", features = ["json", "stream", "multipart", "socks", "cookies"] }
+rquest = { version = "5", features = [
+    "json",
+    "stream",
+    "multipart",
+    "socks",
+    "cookies",
+] }
 rquest-util = "2"
 serde_json = "1"
 const_format = { version = "0.2", features = ["fmt"] }
@@ -44,8 +50,11 @@ toml = "0.8"
 claude-tokenizer = "0.3"
 eventsource-stream = "0.2"
 url = "2"
-enable-ansi-support = "0.2.1"
-tracing-appender = "0.2.3"
-self-replace = "1.5.0"
-zip = "2.6.1"
-tempfile = "3.19.1"
+enable-ansi-support = "0.2"
+tracing-appender = "0.2"
+self-replace = "1"
+zip = "2"
+tempfile = "3"
+tokio-stream = "0.1"
+transform-stream = "0.3"
+axum-auth = "0.8"

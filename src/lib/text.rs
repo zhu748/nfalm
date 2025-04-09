@@ -122,6 +122,7 @@ impl AppState {
         }
         for (role, text) in msgs {
             let prefix = match role {
+                Role::System => "System: ".to_string(),
                 Role::User => format!("{}: ", h),
                 Role::Assistant => format!("{}: ", a),
             };

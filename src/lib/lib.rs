@@ -9,13 +9,14 @@ pub mod config;
 pub mod cookie;
 pub mod error;
 pub mod messages;
+pub mod openai;
 pub mod router;
 pub mod state;
 pub mod submit;
 pub mod text;
 pub mod types;
-pub mod utils;
 pub mod update;
+pub mod utils;
 
 /// Header for the application
 pub static BANNER: LazyLock<String> = LazyLock::new(|| {

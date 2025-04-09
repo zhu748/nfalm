@@ -1,15 +1,14 @@
 use axum::{
-    Json, Router,
+    Router,
     extract::Request,
     http::HeaderMap,
     response::Html,
     routing::{options, post},
 };
 use const_format::{concatc, formatc};
-use serde_json::{Value, json};
-use tracing::{debug, error};
+use tracing::error;
 
-use crate::{messages::api_messages, state::AppState, submit::api_submit};
+use crate::{messages::api_messages, openai::api_completion, state::AppState, submit::api_submit};
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
@@ -23,7 +22,7 @@ impl RouterBuilder {
             inner: Router::new()
                 .route("/", options(api_options))
                 .route("/v1", options(api_options))
-                .route("/v1/chat/completions", post(reject_openai))
+                .route("/v1/chat/completions", post(api_completion))
                 .route("/v1/messages", post(api_messages))
                 .route("/v1/submit", post(api_submit))
                 .fallback(api_fallback)
@@ -35,18 +34,6 @@ impl RouterBuilder {
     pub fn build(self) -> Router {
         self.inner
     }
-}
-
-/// Handle the OpenAI API request
-async fn reject_openai() -> Json<Value> {
-    debug!("Reject OpenAI API");
-    let response = json!({
-        "error": {
-            "message": "OpenAI API is not supported, please use as Claude Reverse Proxy. 请使用Claude反向代理而非OpenAI API兼容",
-            "type": "invalid_request_error",
-        }
-    });
-    Json(response)
 }
 
 /// Handle the fallback request

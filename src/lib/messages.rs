@@ -68,9 +68,14 @@ pub struct RequestBody {
     pub images: Vec<ImageSource>,
 }
 
+fn max_tokens() -> u64 {
+    4096
+}
+
 /// Request body sent from the client
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ClientRequestBody {
+    #[serde(default = "max_tokens")]
     pub max_tokens: u64,
     pub messages: Vec<Message>,
     #[serde(default)]

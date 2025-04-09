@@ -161,6 +161,7 @@ pub struct Message {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
+    System,
     User,
     #[default]
     Assistant,
