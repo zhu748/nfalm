@@ -90,7 +90,7 @@ pub async fn api_completion(
                 }
                 ClewdrError::OtherHttpError(c, e) => {
                     state.return_cookie(None).await;
-                    return (c, Json(e.error)).into_response();
+                    return (c, Json(e)).into_response();
                 }
                 _ => {
                     state.return_cookie(None).await;
@@ -216,7 +216,6 @@ impl AppState {
         let input_stream = api_res.bytes_stream().eventsource();
         let trans = ClewdrTransformer::new();
         let output = trans.transform_stream(input_stream);
-        // if not streaming, return the response
 
         Ok(Sse::new(output).into_response())
     }
