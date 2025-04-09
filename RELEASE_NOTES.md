@@ -1,10 +1,5 @@
-# v0.5.0
+# v0.5.1
 
-## Features
+## Bug Fixes
 
-- Support OpenAI format
-- Support self update
-
-## Improvements
-
-- Enhance logging and error handling
+- Fix thinking mode for OAI format
