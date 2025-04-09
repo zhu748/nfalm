@@ -160,17 +160,20 @@ impl Updater {
 
         #[cfg(target_os = "android")]
         {
+            use tracing::warn;
             let so_path = extract_dir.join("libc++_shared.so");
             if so_path.exists() {
                 let current_dir = env::current_exe()?
                     .parent()
-                    .ok_or("Failed to get parent directory")?
+                    .ok_or(ClewdrError::PathNotFound(
+                        "Failed to get current directory".to_string(),
+                    ))?
                     .to_path_buf();
                 let target_so_path = current_dir.join("libc++_shared.so");
                 std::fs::copy(&so_path, &target_so_path)?;
                 info!("Copied libc++_shared.so to the application directory");
             } else {
-                info!("Warning: libc++_shared.so not found in the update package");
+                warn!("libc++_shared.so not found in the update package");
             }
         }
 
