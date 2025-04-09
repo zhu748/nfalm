@@ -9,10 +9,7 @@ use transform_stream::{AsyncTryStream, Yielder};
 use crate::error::ClewdrError;
 
 #[derive(Debug)]
-pub struct ClewdrTransformer {
-    streaming: bool,
-    completes: Vec<String>,
-}
+pub struct ClewdrTransformer {}
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct StreamEventData {
@@ -30,12 +27,12 @@ impl StreamEventData {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-struct NonStreamEventData {
+pub struct NonStreamEventData {
     choices: Vec<NonStreamEventMessage>,
 }
 
 impl NonStreamEventData {
-    fn new(content: String) -> Self {
+    pub fn new(content: String) -> Self {
         Self {
             choices: vec![NonStreamEventMessage {
                 message: EventContent { content },
@@ -60,22 +57,14 @@ struct EventContent {
 }
 
 impl ClewdrTransformer {
-    pub fn new(streaming: bool) -> Self {
-        Self {
-            streaming,
-            completes: Vec::with_capacity(1024),
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
     fn build(&self, selection: &str) -> Event {
         let event = Event::default();
-        if self.streaming {
-            let data = StreamEventData::new(selection.to_string());
-            event.json_data(data).unwrap()
-        } else {
-            let data = NonStreamEventData::new(selection.to_string());
-            event.json_data(data).unwrap()
-        }
+        let data = StreamEventData::new(selection.to_string());
+        event.json_data(data).unwrap()
     }
 
     async fn parse_buf(&mut self, buf: &str, y: &mut Yielder<Result<Event, ClewdrError>>) {
@@ -95,12 +84,8 @@ impl ClewdrTransformer {
         else {
             return;
         };
-        if self.streaming {
-            let event = self.build(completion.as_str());
-            y.yield_ok(event).await;
-        } else {
-            self.completes.push(completion);
-        }
+        let event = self.build(completion.as_str());
+        y.yield_ok(event).await;
     }
 
     async fn transform(
@@ -116,14 +101,9 @@ impl ClewdrTransformer {
 
     async fn flush(&mut self, y: &mut Yielder<Result<Event, ClewdrError>>) {
         // Flush logic
-        if !self.streaming {
-            y.yield_ok(self.build(self.completes.join("").as_str()))
-                .await;
-        }
-        if self.streaming {
-            let event = Event::default();
-            y.yield_ok(event.data("[DONE]")).await;
-        }
+
+        let event = Event::default();
+        y.yield_ok(event.data("[DONE]")).await;
     }
 
     pub fn transform_stream<S>(

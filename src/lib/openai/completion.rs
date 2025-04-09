@@ -17,10 +17,11 @@ use tracing::{debug, info, warn};
 use crate::{
     client::AppendHeaders,
     error::{ClewdrError, check_res_err},
-    messages::{ClientRequestBody, non_stream_message},
-    openai::stream::ClewdrTransformer,
+    messages::ClientRequestBody,
+    openai::stream::{ClewdrTransformer, NonStreamEventData},
     state::AppState,
-    utils::print_out_json,
+    text::merge_sse,
+    utils::{print_out_json, print_out_text},
 };
 
 /// Axum handler for the API messages
@@ -165,8 +166,15 @@ impl AppState {
         // generate the request body
         // check if the request is empty
         let Some(mut body) = self.transform(p) else {
-            return Ok(Json(non_stream_message(
-                "Empty request, please send a message.".to_string(),
+            return Ok(Json(json!(
+                {
+                    "error": {
+                        "message": "Empty request, please send a message.",
+                        "type": "invalid_request_error",
+                        "param": null,
+                        "code": 500
+                    }
+                }
             ))
             .into_response());
         };
@@ -198,10 +206,18 @@ impl AppState {
 
         let api_res = check_res_err(api_res).await?;
 
+        if !stream {
+            let stream = api_res.bytes_stream().eventsource();
+            let text = merge_sse(stream).await;
+            print_out_text(&text, "non_stream.txt");
+            return Ok(Json(NonStreamEventData::new(text)).into_response());
+        }
         // stream the response
         let input_stream = api_res.bytes_stream().eventsource();
-        let trans = ClewdrTransformer::new(stream);
+        let trans = ClewdrTransformer::new();
         let output = trans.transform_stream(input_stream);
+        // if not streaming, return the response
+
         Ok(Sse::new(output).into_response())
     }
 }
