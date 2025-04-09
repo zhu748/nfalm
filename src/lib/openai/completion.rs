@@ -148,8 +148,8 @@ impl AppState {
         // enable thinking mode
         if p.model.contains("-thinking") {
             body["paprika_mode"] = "extended".into();
-            body["model"] = p.model.clone().into();
             p.model = p.model.trim_end_matches("-thinking").to_string();
+            body["model"] = p.model.clone().into();
         }
 
         let api_res = self
