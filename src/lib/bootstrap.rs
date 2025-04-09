@@ -83,10 +83,16 @@ impl AppState {
         let acc_info = ret_json
             .as_array()
             .and_then(|a| {
-                a.iter().find(|v| {
+                a.iter().filter(|v| {
                     v.get("capabilities")
                         .and_then(|c| c.as_array())
                         .is_some_and(|c| c.iter().any(|c| c.as_str() == Some("chat")))
+                })
+                .max_by_key(|v| {
+                    v.get("capabilities")
+                        .and_then(|c| c.as_array())
+                        .map(|c| c.len())
+                        .unwrap_or(0)
                 })
             })
             .ok_or(ClewdrError::UnexpectedNone)?;
