@@ -13,7 +13,7 @@ use scopeguard::defer;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::spawn;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     client::AppendHeaders,
@@ -73,7 +73,7 @@ fn max_tokens() -> u64 {
 }
 
 /// Request body sent from the client
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientRequestBody {
     #[serde(default = "max_tokens")]
     pub max_tokens: u64,
@@ -96,7 +96,7 @@ pub struct ClientRequestBody {
 }
 
 /// Thinking mode in Claude API Request
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Thinking {
     budget_tokens: u64,
     r#type: String,
@@ -126,7 +126,7 @@ impl FromRequestParts<AppState> for Auth {
 /// Axum handler for the API messages
 pub async fn api_messages(
     Auth(_): Auth,
-    State(mut state): State<AppState>,
+    State(state): State<AppState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
     // Check if the request is a test message
@@ -139,65 +139,79 @@ pub async fn api_messages(
     }
 
     let stream = p.stream;
-    let stopwatch = chrono::Utc::now();
     info!(
         "Request received, stream mode: {}, messages: {}, model: {}",
         stream.to_string().green(),
         p.messages.len().to_string().green(),
-        p.model.to_string().green()
+        p.model.as_str().green()
     );
+    for i in 0..state.config.max_retries {
+        if i > 0 {
+            info!("Retrying request, attempt: {}", (i + 1).to_string().green());
+        }
+        let mut state = state.clone();
+        let p = p.clone();
+        let stopwatch = chrono::Utc::now();
 
-    if let Err(e) = state.request_cookie().await {
-        return Json(e.error_body()).into_response();
-    }
-    let mut state_clone = state.clone();
-    defer! {
-        // ensure the cookie is returned
-        spawn(async move {
-            let dur = chrono::Utc::now().signed_duration_since(stopwatch);
-            info!(
-                "Request finished, elapsed time: {} seconds",
-                dur.num_seconds().to_string().green()
-            );
-            state_clone.return_cookie(None).await;
-        });
-    }
-    // check if request is successful
-    match state.bootstrap().await.and(state.try_message(p).await) {
-        Ok(b) => {
-            if let Err(e) = state.delete_chat().await {
-                warn!("Failed to delete chat: {}", e);
-            }
-            b.into_response()
+        if let Err(e) = state.request_cookie().await {
+            return Json(e.error_body()).into_response();
         }
-        Err(e) => {
-            // delete chat after an error
-            if let Err(e) = state.delete_chat().await {
-                warn!("Failed to delete chat: {}", e);
+        let mut state_clone = state.clone();
+        defer! {
+            // ensure the cookie is returned
+            spawn(async move {
+                let dur = chrono::Utc::now().signed_duration_since(stopwatch);
+                info!(
+                    "Request finished, elapsed time: {} seconds",
+                    dur.num_seconds().to_string().green()
+                );
+                state_clone.return_cookie(None).await;
+            });
+        }
+        // check if request is successful
+        match state.bootstrap().await.and(state.try_message(p).await) {
+            Ok(b) => {
+                if let Err(e) = state.delete_chat().await {
+                    warn!("Failed to delete chat: {}", e);
+                }
+                return b.into_response();
             }
-            warn!("Error: {}", e);
-            // 429 error
-            match e {
-                ClewdrError::InvalidCookie(ref r) => {
-                    state.return_cookie(Some(r.clone())).await;
+            Err(e) => {
+                // delete chat after an error
+                if let Err(e) = state.delete_chat().await {
+                    warn!("Failed to delete chat: {}", e);
                 }
-                ClewdrError::OtherHttpError(c, e) => {
-                    state.return_cookie(None).await;
-                    return (c, Json(e)).into_response();
+                warn!("Error: {}", e);
+                // 429 error
+                match e {
+                    ClewdrError::InvalidCookie(ref r) => {
+                        state.return_cookie(Some(r.clone())).await;
+                        continue;
+                    }
+                    ClewdrError::OtherHttpError(c, e) => {
+                        state.return_cookie(None).await;
+                        return (c, Json(e)).into_response();
+                    }
+                    _ => {
+                        state.return_cookie(None).await;
+                    }
                 }
-                _ => {
-                    state.return_cookie(None).await;
+                if stream {
+                    // stream the error as a response
+                    return Body::from_stream(e.error_stream()).into_response();
+                } else {
+                    // return the error as a response
+                    return Json(e.error_body()).into_response();
                 }
-            }
-            if stream {
-                // stream the error as a response
-                Body::from_stream(e.error_stream()).into_response()
-            } else {
-                // return the error as a response
-                Json(e.error_body()).into_response()
             }
         }
     }
+    error!("Max retries exceeded");
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(ClewdrError::TooManyRetries.error_body()),
+    )
+        .into_response()
 }
 
 impl AppState {
@@ -244,7 +258,7 @@ impl AppState {
 
         // generate the request body
         // check if the request is empty
-        let Some(mut body) = self.transform(p) else {
+        let Some(mut body) = self.transform_anthropic(p) else {
             return Ok(Json(non_stream_message(
                 "Empty request, please send a message.".to_string(),
             ))

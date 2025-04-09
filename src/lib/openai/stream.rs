@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use axum::response::sse::Event;
 use eventsource_stream::EventStreamError;
 use futures::pin_mut;
@@ -9,7 +11,9 @@ use transform_stream::{AsyncTryStream, Yielder};
 use crate::error::ClewdrError;
 
 #[derive(Debug)]
-pub struct ClewdrTransformer {}
+pub struct ClewdrTransformer {
+    in_thinking: AtomicBool,
+}
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct StreamEventData {
@@ -58,7 +62,9 @@ struct EventContent {
 
 impl ClewdrTransformer {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            in_thinking: AtomicBool::new(false),
+        }
     }
 
     fn build(&self, selection: &str) -> Event {
@@ -75,16 +81,34 @@ impl ClewdrTransformer {
             warn!("Failed to parse JSON: {}", buf);
             return;
         };
+        if let Some("thinking") = parsed["content_block"]["type"].as_str() {
+            self.in_thinking.store(true, Ordering::SeqCst);
+            let event = self.build("<thinking>");
+            y.yield_ok(event).await;
+            return;
+        }
+        if self.in_thinking.load(Ordering::SeqCst) {
+            if let Some(thinking) = parsed["delta"]["thinking"].as_str() {
+                let event = self.build(thinking);
+                y.yield_ok(event).await;
+                return;
+            }
+        }
+
         let Some(completion) = parsed
             .get("completion")
             .or(parsed.pointer("/delta/text"))
             .or(parsed.pointer("/choices/0/delta/content"))
             .and_then(|c| c.as_str())
-            .map(|c| c.to_string())
         else {
             return;
         };
-        let event = self.build(completion.as_str());
+        if self.in_thinking.load(Ordering::SeqCst) {
+            self.in_thinking.store(false, Ordering::SeqCst);
+            let event = self.build("</thinking>");
+            y.yield_ok(event).await;
+        }
+        let event = self.build(completion);
         y.yield_ok(event).await;
     }
 

@@ -26,7 +26,7 @@ pub struct Merged {
 
 impl AppState {
     /// Transform the request body from Claude API to Claude web
-    pub fn transform(&self, value: ClientRequestBody) -> Option<RequestBody> {
+    pub fn transform_anthropic(&self, value: ClientRequestBody) -> Option<RequestBody> {
         let system = merge_system(value.system);
         let merged = self.merge_messages(value.messages, system)?;
         Some(RequestBody {
@@ -39,6 +39,21 @@ impl AppState {
             } else {
                 "raw".to_string()
             },
+            prompt: merged.prompt,
+            timezone: TIME_ZONE.to_string(),
+            images: merged.images,
+        })
+    }
+
+    pub fn transform_oai(&self, value: ClientRequestBody) -> Option<RequestBody> {
+        let system = merge_system(value.system);
+        let merged = self.merge_messages(value.messages, system)?;
+        Some(RequestBody {
+            max_tokens_to_sample: value.max_tokens,
+            attachments: vec![Attachment::new(merged.paste)],
+            files: vec![],
+            model: value.model,
+            rendering_mode: "raw".to_string(),
             prompt: merged.prompt,
             timezone: TIME_ZONE.to_string(),
             images: merged.images,

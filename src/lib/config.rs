@@ -18,6 +18,10 @@ const fn default_max_connections() -> usize {
     16
 }
 
+const fn default_max_retries() -> usize {
+    5
+}
+
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -26,10 +30,13 @@ pub struct Config {
     pub check_update: bool,
     #[serde(default)]
     pub auto_update: bool,
+    #[serde(default = "default_max_retries")]
+    pub max_retries: usize,
 
     // Cookie configurations
     #[serde(default)]
     pub cookie_array: Vec<CookieStatus>,
+    #[serde(default)]
     pub wasted_cookie: Vec<UselessCookie>,
 
     // Network settings
@@ -319,6 +326,7 @@ fn generate_password(length: usize) -> String {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            max_retries: default_max_retries(),
             check_update: true,
             auto_update: false,
             cookie_array: vec![

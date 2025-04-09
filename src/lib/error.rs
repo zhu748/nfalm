@@ -18,6 +18,8 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Retries exceeded")]
+    TooManyRetries,
     #[error("Stream event source error: {0}")]
     EventSourceError(#[from] eventsource_stream::EventStreamError<rquest::Error>),
     #[error("Zip error: {0}")]
