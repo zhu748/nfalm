@@ -1,5 +1,10 @@
-# v0.4.10
+# v0.5.0
 
-## Bug Fixes
+## Features
 
-- Create separate client for every request to avoid duplicate cookie use.
+- Support OpenAI format
+- Support self update
+
+## Improvements
+
+- Enhance logging and error handling
