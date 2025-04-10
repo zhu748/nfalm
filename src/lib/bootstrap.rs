@@ -58,7 +58,7 @@ impl AppState {
                     .join(", ")
             })
             .unwrap_or_default();
-        if !caps.contains("pro") && !caps.contains("enterprise") && self.config.skip_non_pro {
+        if !caps.contains("pro") && !caps.contains("enterprise") && !caps.contains("raven") && self.config.skip_non_pro {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
@@ -83,10 +83,16 @@ impl AppState {
         let acc_info = ret_json
             .as_array()
             .and_then(|a| {
-                a.iter().find(|v| {
+                a.iter().filter(|v| {
                     v.get("capabilities")
                         .and_then(|c| c.as_array())
                         .is_some_and(|c| c.iter().any(|c| c.as_str() == Some("chat")))
+                })
+                .max_by_key(|v| {
+                    v.get("capabilities")
+                        .and_then(|c| c.as_array())
+                        .map(|c| c.len())
+                        .unwrap_or_default()
                 })
             })
             .ok_or(ClewdrError::UnexpectedNone)?;
