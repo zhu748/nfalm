@@ -7,8 +7,7 @@ use std::io::{BufReader, copy};
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::config::Config;
-use crate::error::ClewdrError;
+use crate::{config::Config, error::ClewdrError, Args};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -55,7 +54,8 @@ impl Updater {
     }
 
     pub async fn check_for_updates(&self) -> Result<bool, ClewdrError> {
-        if !self.config.check_update {
+        let args: Args = clap::Parser::parse();
+        if !args.update && !self.config.check_update {
             return Ok(false);
         }
 
@@ -91,7 +91,7 @@ impl Updater {
             current_version.yellow()
         );
         // Auto update if enabled
-        if self.config.auto_update {
+        if args.update || self.config.auto_update {
             self.perform_update(&release).await?;
         }
 
