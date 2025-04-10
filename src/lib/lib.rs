@@ -37,4 +37,6 @@ pub static BANNER: LazyLock<String> = LazyLock::new(|| {
 pub struct Args {
     /// Path to the cookie file
     pub cookie_file: Option<String>,
+    #[arg(short, long)]
+    pub update: bool,
 }
