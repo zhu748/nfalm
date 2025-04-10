@@ -1,5 +1,8 @@
-# v0.5.1
+# v0.5.2
 
-## Bug Fixes
+## Features
 
-- Fix thinking mode for OAI format
+- Support Claude Max
+- Support retry when cookie is invalid
+- Support pass `--update` to force update
+- Support `<thinking>` tag for OAI format

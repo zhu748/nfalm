@@ -38,5 +38,6 @@ pub struct Args {
     /// Path to the cookie file
     pub cookie_file: Option<String>,
     #[arg(short, long)]
+    /// Force update of the application
     pub update: bool,
 }
