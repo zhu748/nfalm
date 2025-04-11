@@ -8,6 +8,7 @@ use rand::{Rng, rng};
 use serde_json::Value;
 use std::fmt::Write;
 use tracing::error;
+use tracing::warn;
 
 use crate::{
     messages::{Attachment, ClientRequestBody, RequestBody},
@@ -45,9 +46,17 @@ impl AppState {
         })
     }
 
-    pub fn transform_oai(&self, value: ClientRequestBody) -> Option<RequestBody> {
-        let system = merge_system(value.system);
-        let merged = self.merge_messages(value.messages, system)?;
+    /// Transform the request body from Claude web to OAI API
+    pub fn transform_oai(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
+        let mut role = value.messages.first().map(|m| m.role)?;
+        for msg in value.messages.iter_mut() {
+            if msg.role != Role::System {
+                role = msg.role;
+            } else {
+                msg.role = role;
+            }
+        }
+        let merged = self.merge_messages(value.messages, String::new())?;
         Some(RequestBody {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
@@ -122,7 +131,7 @@ impl AppState {
                 }
             })
             // chunk by role
-            .chunk_by(|m| m.0.clone());
+            .chunk_by(|m| m.0);
         // join same role with new line
         let mut msgs = chunks.into_iter().map(|(role, grp)| {
             let txt = grp.into_iter().map(|m| m.1).collect::<Vec<_>>().join("\n");
@@ -137,7 +146,10 @@ impl AppState {
         }
         for (role, text) in msgs {
             let prefix = match role {
-                Role::System => "System: ".to_string(),
+                Role::System => {
+                    warn!("System message should be merged into the first message");
+                    continue;
+                }
                 Role::User => format!("{}: ", h),
                 Role::Assistant => format!("{}: ", a),
             };
