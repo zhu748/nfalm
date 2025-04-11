@@ -1,13 +1,12 @@
-use claude_tokenizer::tokenize;
 use colored::Colorize;
 use rand::{Rng, rng};
-use regex::Regex;
 use rquest::Proxy;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
 };
+use tiktoken_rs::o200k_base;
 use tracing::{error, info, warn};
 
 use crate::{Args, error::ClewdrError, utils::config_dir};
@@ -467,14 +466,16 @@ impl Config {
             return;
         };
         // remove tokenizer special characters
-        let re = Regex::new(r"[^\x00-\x7F]").unwrap();
-        let tokens = tokenize(&padtxt_string)
-            .expect("Failed to tokenize pad txt")
-            .into_iter()
-            // remove special characters
-            .map(|t| re.replace_all(t.1.as_str(), "").trim().to_string())
-            .filter(|t| !t.is_empty())
-            .collect::<Vec<_>>();
+
+        let bpe = o200k_base().unwrap();
+        let ranks = bpe.encode_with_special_tokens(&padtxt_string);
+        let mut tokens = Vec::new();
+        for token in ranks {
+            let Ok(token) = bpe.decode(vec![token]) else {
+                continue;
+            };
+            tokens.push(token);
+        }
         if tokens.len() < 4096 {
             panic!("Pad txt file is too short: {}", padtxt_path.display());
         }
