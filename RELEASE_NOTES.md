@@ -1,8 +1,5 @@
-# v0.5.2
+# v0.5.3
 
-## Features
+## Bug Fixes
 
-- Support Claude Max
-- Support retry when cookie is invalid
-- Support pass `--update` to force update
-- Support `<thinking>` tag for OAI format
+- Fix: correctly merge System role in OAI format

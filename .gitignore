@@ -4,4 +4,5 @@ target/
 log/
 cookie.txt
 .DS_Store
-pad.txt
+*.txt
+*.json
