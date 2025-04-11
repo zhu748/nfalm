@@ -1,5 +1,5 @@
-# v0.5.3
+# v0.5.4
 
-## Bug Fixes
+## Improvements
 
-- Fix: correctly merge System role in OAI format
+- Switched to `tiktoken-rs` for tokenization, which support multiple languages and is faster than the previous implementation.
