@@ -1,6 +1,6 @@
 # Clewd<span style="color:#CE422B">R</span>
 
-Total rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in Rust.
+Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in Rust.
 
 ## **WORK IN PROGRESS**
 
