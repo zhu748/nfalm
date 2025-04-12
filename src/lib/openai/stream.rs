@@ -114,13 +114,11 @@ impl ClewdrTransformer {
 
     async fn transform(
         &mut self,
-        chunk: Result<eventsource_stream::Event, EventStreamError<rquest::Error>>,
+        event: eventsource_stream::Event,
         y: &mut Yielder<Result<Event, ClewdrError>>,
-    ) -> Result<(), ClewdrError> {
-        let event = chunk.map_err(ClewdrError::EventSourceError)?;
+    ) {
         let data = event.data;
         self.parse_buf(&data, y).await;
-        Ok(())
     }
 
     async fn flush(&mut self, y: &mut Yielder<Result<Event, ClewdrError>>) {
@@ -147,8 +145,14 @@ impl ClewdrTransformer {
             pin_mut!(input);
 
             while let Some(chunk) = input.next().await {
-                if let Err(e) = self.transform(chunk, &mut y).await {
-                    error!("Stream error: {}", e);
+                match chunk {
+                    Ok(event) => {
+                        self.transform(event, &mut y).await;
+                    }
+                    Err(e) => {
+                        error!("Error in stream: {}", e);
+                        y.yield_err(e.into()).await;
+                    }
                 }
             }
             self.flush(&mut y).await;

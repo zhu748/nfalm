@@ -1,5 +1,5 @@
 use colored::Colorize;
-use rand::{Rng, rng};
+use passwords::PasswordGenerator;
 use rquest::Proxy;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -312,14 +312,22 @@ impl<'de> Deserialize<'de> for CookieInfo {
 
 /// Generate a random password of given length
 fn generate_password(length: usize) -> String {
+    let pg = PasswordGenerator {
+        length,
+        numbers: true,
+        lowercase_letters: true,
+        uppercase_letters: true,
+        symbols: true,
+        spaces: true,
+        exclude_similar_characters: false,
+        strict: true,
+    };
+
     println!(
         "{}",
         "Generating random password, paste it to your proxy setting in SillyTavern".green()
     );
-    let mut rng = rng();
-    (0..length)
-        .map(|_| rng.random_range(33..=126) as u8 as char) // 33–126 inclusive
-        .collect()
+    pg.generate_one().unwrap()
 }
 
 impl Default for Config {

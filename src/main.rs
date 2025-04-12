@@ -29,7 +29,7 @@ async fn main() -> Result<(), ClewdrError> {
         std::fs::create_dir_all(&log_dir)?
     }
     // create log file
-    let file_appender = tracing_appender::rolling::daily(log_dir, "rolling.log");
+    let file_appender = tracing_appender::rolling::daily(log_dir, "clewdr.log");
     let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
 
     let subscriber = Registry::default()
@@ -62,7 +62,8 @@ async fn main() -> Result<(), ClewdrError> {
         env!("CARGO_PKG_AUTHORS")
     );
     println!("{}", TITLE.blue());
-    println!("Listening on {}", config.address().green());
+    let addr = format!("http://{}/v1", config.address());
+    println!("Listening on {}", addr.green());
     println!("{}", config);
 
     // initialize the application state
