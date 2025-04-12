@@ -128,7 +128,19 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         return Ok(res);
     }
     debug!("Error response status: {}", status);
-    let Ok(err) = res.json::<HttpError>().await else {
+    let text = res.text().await.map_err(|_| {
+        ClewdrError::OtherHttpError(
+            status,
+            HttpError {
+                error: InnerHttpError {
+                    message: json!("Failed to parse error response"),
+                    r#type: "error".to_string(),
+                },
+                r#type: "error".to_string(),
+            },
+        )
+    })?;
+    let Ok(err) = serde_json::from_str::<HttpError>(&text) else {
         let inner = InnerHttpError {
             message: json!("Failed to parse error response"),
             r#type: "error".to_string(),
