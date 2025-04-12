@@ -1,19 +1,18 @@
 use colored::Colorize;
-use rquest::Client;
-use rquest::ClientBuilder;
-use rquest::Url;
-use rquest::cookie::Cookie;
-use rquest_util::Emulation;
+use regex::Regex;
+use regex::RegexBuilder;
+use rquest::Response;
+use rquest::header::SET_COOKIE;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tracing::debug;
 use tracing::error;
 
-use std::str::FromStr;
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::client::AppendHeaders;
 use crate::client::SUPER_CLIENT;
+use crate::client::SetupRequest;
 use crate::config::Config;
 use crate::config::CookieStatus;
 use crate::config::Reason;
@@ -29,7 +28,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub org_uuid: Option<String>,
     pub conv_uuid: Option<String>,
-    pub client: Client,
+    cookies: HashMap<String, String>,
 }
 
 impl AppState {
@@ -40,8 +39,6 @@ impl AppState {
         ret_tx: Sender<(CookieStatus, Option<Reason>)>,
         submit_tx: Sender<CookieStatus>,
     ) -> Self {
-        // Placeholder Client
-        let client = SUPER_CLIENT.clone();
         AppState {
             config: Arc::new(config),
             req_tx,
@@ -50,45 +47,67 @@ impl AppState {
             cookie: None,
             org_uuid: None,
             conv_uuid: None,
-            client,
+            cookies: HashMap::new(),
         }
+    }
+
+    /// Update cookie from the server response
+    pub fn update_cookie_from_res(&mut self, res: &Response) {
+        if let Some(s) = res.headers().get(SET_COOKIE).and_then(|h| h.to_str().ok()) {
+            self.update_cookies(s)
+        }
+    }
+
+    /// Update cookies from string
+    fn update_cookies(&mut self, str: &str) {
+        let str = str.split("\n").to_owned().collect::<Vec<_>>().join("");
+        if str.is_empty() {
+            return;
+        }
+        let re1 = Regex::new(r";\s?").unwrap();
+        let re2 = RegexBuilder::new(r"^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*")
+            .case_insensitive(true)
+            .build()
+            .unwrap();
+        let re3 = Regex::new(r"^(.*?)=\s*(.*)").unwrap();
+        re1.split(&str)
+            .filter(|s| !re2.is_match(s) && !s.is_empty())
+            .for_each(|s| {
+                let caps = re3.captures(s);
+                if let Some(caps) = caps {
+                    let key = caps[1].to_string();
+                    let value = caps[2].to_string();
+                    self.cookies.insert(key, value);
+                }
+            });
+    }
+
+    /// Current cookie string that are used in requests
+    pub fn header_cookie(&self) -> String {
+        // check rotating guard
+        self.cookies
+            .iter()
+            .map(|(name, value)| format!("{}={}", name, value))
+            .collect::<Vec<_>>()
+            .join("; ")
+            .trim()
+            .to_string()
     }
 
     /// request a new cookie from cookie manager
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
         // real client to avoid mixed use of cookies
-        self.client = ClientBuilder::new()
-            .cookie_store(true)
-            .emulation(Emulation::Chrome134)
-            .build()?;
         let (one_tx, one_rx) = oneshot::channel();
         self.req_tx.send(one_tx).await?;
         let res = one_rx.await??;
         self.cookie = Some(res.clone());
-        self.store_cookie(res.clone())?;
+        self.update_cookies(res.cookie.to_string().as_str());
         println!("Cookie: {}", res.cookie.to_string().green());
-        Ok(())
-    }
-
-    /// store the cookie in the client
-    fn store_cookie(&self, cookie: CookieStatus) -> Result<(), ClewdrError> {
-        self.client.set_cookie(
-            &Url::from_str(self.config.endpoint().as_str())?,
-            Cookie::parse(cookie.cookie.to_string().as_str())?,
-        );
         Ok(())
     }
 
     /// return the cookie to the cookie manager
     pub async fn return_cookie(&mut self, reason: Option<Reason>) {
-        let c = self
-            .client
-            .get_cookies(&Url::from_str(self.config.endpoint().as_str()).unwrap());
-        debug!(
-            "Returning cookie: {}",
-            c.map(|c| c.to_str().unwrap().to_string())
-                .unwrap_or_default()
-        );
         // return the cookie to the cookie manager
         if let Some(cookie) = self.cookie.take() {
             self.ret_tx
@@ -120,10 +139,9 @@ impl AppState {
             conv_uuid
         );
         let proxy = self.config.rquest_proxy.clone();
-        let _ = self
-            .client
+        let _ = SUPER_CLIENT
             .delete(endpoint)
-            .append_headers("", proxy)
+            .setup_request("", self.header_cookie(), proxy)
             .send()
             .await?;
         Ok(())

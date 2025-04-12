@@ -16,7 +16,7 @@ use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    client::AppendHeaders,
+    client::{SUPER_CLIENT, SetupRequest},
     error::{ClewdrError, check_res_err},
     state::AppState,
     text::merge_sse,
@@ -220,7 +220,7 @@ impl AppState {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
         let proxy = self.config.rquest_proxy.clone();
-        let Some(ref org_uuid) = self.org_uuid else {
+        let Some(org_uuid) = self.org_uuid.clone() else {
             return Ok(Json(non_stream_message(
                 "No organization found, please check your cookie.".to_string(),
             ))
@@ -245,13 +245,13 @@ impl AppState {
             body["paprika_mode"] = "extended".into();
             body["model"] = p.model.clone().into();
         }
-        let api_res = self
-            .client
+        let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .append_headers("", proxy.clone())
+            .setup_request("", self.header_cookie(), proxy.clone())
             .send()
             .await?;
+        self.update_cookie_from_res(&api_res);
         debug!("New conversation created: {}", new_uuid);
 
         check_res_err(api_res).await?;
@@ -281,15 +281,14 @@ impl AppState {
             new_uuid
         );
 
-        let api_res = self
-            .client
+        let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .append_headers("", proxy)
+            .setup_request(new_uuid, self.header_cookie(), proxy)
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;
-
+        self.update_cookie_from_res(&api_res);
         let api_res = check_res_err(api_res).await?;
 
         // if not streaming, return the response

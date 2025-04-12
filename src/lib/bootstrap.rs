@@ -3,7 +3,7 @@ use serde_json::Value;
 use tracing::warn;
 
 use crate::{
-    client::AppendHeaders,
+    client::{SUPER_CLIENT, SetupRequest},
     config::Reason,
     error::{ClewdrError, check_res_err},
     state::AppState,
@@ -17,12 +17,12 @@ impl AppState {
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
         let proxy = self.config.rquest_proxy.clone();
         let end_point = format!("{}/api/bootstrap", self.config.endpoint());
-        let res = self
-            .client
+        let res = SUPER_CLIENT
             .get(end_point)
-            .append_headers("", proxy.clone())
+            .setup_request("", self.header_cookie(), proxy.clone())
             .send()
             .await?;
+        self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
         print_out_json(&bootstrap, "bootstrap.json");
@@ -58,7 +58,12 @@ impl AppState {
                     .join(", ")
             })
             .unwrap_or_default();
-        if !caps.contains("pro") && !caps.contains("enterprise") && !caps.contains("raven") && !caps.contains("max") && self.config.skip_non_pro {
+        if !caps.contains("pro")
+            && !caps.contains("enterprise")
+            && !caps.contains("raven")
+            && !caps.contains("max")
+            && self.config.skip_non_pro
+        {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
@@ -71,29 +76,30 @@ impl AppState {
         // Bootstrap complete
         let end_point = self.config.endpoint();
         let end_point = format!("{}/api/organizations", end_point);
-        let res = self
-            .client
+        let res = SUPER_CLIENT
             .get(end_point)
-            .append_headers("", proxy)
+            .setup_request("", self.header_cookie(), proxy)
             .send()
             .await?;
+        self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let ret_json = res.json::<Value>().await?;
         print_out_json(&ret_json, "org.json");
         let acc_info = ret_json
             .as_array()
             .and_then(|a| {
-                a.iter().filter(|v| {
-                    v.get("capabilities")
-                        .and_then(|c| c.as_array())
-                        .is_some_and(|c| c.iter().any(|c| c.as_str() == Some("chat")))
-                })
-                .max_by_key(|v| {
-                    v.get("capabilities")
-                        .and_then(|c| c.as_array())
-                        .map(|c| c.len())
-                        .unwrap_or_default()
-                })
+                a.iter()
+                    .filter(|v| {
+                        v.get("capabilities")
+                            .and_then(|c| c.as_array())
+                            .is_some_and(|c| c.iter().any(|c| c.as_str() == Some("chat")))
+                    })
+                    .max_by_key(|v| {
+                        v.get("capabilities")
+                            .and_then(|c| c.as_array())
+                            .map(|c| c.len())
+                            .unwrap_or_default()
+                    })
             })
             .ok_or(ClewdrError::UnexpectedNone)?;
 

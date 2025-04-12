@@ -5,7 +5,6 @@ use eventsource_stream::EventStreamError;
 use futures::pin_mut;
 use serde_json::Value;
 use tokio_stream::{Stream, StreamExt};
-use tracing::{error, warn};
 use transform_stream::{AsyncTryStream, Yielder};
 
 use crate::error::ClewdrError;
@@ -78,7 +77,6 @@ impl ClewdrTransformer {
             return;
         }
         let Ok(parsed) = serde_json::from_str::<Value>(buf) else {
-            warn!("Failed to parse JSON: {}", buf);
             return;
         };
         if let Some("thinking") = parsed["content_block"]["type"].as_str() {
@@ -123,7 +121,6 @@ impl ClewdrTransformer {
 
     async fn flush(&mut self, y: &mut Yielder<Result<Event, ClewdrError>>) {
         // Flush logic
-
         let event = Event::default();
         y.yield_ok(event.data("[DONE]")).await;
     }
@@ -150,7 +147,6 @@ impl ClewdrTransformer {
                         self.transform(event, &mut y).await;
                     }
                     Err(e) => {
-                        error!("Error in stream: {}", e);
                         y.yield_err(e.into()).await;
                     }
                 }

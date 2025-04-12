@@ -2,7 +2,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::future::join_all;
 use rquest::{
     Client, ClientBuilder, Proxy, RequestBuilder,
-    header::{ORIGIN, REFERER},
+    header::{COOKIE, ORIGIN, REFERER},
     multipart::{Form, Part},
 };
 use rquest_util::Emulation;
@@ -16,22 +16,32 @@ use crate::{config::ENDPOINT, state::AppState, types::message::ImageSource};
 /// This client is used for requests that require a specific emulation
 pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()
-        .cookie_store(true)
         .emulation(Emulation::Chrome134)
         .build()
         .expect("Failed to create client")
 });
 
 /// Helper function to add headers to a request
-pub trait AppendHeaders {
-    fn append_headers(self, refer: impl AsRef<str>, proxy: Option<Proxy>) -> Self;
+pub trait SetupRequest {
+    fn setup_request(
+        self,
+        refer: impl AsRef<str>,
+        cookies: impl AsRef<str>,
+        proxy: Option<Proxy>,
+    ) -> Self;
 }
 
-impl AppendHeaders for RequestBuilder {
-    fn append_headers(self, refer: impl AsRef<str>, proxy: Option<Proxy>) -> RequestBuilder {
+impl SetupRequest for RequestBuilder {
+    fn setup_request(
+        self,
+        refer: impl AsRef<str>,
+        cookies: impl AsRef<str>,
+        proxy: Option<Proxy>,
+    ) -> RequestBuilder {
         let b = self
             .header_append(ORIGIN, ENDPOINT)
-            .header_append(REFERER, header_ref(refer));
+            .header_append(REFERER, header_ref(refer))
+            .header_append(COOKIE, cookies.as_ref());
         if let Some(proxy) = proxy {
             b.proxy(proxy)
         } else {
@@ -43,7 +53,7 @@ impl AppendHeaders for RequestBuilder {
 /// Helper function to get the header reference
 fn header_ref<S: AsRef<str>>(ref_path: S) -> String {
     if ref_path.as_ref().is_empty() {
-        format!("{}/", ENDPOINT)
+        ENDPOINT.to_string()
     } else {
         format!("{}/chat/{}", ENDPOINT, ref_path.as_ref())
     }
@@ -82,9 +92,13 @@ impl AppState {
                 let endpoint = format!("https://claude.ai/api/{}/upload", self.org_uuid.as_ref()?);
                 Some(
                     // send the request into future
-                    self.client
+                    SUPER_CLIENT
                         .post(endpoint)
-                        .append_headers("new", self.config.rquest_proxy.clone())
+                        .setup_request(
+                            "new",
+                            self.header_cookie(),
+                            self.config.rquest_proxy.clone(),
+                        )
                         .header_append("anthropic-client-platform", "web_claude_ai")
                         .multipart(form)
                         .send(),

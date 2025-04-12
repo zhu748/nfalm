@@ -1,5 +1,11 @@
-# v0.5.4
+# v0.5.5
+
+## Bug fixes
+
+- Fix reverse proxy cookie handling
+- Stop logging sse events because they will spam the logs
 
 ## Improvements
 
-- Switched to `tiktoken-rs` for tokenization, which support multiple languages and is faster than the previous implementation.
+- Better error message parsing
+- Better url printing
