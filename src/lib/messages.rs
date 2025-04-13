@@ -60,7 +60,7 @@ pub struct RequestBody {
     pub max_tokens_to_sample: u64,
     pub attachments: Vec<Attachment>,
     pub files: Vec<String>,
-    pub model: String,
+    pub model: Option<String>,
     pub rendering_mode: String,
     pub prompt: String,
     pub timezone: String,
@@ -154,7 +154,7 @@ pub async fn api_messages(
         let stopwatch = chrono::Utc::now();
 
         if let Err(e) = state.request_cookie().await {
-            return Json(e.error_body()).into_response();
+            return Body::from_stream(e.error_stream()).into_response();
         }
         let mut state_clone = state.clone();
         defer! {

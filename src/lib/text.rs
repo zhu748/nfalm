@@ -34,7 +34,11 @@ impl AppState {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
             files: vec![],
-            model: value.model,
+            model: if self.is_pro() {
+                Some(value.model)
+            } else {
+                None
+            },
             rendering_mode: if value.stream {
                 "messages".to_string()
             } else {
@@ -61,7 +65,11 @@ impl AppState {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
             files: vec![],
-            model: value.model,
+            model: if self.is_pro() {
+                Some(value.model)
+            } else {
+                None
+            },
             rendering_mode: "raw".to_string(),
             prompt: merged.prompt,
             timezone: TIME_ZONE.to_string(),

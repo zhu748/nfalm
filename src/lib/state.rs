@@ -29,6 +29,7 @@ pub struct AppState {
     pub org_uuid: Option<String>,
     pub conv_uuid: Option<String>,
     cookies: HashMap<String, String>,
+    pub capabilities: Vec<String>,
 }
 
 impl AppState {
@@ -48,7 +49,17 @@ impl AppState {
             org_uuid: None,
             conv_uuid: None,
             cookies: HashMap::new(),
+            capabilities: Vec::new(),
         }
+    }
+
+    pub fn is_pro(&self) -> bool {
+        self.capabilities.iter().any(|c| {
+            c.contains("pro")
+                || c.contains("enterprise")
+                || c.contains("raven")
+                || c.contains("max")
+        })
     }
 
     /// Update cookie from the server response

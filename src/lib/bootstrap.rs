@@ -49,28 +49,23 @@ impl AppState {
         let email = bootstrap["account"]["email_address"]
             .as_str()
             .unwrap_or_default();
-        let caps = boot_acc_info["capabilities"]
+        self.capabilities = boot_acc_info["capabilities"]
             .as_array()
             .map(|a| {
                 a.iter()
                     .filter_map(|c| c.as_str())
+                    .map(|c| c.to_string())
                     .collect::<Vec<_>>()
-                    .join(", ")
             })
             .unwrap_or_default();
-        if !caps.contains("pro")
-            && !caps.contains("enterprise")
-            && !caps.contains("raven")
-            && !caps.contains("max")
-            && self.config.skip_non_pro
-        {
+        if !self.is_pro() && self.config.skip_non_pro {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
             "Logged in \nname: {}\nmail: {}\ncapabilities: {}",
             name.blue(),
             email.blue(),
-            caps.blue()
+            self.capabilities.join(", ").blue()
         );
 
         // Bootstrap complete
