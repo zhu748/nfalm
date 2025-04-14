@@ -1,5 +1,5 @@
-# v0.5.6
+# v0.5.7
 
 ## Bug fixes
 
-- Attempt to fix 413 in non-pro accounts
+- Fix 413 in non-pro accounts
