@@ -242,7 +242,7 @@ impl AppState {
         });
 
         // enable thinking mode
-        if p.thinking.is_some() {
+        if p.thinking.is_some() && self.is_pro() {
             body["paprika_mode"] = "extended".into();
             body["model"] = p.model.clone().into();
         }
