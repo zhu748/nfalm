@@ -60,6 +60,7 @@ pub struct RequestBody {
     pub max_tokens_to_sample: u64,
     pub attachments: Vec<Attachment>,
     pub files: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     pub rendering_mode: String,
     pub prompt: String,
