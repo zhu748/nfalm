@@ -45,6 +45,8 @@ pub struct Config {
     pub proxy: String,
     ip: String,
     port: u16,
+    #[serde(default)]
+    pub enable_oai: bool,
 
     // Api settings
     #[serde(default)]
@@ -333,6 +335,7 @@ fn generate_password(length: usize) -> String {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            enable_oai: false,
             max_retries: default_max_retries(),
             check_update: true,
             auto_update: false,

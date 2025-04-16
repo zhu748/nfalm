@@ -18,16 +18,18 @@ pub struct RouterBuilder {
 impl RouterBuilder {
     /// Create a new RouterBuilder instance
     pub fn new(state: AppState) -> Self {
-        Self {
-            inner: Router::new()
-                .route("/", options(api_options))
-                .route("/v1", options(api_options))
-                .route("/v1/chat/completions", post(api_completion))
-                .route("/v1/messages", post(api_messages))
-                .route("/v1/submit", post(api_submit))
-                .fallback(api_fallback)
-                .with_state(state),
-        }
+        let r = Router::new()
+            .route("/", options(api_options))
+            .route("/v1", options(api_options))
+            .route("/v1/messages", post(api_messages))
+            .route("/v1/submit", post(api_submit));
+        let r = if state.config.enable_oai {
+            r.route("/v1/chat/completions", post(api_completion))
+        } else {
+            r
+        };
+        let r = r.fallback(api_fallback).with_state(state);
+        Self { inner: r }
     }
 
     /// return the inner router
