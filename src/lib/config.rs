@@ -480,7 +480,7 @@ impl Config {
 
         let bpe = o200k_base().unwrap();
         let ranks = bpe.encode_with_special_tokens(&padtxt_string);
-        let mut tokens = Vec::new();
+        let mut tokens = Vec::with_capacity(4096);
         for token in ranks {
             let Ok(token) = bpe.decode(vec![token]) else {
                 continue;

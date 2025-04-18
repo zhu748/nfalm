@@ -170,7 +170,7 @@ impl AppState {
         // enable thinking mode
         if p.model.contains("-thinking") && self.is_pro() {
             body["paprika_mode"] = "extended".into();
-            body["model"] = p.model.clone().into();
+            body["model"] = p.model.trim_end_matches("-thinking").to_string().into();
         }
         p.model = p.model.trim_end_matches("-thinking").to_string();
 
