@@ -139,7 +139,19 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         };
         return Err(ClewdrError::OtherHttpError(status, http_error));
     }
-    let text = res.text().await?;
+    let text = match res.text().await {
+        Ok(text) => text,
+        Err(err) => {
+            let http_error = HttpError {
+                error: InnerHttpError {
+                    message: json!(err.to_string()),
+                    r#type: "error".to_string(),
+                },
+                r#type: "error".to_string(),
+            };
+            return Err(ClewdrError::OtherHttpError(status, http_error));
+        }
+    };
     let Ok(err) = serde_json::from_str::<HttpError>(&text) else {
         let http_error = HttpError {
             error: InnerHttpError {
@@ -168,6 +180,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     }
     Err(ClewdrError::OtherHttpError(status, err_clone))
 }
+
 impl ClewdrError {
     /// Convert a ClewdrError to a Stream of Claude API events
     pub fn error_stream(
