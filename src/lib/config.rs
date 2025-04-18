@@ -230,6 +230,21 @@ impl CookieStatus {
             due,
         }
     }
+
+    /// check if the cookie is expired
+    /// if expired, set the reset time to None
+    pub fn reset(self) -> Self {
+        if let Some(t) = self.reset_time {
+            if t < chrono::Utc::now().timestamp() {
+                info!("Cookie reset time expired");
+                return Self {
+                    reset_time: None,
+                    ..self
+                };
+            }
+        }
+        self
+    }
 }
 
 /// A struct representing a cookie

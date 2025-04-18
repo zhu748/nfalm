@@ -24,23 +24,6 @@ pub struct CookieManager {
     interval: Interval,
 }
 
-impl CookieStatus {
-    /// check if the cookie is expired
-    /// if expired, set the reset time to None
-    pub fn reset(self) -> Self {
-        if let Some(t) = self.reset_time {
-            if t < chrono::Utc::now().timestamp() {
-                info!("Cookie reset time expired");
-                return Self {
-                    reset_time: None,
-                    ..self
-                };
-            }
-        }
-        self
-    }
-}
-
 impl CookieManager {
     pub fn new(
         mut config: Config,
@@ -104,8 +87,7 @@ impl CookieManager {
         });
     }
 
-    /// Try to dispatch a cookie from the valid set
-    fn dispatch(&mut self) -> Result<CookieStatus, ClewdrError> {
+    fn reset(&mut self) {
         let mut reset_cookies = Vec::new();
         self.exhausted.retain(|cookie| {
             let reset_cookie = cookie.clone().reset();
@@ -118,6 +100,11 @@ impl CookieManager {
         });
         self.valid.extend(reset_cookies);
         self.save();
+    }
+
+    /// Try to dispatch a cookie from the valid set
+    fn dispatch(&mut self) -> Result<CookieStatus, ClewdrError> {
+        self.reset();
         // randomly select a cookie from valid cookies and remove it from the set
         let cookie = self
             .valid
@@ -183,7 +170,6 @@ impl CookieManager {
     /// from the channels
     pub async fn run(mut self) {
         loop {
-            self.log();
             select! {
                 biased;
                 Some((cookie, reason)) = self.ret_rx.recv() => self.collect(cookie, reason),
@@ -204,6 +190,7 @@ impl CookieManager {
                         self.dispatched.remove(&cookie);
                         self.valid.push_back(cookie);
                     }
+                    self.reset();
                 }
                 Some(sender) = self.req_rx.recv() => {
                     let cookie = self.dispatch();
@@ -215,6 +202,7 @@ impl CookieManager {
                     }
                 }
             }
+            self.log();
         }
     }
 }
