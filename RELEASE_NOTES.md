@@ -1,10 +1,5 @@
-# v0.5.8
-
-## Bug fixes
-
-- Fix thinking mode in oai format
+# v0.5.9
 
 ## Improvements
 
-- Handle different charset in error messages
-- Disable oai endpoint by default
+- Check 302 cloudflare response
