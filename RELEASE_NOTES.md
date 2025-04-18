@@ -2,4 +2,9 @@
 
 ## Bug fixes
 
-- Fix 413 in non-pro accounts
+- Fix thinking mode in oai format
+
+## Improvements
+
+- Handle different charset in error messages
+- Disable oai endpoint by default

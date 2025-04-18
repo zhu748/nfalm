@@ -168,11 +168,12 @@ impl AppState {
             "name":""
         });
         // enable thinking mode
+        let actual_model = p.model.trim_end_matches("-thinking").to_string();
         if p.model.contains("-thinking") && self.is_pro() {
             body["paprika_mode"] = "extended".into();
-            body["model"] = p.model.trim_end_matches("-thinking").to_string().into();
+            body["model"] = actual_model.clone().into();
         }
-        p.model = p.model.trim_end_matches("-thinking").to_string();
+        p.model = actual_model;
 
         let api_res = SUPER_CLIENT
             .post(endpoint)
