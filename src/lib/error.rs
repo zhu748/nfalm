@@ -128,14 +128,24 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         return Ok(res);
     }
     debug!("Error response status: {}", status);
-    let text = res.text().await?;
-    let Ok(err) = serde_json::from_str::<HttpError>(&text) else {
-        let inner = InnerHttpError {
-            message: json!("Failed to parse error response"),
+    if status == 302 {
+        // blocked by cloudflare
+        let http_error = HttpError {
+            error: InnerHttpError {
+                message: json!("Blocked by Cloudflare"),
+                r#type: "error".to_string(),
+            },
             r#type: "error".to_string(),
         };
+        return Err(ClewdrError::OtherHttpError(status, http_error));
+    }
+    let text = res.text().await?;
+    let Ok(err) = serde_json::from_str::<HttpError>(&text) else {
         let http_error = HttpError {
-            error: inner,
+            error: InnerHttpError {
+                message: format!("Unknown error: {}", text).into(),
+                r#type: "error".to_string(),
+            },
             r#type: "error".to_string(),
         };
         return Err(ClewdrError::OtherHttpError(status, http_error));
