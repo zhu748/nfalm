@@ -2,4 +2,6 @@
 
 ## Improvements
 
-- Check 302 cloudflare response
+- Update README.md to include the new features and improvements.
+- Improve http error handling.
+- Print config directory when starting.

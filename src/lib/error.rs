@@ -68,6 +68,7 @@ pub enum ClewdrError {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct HttpError {
     pub error: InnerHttpError,
+    #[serde(skip_serializing_if = "Option::is_none")]
     r#type: Option<String>,
 }
 
