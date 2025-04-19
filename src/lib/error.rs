@@ -52,7 +52,7 @@ pub enum ClewdrError {
     RquestError(#[from] rquest::Error),
     #[error("UTF8 error: {0}")]
     UTF8Error(#[from] std::string::FromUtf8Error),
-    #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1)]
+    #[error("Http error: code: {}, body: {}", .0.to_string().red(), serde_json::to_string_pretty(.1).unwrap())]
     OtherHttpError(StatusCode, HttpError),
     #[error("Unexpected None")]
     UnexpectedNone,
@@ -68,7 +68,7 @@ pub enum ClewdrError {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct HttpError {
     pub error: InnerHttpError,
-    r#type: String,
+    r#type: Option<String>,
 }
 
 impl Display for HttpError {
@@ -135,7 +135,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
                 message: json!("Blocked by Cloudflare"),
                 r#type: "error".to_string(),
             },
-            r#type: "error".to_string(),
+            r#type: Some("error".into()),
         };
         return Err(ClewdrError::OtherHttpError(status, http_error));
     }
@@ -147,7 +147,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
                     message: json!(err.to_string()),
                     r#type: "error".to_string(),
                 },
-                r#type: "error".to_string(),
+                r#type: Some("error".into()),
             };
             return Err(ClewdrError::OtherHttpError(status, http_error));
         }
@@ -158,7 +158,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
                 message: format!("Unknown error: {}", text).into(),
                 r#type: "error".to_string(),
             },
-            r#type: "error".to_string(),
+            r#type: Some("error".into()),
         };
         return Err(ClewdrError::OtherHttpError(status, http_error));
     };
