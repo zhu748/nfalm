@@ -4,7 +4,6 @@ use clewdr::{
     utils::config_dir,
 };
 use colored::Colorize;
-use const_format::formatc;
 use tokio::{spawn, sync::mpsc};
 use tracing::warn;
 use tracing_subscriber::{
@@ -55,14 +54,14 @@ async fn main() -> Result<(), ClewdrError> {
         warn!("Update check failed: {}", e);
     }
 
-    // print the title and address
-    const TITLE: &str = formatc!(
-        "ClewdR v{} by {}",
-        env!("CARGO_PKG_VERSION"),
-        env!("CARGO_PKG_AUTHORS")
-    );
-    println!("{}", TITLE.blue());
+    // print the address
     let addr = format!("http://{}/v1", config.address());
+    if let Ok(dir) = config_dir() {
+        println!(
+            "Config dir: {}",
+            dir.join("config.toml").display().to_string().blue()
+        );
+    }
     println!("Listening on {}", addr.green());
     println!("{}", config);
 

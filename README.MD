@@ -2,10 +2,6 @@
 
 Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in Rust.
 
-## **WORK IN PROGRESS**
-
-If you find any issue, feel free to tell me.
-
 ## Advantages
 
 - **Concurrent**: ClewdR implies a event-driven architecture, which means it can handle multiple requests at the same time. Clewd only handles one request at a time. This is a huge advantage when you are using it as a reverse proxy for SillyTavern.
@@ -22,12 +18,11 @@ If you find any issue, feel free to tell me.
 
 1. Download binary of your platform from GitHub release page.
 2. Run `clewdr` / `clewdr.exe`.
-3. A default config file `config.toml` will be generated in the same directory.
-4. Edit `config.toml` to set your own config.
-5. Fill proxy setting in SillyTavern as Claude Reverse Proxy, **NOT** OpenAI Compatible. Due to a SillyTavern bug, you should fill some random proxy password in the proxy password field. Otherwise, SillyTavern will not send the request to the proxy.
+3. A default config file `config.toml` will be generated in the same directory as the binary.
+4. Edit `config.toml` to set your own config. Replace the placeholder cookie.
+5. Fill proxy setting in SillyTavern as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill the password.
 
 ## Advanced usage
 
-- When `cookie_array` is not empty and `cookie_index` is not negative, `clewdr` will use the cookie at `cookie_array[cookie index]` as the cookie for the request. And automatically rotate the cookie when needed.
 - Store cookies you want to add in a txt file, one cookie per line. Pass the file path as first argument to `clewdr` or `clewdr.exe`. ClewdR will read the file save the cookies in `cookie_array`. E.g. `clewdr.exe cookie.txt` or `clewdr cookie.txt`. In desktop mode, you can simply drag and drop the file to the `clewdr` or `clewdr.exe` icon. The file path will be passed as the first argument.
 - ClewdR will automatically sanitize cookies, cleaning up non-standard chars. But you need to ensure there are no extra numbers, letters, `_`, `=` or `-` in the cookie.
