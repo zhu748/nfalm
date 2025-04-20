@@ -32,20 +32,20 @@ impl CookieManager {
         submit_rx: Receiver<CookieStatus>,
     ) -> Self {
         config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
-        let valid = VecDeque::from_iter(config.cookie_array.iter().filter_map(|c| {
-            if c.reset_time.is_none() {
-                Some(c.clone())
-            } else {
-                None
-            }
-        }));
-        let exhaust = HashSet::from_iter(config.cookie_array.iter().filter_map(|c| {
-            if c.reset_time.is_some() {
-                Some(c.clone())
-            } else {
-                None
-            }
-        }));
+        let valid = VecDeque::from_iter(
+            config
+                .cookie_array
+                .iter()
+                .filter(|c| c.reset_time.is_none())
+                .cloned(),
+        );
+        let exhaust = HashSet::from_iter(
+            config
+                .cookie_array
+                .iter()
+                .filter(|c| c.reset_time.is_some())
+                .cloned(),
+        );
         let invalid = HashSet::from_iter(config.wasted_cookie.iter().cloned());
         let dispatched = HashMap::new();
         // wait 5 mins to collect unreturned cookies
