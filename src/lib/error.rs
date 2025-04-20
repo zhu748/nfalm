@@ -163,6 +163,10 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         };
         return Err(ClewdrError::OtherHttpError(status, http_error));
     };
+    if status == 400 && err.error.message == json!("This organization has been disabled.") {
+        // account disabled
+        return Err(ClewdrError::InvalidCookie(Reason::Disabled));
+    }
     let err_clone = err.clone();
     let inner_error = err.error;
     // check if the error is a rate limit error

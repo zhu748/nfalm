@@ -82,9 +82,9 @@ pub struct Config {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Reason {
     NonPro,
+    Disabled,
     Banned,
     Null,
-    Unverified,
     Restricted(i64),
     TooManyRequest(i64),
 }
@@ -92,10 +92,10 @@ pub enum Reason {
 impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Reason::NonPro => write!(f, "NonPro"),
+            Reason::Disabled => write!(f, "Organization Disabled"),
+            Reason::NonPro => write!(f, "Free account"),
             Reason::Banned => write!(f, "Banned"),
             Reason::Null => write!(f, "Null"),
-            Reason::Unverified => write!(f, "Unverified"),
             Reason::Restricted(i) => {
                 let time = chrono::DateTime::from_timestamp(*i, 0)
                     .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string().yellow())
