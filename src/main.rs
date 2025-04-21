@@ -2,7 +2,7 @@ use clap::Parser;
 use clewdr::{
     self, BANNER,
     config::{CONFIG_NAME, Config},
-    cookie::CookieManager,
+    cookie_manager::CookieManager,
     error::ClewdrError,
     state::AppState,
     utils::config_dir,

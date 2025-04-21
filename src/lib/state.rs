@@ -14,7 +14,7 @@ use crate::client::SetupRequest;
 use crate::config::Config;
 use crate::config::CookieStatus;
 use crate::config::Reason;
-use crate::cookie::CookieEventSender;
+use crate::cookie_manager::CookieEventSender;
 use crate::error::ClewdrError;
 
 /// State of current connection

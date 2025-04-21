@@ -9,7 +9,7 @@ use tracing::{debug, error};
 
 use crate::{
     config::{CookieStatus, Reason},
-    cookie::CookieEvent,
+    cookie_manager::CookieEvent,
     messages::non_stream_message,
     types::message::{
         ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent,

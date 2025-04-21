@@ -6,7 +6,7 @@ use figlet_rs::FIGfont;
 pub mod bootstrap;
 pub mod client;
 pub mod config;
-pub mod cookie;
+pub mod cookie_manager;
 pub mod error;
 pub mod messages;
 pub mod openai;
