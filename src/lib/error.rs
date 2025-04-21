@@ -9,6 +9,7 @@ use tracing::{debug, error};
 
 use crate::{
     config::{CookieStatus, Reason},
+    cookie::CookieEvent,
     messages::non_stream_message,
     types::message::{
         ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent,
@@ -18,6 +19,8 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Failed to get cookie: {0}")]
+    MpscSendError(#[from] tokio::sync::mpsc::error::SendError<CookieEvent>),
     #[error("Retries exceeded")]
     TooManyRetries,
     #[error("Stream event source error: {0}")]

@@ -21,7 +21,7 @@ pub async fn api_submit(
         }
     }
     info!("Cookie accepted: {}", c.cookie);
-    match s.submit_tx.send(c).await {
+    match s.event_sender.submit(c).await {
         Ok(_) => {
             info!("Cookie submitted successfully");
             StatusCode::OK

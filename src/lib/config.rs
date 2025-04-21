@@ -13,9 +13,6 @@ use crate::{Args, error::ClewdrError, utils::config_dir};
 
 pub const CONFIG_NAME: &str = "config.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
-const fn default_max_connections() -> usize {
-    16
-}
 
 const fn default_max_retries() -> usize {
     5
@@ -39,8 +36,6 @@ pub struct Config {
     pub wasted_cookie: Vec<UselessCookie>,
 
     // Network settings
-    #[serde(default = "default_max_connections")]
-    pub max_connections: usize,
     password: String,
     pub proxy: String,
     ip: String,
@@ -368,7 +363,6 @@ impl Default for Config {
             proxy: String::new(),
             ip: "127.0.0.1".to_string(),
             port: 8484,
-            max_connections: default_max_connections(),
             rproxy: String::new(),
             use_real_roles: true,
             custom_prompt: String::new(),

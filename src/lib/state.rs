@@ -3,8 +3,6 @@ use regex::RegexBuilder;
 use rquest::Response;
 use rquest::header::SET_COOKIE;
 use serde_json::json;
-use tokio::sync::mpsc::Sender;
-use tokio::sync::oneshot;
 use tracing::debug;
 use tracing::error;
 
@@ -16,16 +14,15 @@ use crate::client::SetupRequest;
 use crate::config::Config;
 use crate::config::CookieStatus;
 use crate::config::Reason;
+use crate::cookie::CookieEventSender;
 use crate::error::ClewdrError;
 
 /// State of current connection
 #[derive(Clone)]
 pub struct AppState {
-    pub req_tx: Sender<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
-    pub ret_tx: Sender<(CookieStatus, Option<Reason>)>,
-    pub submit_tx: Sender<CookieStatus>,
     pub cookie: Option<CookieStatus>,
     pub config: Arc<Config>,
+    pub event_sender: CookieEventSender,
     pub org_uuid: Option<String>,
     pub conv_uuid: Option<String>,
     cookies: HashMap<String, String>,
@@ -34,17 +31,10 @@ pub struct AppState {
 
 impl AppState {
     /// Create a new AppState instance
-    pub fn new(
-        config: Config,
-        req_tx: Sender<oneshot::Sender<Result<CookieStatus, ClewdrError>>>,
-        ret_tx: Sender<(CookieStatus, Option<Reason>)>,
-        submit_tx: Sender<CookieStatus>,
-    ) -> Self {
+    pub fn new(config: Config, event_sender: CookieEventSender) -> Self {
         AppState {
             config: Arc::new(config),
-            req_tx,
-            ret_tx,
-            submit_tx,
+            event_sender,
             cookie: None,
             org_uuid: None,
             conv_uuid: None,
@@ -107,10 +97,7 @@ impl AppState {
 
     /// request a new cookie from cookie manager
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
-        // real client to avoid mixed use of cookies
-        let (one_tx, one_rx) = oneshot::channel();
-        self.req_tx.send(one_tx).await?;
-        let res = one_rx.await??;
+        let res = self.event_sender.request().await?;
         self.cookie = Some(res.clone());
         self.update_cookies(res.cookie.to_string().as_str());
         println!("Cookie: {}", res.cookie.to_string().green());
@@ -121,8 +108,8 @@ impl AppState {
     pub async fn return_cookie(&mut self, reason: Option<Reason>) {
         // return the cookie to the cookie manager
         if let Some(cookie) = self.cookie.take() {
-            self.ret_tx
-                .send((cookie, reason))
+            self.event_sender
+                .return_cookie(cookie, reason)
                 .await
                 .unwrap_or_else(|e| {
                     error!("Failed to send cookie: {}", e);

@@ -1,9 +1,14 @@
 use clap::Parser;
 use clewdr::{
-    self, config::{Config, CONFIG_NAME}, cookie::CookieManager, error::ClewdrError, state::AppState, utils::config_dir, BANNER
+    self, BANNER,
+    config::{CONFIG_NAME, Config},
+    cookie::CookieManager,
+    error::ClewdrError,
+    state::AppState,
+    utils::config_dir,
 };
 use colored::Colorize;
-use tokio::{spawn, sync::mpsc};
+use tokio::spawn;
 use tracing::warn;
 use tracing_subscriber::{
     Registry,
@@ -65,11 +70,8 @@ async fn main() -> Result<(), ClewdrError> {
     println!("{}", config);
 
     // initialize the application state
-    let (req_tx, req_rx) = mpsc::channel(config.max_connections);
-    let (ret_tx, ret_rx) = mpsc::channel(config.max_connections);
-    let (submit_tx, submit_rx) = mpsc::channel(config.max_connections);
-    let state = AppState::new(config.clone(), req_tx, ret_tx, submit_tx);
-    let cm = CookieManager::new(config, req_rx, ret_rx, submit_rx);
+    let (cm, tx) = CookieManager::new(config.clone());
+    let state = AppState::new(config, tx);
     // build axum router
     // create a TCP listener
     let addr = state.config.address().to_string();
