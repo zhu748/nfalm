@@ -2,10 +2,10 @@ use axum::{Json, extract::State};
 use rquest::StatusCode;
 use tracing::{error, info, warn};
 
-use crate::{config::CookieStatus, messages::Auth, state::AppState};
+use crate::{config::CookieStatus, messages::Auth, state::ClientState};
 
 pub async fn api_submit(
-    State(s): State<AppState>,
+    State(s): State<ClientState>,
     Auth(_): Auth,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {

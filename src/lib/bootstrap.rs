@@ -6,11 +6,11 @@ use crate::{
     client::{SUPER_CLIENT, SetupRequest},
     config::Reason,
     error::{ClewdrError, check_res_err},
-    state::AppState,
+    state::ClientState,
     utils::print_out_json,
 };
 
-impl AppState {
+impl ClientState {
     /// Bootstrap the app state
     /// This function will send a request to the server to get the bootstrap data
     /// It will also check if the cookie is valid

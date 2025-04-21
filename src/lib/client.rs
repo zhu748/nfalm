@@ -10,7 +10,7 @@ use serde_json::Value;
 use std::sync::LazyLock;
 use tracing::warn;
 
-use crate::{config::ENDPOINT, state::AppState, types::message::ImageSource};
+use crate::{config::ENDPOINT, state::ClientState, types::message::ImageSource};
 
 /// The client to be used for requests to the Claude.ai
 /// This client is used for requests that require a specific emulation
@@ -58,7 +58,7 @@ fn header_ref<S: AsRef<str>>(ref_path: S) -> String {
         format!("{}/chat/{}", ENDPOINT, ref_path.as_ref())
     }
 }
-impl AppState {
+impl ClientState {
     /// Upload images to the Claude.ai
     pub async fn upload_images(&self, imgs: Vec<ImageSource>) -> Vec<String> {
         // upload images

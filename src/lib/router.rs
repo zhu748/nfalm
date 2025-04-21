@@ -8,7 +8,7 @@ use rquest::header::{
 };
 use tower_http::services::{ServeDir, ServeFile};
 
-use crate::{messages::api_messages, openai::api_completion, state::AppState, submit::api_submit};
+use crate::{messages::api_messages, openai::api_completion, state::ClientState, submit::api_submit};
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
@@ -17,7 +17,7 @@ pub struct RouterBuilder {
 
 impl RouterBuilder {
     /// Create a new RouterBuilder instance
-    pub fn new(state: AppState) -> Self {
+    pub fn new(state: ClientState) -> Self {
         // Serve static files from "static" directory
         let static_service =
             ServeDir::new("static").not_found_service(ServeFile::new("static/index.html"));

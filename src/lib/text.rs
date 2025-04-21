@@ -12,7 +12,7 @@ use tracing::warn;
 
 use crate::{
     messages::{Attachment, ClientRequestBody, RequestBody},
-    state::AppState,
+    state::ClientState,
     types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
     utils::{TIME_ZONE, print_out_text},
 };
@@ -25,7 +25,7 @@ pub struct Merged {
     pub images: Vec<ImageSource>,
 }
 
-impl AppState {
+impl ClientState {
     /// Transform the request body from Claude API to Claude web
     pub fn transform_anthropic(&self, value: ClientRequestBody) -> Option<RequestBody> {
         let system = merge_system(value.system);

@@ -18,7 +18,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     client::{SUPER_CLIENT, SetupRequest},
     error::{ClewdrError, check_res_err},
-    state::AppState,
+    state::ClientState,
     text::merge_sse,
     types::message::{ContentBlock, ImageSource, Message, Role},
     utils::{print_out_json, print_out_text},
@@ -105,11 +105,11 @@ pub struct Thinking {
 
 pub struct Auth(pub String);
 
-impl FromRequestParts<AppState> for Auth {
+impl FromRequestParts<ClientState> for Auth {
     type Rejection = StatusCode;
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        state: &AppState,
+        state: &ClientState,
     ) -> Result<Self, Self::Rejection> {
         let key = parts
             .headers
@@ -127,7 +127,7 @@ impl FromRequestParts<AppState> for Auth {
 /// Axum handler for the API messages
 pub async fn api_messages(
     Auth(_): Auth,
-    State(state): State<AppState>,
+    State(state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
     // Check if the request is a test message
@@ -215,7 +215,7 @@ pub async fn api_messages(
         .into_response()
 }
 
-impl AppState {
+impl ClientState {
     /// Try to send a message to the Claude API
     async fn try_message(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");

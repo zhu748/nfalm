@@ -19,7 +19,7 @@ use crate::error::ClewdrError;
 
 /// State of current connection
 #[derive(Clone)]
-pub struct AppState {
+pub struct ClientState {
     pub cookie: Option<CookieStatus>,
     pub config: Arc<Config>,
     pub event_sender: CookieEventSender,
@@ -29,10 +29,10 @@ pub struct AppState {
     pub capabilities: Vec<String>,
 }
 
-impl AppState {
+impl ClientState {
     /// Create a new AppState instance
     pub fn new(config: Config, event_sender: CookieEventSender) -> Self {
-        AppState {
+        ClientState {
             config: Arc::new(config),
             event_sender,
             cookie: None,

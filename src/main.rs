@@ -4,7 +4,7 @@ use clewdr::{
     config::{CONFIG_NAME, Config},
     cookie_manager::CookieManager,
     error::ClewdrError,
-    state::AppState,
+    state::ClientState,
     utils::config_dir,
 };
 use colored::Colorize;
@@ -70,7 +70,7 @@ async fn main() -> Result<(), ClewdrError> {
 
     // initialize the application state
     let tx = CookieManager::start(config.clone());
-    let state = AppState::new(config, tx);
+    let state = ClientState::new(config, tx);
     // build axum router
     // create a TCP listener
     let addr = state.config.address().to_string();

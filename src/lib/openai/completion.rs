@@ -19,7 +19,7 @@ use crate::{
     error::{ClewdrError, check_res_err},
     messages::ClientRequestBody,
     openai::stream::{ClewdrTransformer, NonStreamEventData},
-    state::AppState,
+    state::ClientState,
     text::merge_sse,
     utils::{print_out_json, print_out_text},
 };
@@ -27,7 +27,7 @@ use crate::{
 /// Axum handler for the API messages
 pub async fn api_completion(
     AuthBearer(token): AuthBearer,
-    State(mut state): State<AppState>,
+    State(mut state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
     if !state.config.auth(&token) {
@@ -135,7 +135,7 @@ pub async fn api_completion(
         .into_response()
 }
 
-impl AppState {
+impl ClientState {
     /// Try to send a message to the Claude API
     async fn try_completion(&mut self, mut p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
