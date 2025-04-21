@@ -77,14 +77,14 @@ pub async fn api_completion(
         // check if request is successful
         match state.bootstrap().await.and(state.try_completion(p).await) {
             Ok(b) => {
-                if let Err(e) = state.delete_chat().await {
+                if let Err(e) = state.clean_chat().await {
                     warn!("Failed to delete chat: {}", e);
                 }
                 return b.into_response();
             }
             Err(e) => {
                 // delete chat after an error
-                if let Err(e) = state.delete_chat().await {
+                if let Err(e) = state.clean_chat().await {
                     warn!("Failed to delete chat: {}", e);
                 }
                 warn!("Error: {}", e);

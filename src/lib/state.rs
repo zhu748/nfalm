@@ -3,6 +3,7 @@ use regex::Regex;
 use regex::RegexBuilder;
 use rquest::Response;
 use rquest::header::SET_COOKIE;
+use serde_json::json;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tracing::debug;
@@ -131,15 +132,32 @@ impl AppState {
     }
 
     /// Delete current chat conversation
-    pub async fn delete_chat(&self) -> Result<(), ClewdrError> {
+    pub async fn clean_chat(&self) -> Result<(), ClewdrError> {
         let Some(ref org_uuid) = self.org_uuid else {
             return Ok(());
         };
         let Some(ref conv_uuid) = self.conv_uuid else {
             return Ok(());
         };
-        // if preserve_chats is true, do not delete chat
+        // if preserve_chats is true, do not delete chat, just rename it
         if self.config.preserve_chats {
+            debug!("Renaming chat: {}", conv_uuid);
+            let endpoint = format!(
+                "{}/api/organizations/{}/chat_conversations/{}",
+                self.config.endpoint(),
+                org_uuid,
+                conv_uuid
+            );
+            let pld = json!({
+                "name": format!("ClewdR-{}-{}", org_uuid, conv_uuid),
+            });
+            let proxy = self.config.rquest_proxy.clone();
+            let _ = SUPER_CLIENT
+                .put(endpoint)
+                .setup_request(conv_uuid, self.header_cookie(), proxy)
+                .json(&pld)
+                .send()
+                .await?;
             return Ok(());
         }
         debug!("Deleting chat: {}", conv_uuid);
@@ -152,7 +170,7 @@ impl AppState {
         let proxy = self.config.rquest_proxy.clone();
         let _ = SUPER_CLIENT
             .delete(endpoint)
-            .setup_request("", self.header_cookie(), proxy)
+            .setup_request(conv_uuid, self.header_cookie(), proxy)
             .send()
             .await?;
         Ok(())
