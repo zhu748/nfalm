@@ -76,21 +76,21 @@ impl AppState {
         if str.is_empty() {
             return;
         }
-        let re1 = Regex::new(r";\s?").unwrap();
-        let re2 = RegexBuilder::new(r"^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*")
+        let re = RegexBuilder::new(r"^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*")
             .case_insensitive(true)
             .build()
             .unwrap();
-        let re3 = Regex::new(r"^(.*?)=\s*(.*)").unwrap();
-        re1.split(&str)
-            .filter(|s| !re2.is_match(s) && !s.is_empty())
+        str.split(";")
+            .filter(|s| !re.is_match(s) && !s.is_empty())
             .for_each(|s| {
-                let caps = re3.captures(s);
-                if let Some(caps) = caps {
-                    let key = caps[1].to_string();
-                    let value = caps[2].to_string();
-                    self.cookies.insert(key, value);
+                let Some((name, value)) = s.split_once("=").map(|(n, v)| (n.trim(), v.trim()))
+                else {
+                    return;
+                };
+                if name.is_empty() || value.is_empty() {
+                    return;
                 }
+                self.cookies.insert(name.to_string(), value.to_string());
             });
     }
 

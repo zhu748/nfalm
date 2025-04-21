@@ -62,7 +62,7 @@ impl AppState {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
-            "Logged in \nname: {}\nmail: {}\ncapabilities: {}",
+            "name: {}, email: {}\ncapabilities: {}",
             name.blue(),
             email.blue(),
             self.capabilities.join(", ").blue()
