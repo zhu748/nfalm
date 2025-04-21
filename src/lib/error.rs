@@ -133,10 +133,10 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         // blocked by cloudflare
         let http_error = HttpError {
             error: InnerHttpError {
-                message: json!("Blocked by Cloudflare"),
+                message: json!("Blocked by Cloudflare Impersonation"),
                 r#type: "error".to_string(),
             },
-            r#type: Some("error".into()),
+            r#type: None,
         };
         return Err(ClewdrError::OtherHttpError(status, http_error));
     }
@@ -148,7 +148,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
                     message: json!(err.to_string()),
                     r#type: "error".to_string(),
                 },
-                r#type: Some("error".into()),
+                r#type: None,
             };
             return Err(ClewdrError::OtherHttpError(status, http_error));
         }
@@ -159,7 +159,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
                 message: format!("Unknown error: {}", text).into(),
                 r#type: "error".to_string(),
             },
-            r#type: Some("error".into()),
+            r#type: None,
         };
         return Err(ClewdrError::OtherHttpError(status, http_error));
     };
