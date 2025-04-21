@@ -89,7 +89,11 @@ impl AppState {
                 // create the part and form
                 let part = Part::bytes(bytes).file_name(file_name);
                 let form = Form::new().part("file", part);
-                let endpoint = format!("https://claude.ai/api/{}/upload", self.org_uuid.as_ref()?);
+                let endpoint = format!(
+                    "{}/api/{}/upload",
+                    self.config.endpoint(),
+                    self.org_uuid.as_ref()?
+                );
                 Some(
                     // send the request into future
                     SUPER_CLIENT

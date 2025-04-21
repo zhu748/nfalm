@@ -12,7 +12,7 @@ use tracing::{error, info, warn};
 use crate::{Args, error::ClewdrError, utils::config_dir};
 
 pub const CONFIG_NAME: &str = "config.toml";
-pub const ENDPOINT: &str = "https://api.claude.ai";
+pub const ENDPOINT: &str = "https://claude.ai";
 const fn default_max_connections() -> usize {
     16
 }
