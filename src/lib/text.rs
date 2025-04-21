@@ -206,7 +206,7 @@ impl AppState {
             }
         }
         print_out_text(result.as_str(), "padding.txt");
-        result.push_str("\n\n");
+        result.push_str("\n\n\n\n------------------------------------------------------------\n");
         result
     }
 }
