@@ -1,5 +1,4 @@
 use colored::Colorize;
-use regex::Regex;
 use regex::RegexBuilder;
 use rquest::Response;
 use rquest::header::SET_COOKIE;
