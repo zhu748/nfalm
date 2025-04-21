@@ -2,6 +2,7 @@ use colored::Colorize;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
+use tokio::spawn;
 use tokio::sync::{Mutex, Notify};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -68,7 +69,6 @@ pub struct CookieManager {
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
     event_sender: CookieEventSender,
-    event_rx: Option<mpsc::Receiver<CookieEvent>>,
     event_queue: Arc<Mutex<BinaryHeap<CookieEvent>>>,
     event_notify: Arc<Notify>, // 添加一个通知器
     config: Config,
@@ -113,7 +113,7 @@ impl CookieEventSender {
 }
 
 impl CookieManager {
-    pub fn new(config: Config) -> (Self, CookieEventSender) {
+    pub fn start(config: Config) -> CookieEventSender {
         let mut config = config;
         config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
         let valid = VecDeque::from_iter(
@@ -148,15 +148,16 @@ impl CookieManager {
             exhausted: exhaust,
             invalid,
             event_sender: sender.clone(),
-            event_rx: Some(event_rx),
             event_queue,
             event_notify,
             config,
             dispatched,
             interval: 300,
         };
+        // 启动事件处理器
+        spawn(manager.run(event_rx));
 
-        (manager, sender)
+        sender
     }
 
     // 其他方法保持不变...
@@ -289,10 +290,9 @@ impl CookieManager {
         });
     }
 
-    fn spawn_event_enqueuer(&mut self) {
+    fn spawn_event_enqueuer(&self, mut event_rx: mpsc::Receiver<CookieEvent>) {
         let event_queue = self.event_queue.clone();
         let event_notify = self.event_notify.clone();
-        let mut event_rx = self.event_rx.take().expect("Should not be None");
 
         tokio::spawn(async move {
             while let Some(event) = event_rx.recv().await {
@@ -306,10 +306,9 @@ impl CookieManager {
         });
     }
 
-    pub async fn run(mut self) {
+    async fn run(mut self, event_rx: mpsc::Receiver<CookieEvent>) {
         // 启动事件接收器
-        self.spawn_event_enqueuer();
-
+        self.spawn_event_enqueuer(event_rx);
         // 启动超时检查协程
         let interval = tokio::time::interval(tokio::time::Duration::from_secs(self.interval));
         Self::spawn_timeout_checker(interval, self.event_sender.clone());

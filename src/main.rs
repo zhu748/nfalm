@@ -8,7 +8,6 @@ use clewdr::{
     utils::config_dir,
 };
 use colored::Colorize;
-use tokio::spawn;
 use tracing::warn;
 use tracing_subscriber::{
     Registry,
@@ -70,7 +69,7 @@ async fn main() -> Result<(), ClewdrError> {
     println!("{}", config);
 
     // initialize the application state
-    let (cm, tx) = CookieManager::new(config.clone());
+    let tx = CookieManager::start(config.clone());
     let state = AppState::new(config, tx);
     // build axum router
     // create a TCP listener
@@ -78,7 +77,6 @@ async fn main() -> Result<(), ClewdrError> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     let router = clewdr::router::RouterBuilder::new(state).build();
     // serve the application
-    spawn(cm.run());
     axum::serve(listener, router).await?;
     Ok(())
 }
