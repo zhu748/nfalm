@@ -1,7 +1,6 @@
 use clap::Parser;
 use clewdr::{
-    self, BANNER, config::Config, cookie::CookieManager, error::ClewdrError, state::AppState,
-    utils::config_dir,
+    self, config::{Config, CONFIG_NAME}, cookie::CookieManager, error::ClewdrError, state::AppState, utils::config_dir, BANNER
 };
 use colored::Colorize;
 use tokio::{spawn, sync::mpsc};
@@ -59,7 +58,7 @@ async fn main() -> Result<(), ClewdrError> {
     if let Ok(dir) = config_dir() {
         println!(
             "Config dir: {}",
-            dir.join("config.toml").display().to_string().blue()
+            dir.join(CONFIG_NAME).display().to_string().blue()
         );
     }
     println!("Listening on {}", addr.green());

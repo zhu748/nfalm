@@ -459,8 +459,8 @@ impl Config {
                 let mut default_config = Config::default();
                 let canonical_path = std::fs::canonicalize(config_dir)?;
                 println!(
-                    "Default config file created at {}/config.toml",
-                    canonical_path.display()
+                    "Default config file created at {}",
+                    canonical_path.join(CONFIG_NAME).display()
                 );
                 println!("{}", "SET YOUR COOKIE HERE".green());
                 default_config.load_from_arg_file();
