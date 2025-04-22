@@ -9,7 +9,7 @@ use rquest::header::{
 use tower_http::services::ServeDir;
 
 use crate::{
-    api::{api_completion, api_messages, api_submit, api_version},
+    api::{api_completion, api_messages, api_submit, api_version, api_get_cookies},
     state::ClientState,
 };
 
@@ -28,6 +28,7 @@ impl RouterBuilder {
             .route("/v1", options(api_options))
             .route("/v1/messages", post(api_messages))
             .route("/api/submit", post(api_submit))
+            .route("/api/get_cookies", get(api_get_cookies))
             .route("/api/version", get(api_version));
         let r = if state.config.enable_oai {
             r.route("/v1/chat/completions", post(api_completion))

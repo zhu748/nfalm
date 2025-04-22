@@ -9,6 +9,7 @@ use tokio::{
     time::{Instant, Interval},
 };
 use tracing::{error, info, warn};
+use serde::Serialize;
 
 use crate::{
     config::{Config, CookieStatus, Reason, UselessCookie},
@@ -17,17 +18,27 @@ use crate::{
 
 const INTERVAL: u64 = 300;
 
+#[derive(Debug, Serialize, Clone)]
+pub struct CookieStatusInfo {
+    pub valid: Vec<CookieStatus>,
+    pub dispatched: Vec<(CookieStatus, String)>,
+    pub exhausted: Vec<CookieStatus>,
+    pub invalid: Vec<UselessCookie>,
+}
+
 // 定义统一的事件枚举，内置优先级顺序
 #[derive(Debug)]
 pub enum CookieEvent {
-    // 返回Cookie (最高优先级)
+    // 返回Cookie
     Return(CookieStatus, Option<Reason>),
-    // 提交新的Cookie (次高优先级)
+    // 提交新的Cookie
     Submit(CookieStatus),
-    // 检查超时的Cookie (中等优先级)
+    // 检查超时的Cookie
     CheckTimeout,
-    // 请求获取Cookie (最低优先级)
+    // 请求获取Cookie
     Request(oneshot::Sender<Result<CookieStatus, ClewdrError>>),
+    // 获取全部Cookie
+    GetStatus(oneshot::Sender<CookieStatusInfo>)
 }
 
 // 为CookieEvent实现比较特性，用于优先级排序
@@ -58,8 +69,9 @@ impl CookieEvent {
         match self {
             CookieEvent::Return(_, _) => 0, // 最高优先级
             CookieEvent::Submit(_) => 1,
-            CookieEvent::CheckTimeout => 2,
-            CookieEvent::Request(_) => 3, // 最低优先级
+            CookieEvent::GetStatus(_) => 2,
+            CookieEvent::CheckTimeout => 3,
+            CookieEvent::Request(_) => 4, // 最低优先级
         }
     }
 }
@@ -104,6 +116,12 @@ impl CookieEventSender {
         cookie: CookieStatus,
     ) -> Result<(), mpsc::error::SendError<CookieEvent>> {
         self.sender.send(CookieEvent::Submit(cookie)).await
+    }
+
+    pub async fn get_status(&self) -> Result<CookieStatusInfo, ClewdrError> {
+        let (tx, rx) = oneshot::channel();
+        self.sender.send(CookieEvent::GetStatus(tx)).await?;
+        rx.await.map_err(Into::into)
     }
 
     // 用于内部超时检查
@@ -338,6 +356,21 @@ impl CookieManager {
                                 if let Ok(c) = e {
                                     self.valid.push_back(c);
                                 }
+                            }
+                        }
+                        CookieEvent::GetStatus(sender) => {
+                            let status_info = CookieStatusInfo {
+                                valid: self.valid.iter().cloned().collect(),
+                                dispatched: self.dispatched.iter()
+                                    .map(|(cookie, instant)| {
+                                        (cookie.clone(), format!("{:?}", instant.elapsed()))
+                                    })
+                                    .collect(),
+                                exhausted: self.exhausted.iter().cloned().collect(),
+                                invalid: self.invalid.iter().cloned().collect(),
+                            };
+                            if let Err(_) = sender.send(status_info) {
+                                error!("Failed to send cookie status info");
                             }
                         }
                     }

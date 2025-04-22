@@ -3,7 +3,7 @@ use axum_auth::AuthBearer;
 use rquest::StatusCode;
 use tracing::{error, info, warn};
 
-use crate::{VERSION_AUTHOR, config::CookieStatus, state::ClientState};
+use crate::{VERSION_AUTHOR, config::CookieStatus, state::ClientState, cookie_manager::CookieStatusInfo};
 
 pub async fn api_submit(
     State(s): State<ClientState>,
@@ -27,6 +27,28 @@ pub async fn api_submit(
         Err(e) => {
             error!("Failed to submit cookie: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
+pub async fn api_get_cookies(
+    State(s): State<ClientState>,
+    AuthBearer(t): AuthBearer,
+) -> Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)> {
+    if !s.config.auth(&t) {
+        return Err((StatusCode::UNAUTHORIZED, Json(serde_json::json!({
+            "error": "Unauthorized"
+        }))));
+    }
+    
+    match s.event_sender.get_status().await {
+        Ok(status) => {
+            Ok(Json(status))
+        },
+        Err(e) => {
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+                "error": format!("Failed to get cookie status: {}", e)
+            }))))
         }
     }
 }
