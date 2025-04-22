@@ -229,11 +229,7 @@ impl CookieManager {
                 self.exhausted.insert(cookie);
             }
             Reason::NonPro => {
-                warn!(
-                    "疑似爆米了, id: {}, cookie: {}",
-                    cookie.discord.unwrap_or_default().to_string().yellow(),
-                    cookie.cookie.to_string().red()
-                );
+                warn!("疑似爆米了, cookie: {}", cookie.cookie.to_string().red());
                 self.invalid
                     .insert(UselessCookie::new(cookie.cookie, reason));
             }

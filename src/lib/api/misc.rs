@@ -18,12 +18,6 @@ pub async fn api_submit(
         return StatusCode::BAD_REQUEST;
     }
     c.reset_time = None;
-    if let Some(t) = c.due {
-        if t < chrono::Utc::now().timestamp() {
-            warn!("Past payment due date: {}", c.cookie);
-            c.due = None;
-        }
-    }
     info!("Cookie accepted: {}", c.cookie);
     match s.event_sender.submit(c).await {
         Ok(_) => {
