@@ -1,14 +1,18 @@
 use axum::{Json, extract::State};
+use axum_auth::AuthBearer;
 use rquest::StatusCode;
 use tracing::{error, info, warn};
 
-use crate::{VERSION_AUTHOR, api::body::KeyAuth, config::CookieStatus, state::ClientState};
+use crate::{VERSION_AUTHOR, config::CookieStatus, state::ClientState};
 
 pub async fn api_submit(
     State(s): State<ClientState>,
-    KeyAuth(_): KeyAuth,
+    AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {
+    if !s.config.auth(&t) {
+        return StatusCode::UNAUTHORIZED;
+    }
     if !c.cookie.validate() {
         warn!("Invalid cookie: {}", c.cookie);
         return StatusCode::BAD_REQUEST;
