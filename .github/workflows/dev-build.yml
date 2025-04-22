@@ -269,34 +269,3 @@ jobs:
           name: clewdr-macos-${{ matrix.target }}
           path: clewdr-macos-${{ matrix.target }}.zip
           retention-days: 1
-
-  release:
-    name: Create Release
-    needs: [linux, android, musllinux, windows, macos]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: master # Ensure we get the latest master with RELEASE_NOTES.md
-          fetch-depth: 0 # Full history for consistency
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: List downloaded artifacts
-        run: ls -R artifacts
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/**/clewdr*.zip
-          name: ${{ github.ref_name }}
-          body_path: RELEASE_NOTES.md # Use release notes file
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
