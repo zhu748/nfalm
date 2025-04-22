@@ -25,34 +25,11 @@ const CookieSubmitForm = () => {
     setStatus({ type: "idle", message: "" });
 
     try {
-      const response = await postCookie(cookie);
-
-      if (response.ok) {
-        setStatus({
-          type: "success",
-          message: "Cookie submitted successfully!",
-        });
-        setCookie(""); // Clear the input on success
-      } else if (response.status === 400) {
-        setStatus({
-          type: "error",
-          message: "Invalid cookie format",
-        });
-      } else if (response.status === 401) {
-        setStatus({
-          type: "error",
-          message: "Authentication failed. Please set a valid auth token.",
-        });
-      } else {
-        setStatus({
-          type: "error",
-          message: `Server error (${response.status})`,
-        });
-      }
-    } catch {
+      await postCookie(cookie);
+    } catch (e) {
       setStatus({
         type: "error",
-        message: "Network error. Please check your connection.",
+        message: e instanceof Error ? e.message : "Unknown error",
       });
     } finally {
       setIsSubmitting(false);
