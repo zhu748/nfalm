@@ -13,8 +13,39 @@ permissions:
   contents: write
 
 jobs:
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          check-latest: true
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          pnpm install
+          pnpm run build
+
+      - name: Upload static directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-files
+          path: static/
+          retention-days: 1
+
   linux:
     name: Build Linux (GNU)
+    needs: build-frontend
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -56,10 +87,20 @@ jobs:
         env: ${{ matrix.custom_env }}
         run: cargo build --release --target ${{ matrix.target_triple }}
 
+      - name: Download static files
+        uses: actions/download-artifact@v4
+        with:
+          name: static-files
+          path: static
+
       - name: Move artifact to work dir and zip
         run: |
           mv target/${{ matrix.target_triple }}/release/clewdr .
-          zip -r clewdr-linux-${{ matrix.target }} clewdr
+          mkdir -p release-package
+          mv clewdr release-package/
+          cp -r static release-package/
+          cd release-package
+          zip -r ../clewdr-linux-${{ matrix.target }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -70,6 +111,7 @@ jobs:
 
   android:
     name: Build Android (NDK)
+    needs: build-frontend
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -110,11 +152,21 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
 
+      - name: Download static files
+        uses: actions/download-artifact@v4
+        with:
+          name: static-files
+          path: static
+
       - name: Move artifact to work dir and zip
         run: |
           mv target/${{ matrix.target_triple }}/release/clewdr .
           mv $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so .
-          zip -r clewdr-android-${{ matrix.target }} clewdr libc++_shared.so
+          mkdir -p release-package
+          mv clewdr libc++_shared.so release-package/
+          cp -r static release-package/
+          cd release-package
+          zip -r ../clewdr-android-${{ matrix.target }} .
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -127,6 +179,7 @@ jobs:
 
   musllinux:
     name: Build Linux (musl)
+    needs: build-frontend
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -179,10 +232,20 @@ jobs:
         env: ${{ matrix.custom_env }}
         run: cargo build --release --target ${{ matrix.target_triple }}
 
+      - name: Download static files
+        uses: actions/download-artifact@v4
+        with:
+          name: static-files
+          path: static
+
       - name: Move artifact to work dir and zip
         run: |
           mv target/${{ matrix.target_triple }}/release/clewdr .
-          zip -r clewdr-musllinux-${{ matrix.target }} clewdr
+          mkdir -p release-package
+          mv clewdr release-package/
+          cp -r static release-package/
+          cd release-package
+          zip -r ../clewdr-musllinux-${{ matrix.target }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -193,6 +256,7 @@ jobs:
 
   windows:
     name: Build Windows
+    needs: build-frontend
     runs-on: windows-latest
     strategy:
       matrix:
@@ -218,10 +282,18 @@ jobs:
           RUSTFLAGS: "-C target-feature=+crt-static"
         run: cargo build --release --target ${{ matrix.target_triple }}
 
+      - name: Download static files
+        uses: actions/download-artifact@v4
+        with:
+          name: static-files
+          path: static
+
       - name: Move artifact to work dir and zip
         run: |
-          mv target/${{ matrix.target_triple }}/release/clewdr.exe .
-          Compress-Archive -Path 'clewdr.exe' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
+          mkdir -p release-package
+          mv target/${{ matrix.target_triple }}/release/clewdr.exe release-package/
+          Copy-Item -Path "static" -Destination "release-package" -Recurse
+          Compress-Archive -Path 'release-package\*' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -232,6 +304,7 @@ jobs:
 
   macos:
     name: Build macOS
+    needs: build-frontend
     strategy:
       matrix:
         include:
@@ -258,10 +331,20 @@ jobs:
       - name: Build for ${{ matrix.target }}
         run: cargo build --release --target ${{ matrix.target_triple }}
 
+      - name: Download static files
+        uses: actions/download-artifact@v4
+        with:
+          name: static-files
+          path: static
+
       - name: Move artifact to work dir and zip
         run: |
           mv target/${{ matrix.target_triple }}/release/clewdr .
-          zip -r clewdr-macos-${{ matrix.target }} clewdr
+          mkdir -p release-package
+          mv clewdr release-package/
+          cp -r static release-package/
+          cd release-package
+          zip -r ../clewdr-macos-${{ matrix.target }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
