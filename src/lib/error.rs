@@ -8,9 +8,9 @@ use tokio::sync::{mpsc::error::SendError, oneshot};
 use tracing::{debug, error};
 
 use crate::{
+    api::body::non_stream_message,
     config::{CookieStatus, Reason},
     cookie_manager::CookieEvent,
-    messages::non_stream_message,
     types::message::{
         ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent,
         StreamEvent,

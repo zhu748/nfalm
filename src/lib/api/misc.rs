@@ -2,11 +2,11 @@ use axum::{Json, extract::State};
 use rquest::StatusCode;
 use tracing::{error, info, warn};
 
-use crate::{config::CookieStatus, messages::Auth, state::ClientState};
+use crate::{VERSION_AUTHOR, api::body::KeyAuth, config::CookieStatus, state::ClientState};
 
 pub async fn api_submit(
     State(s): State<ClientState>,
-    Auth(_): Auth,
+    KeyAuth(_): KeyAuth,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {
     if !c.cookie.validate() {
@@ -31,4 +31,8 @@ pub async fn api_submit(
             StatusCode::INTERNAL_SERVER_ERROR
         }
     }
+}
+
+pub async fn api_version() -> String {
+    VERSION_AUTHOR.to_string()
 }

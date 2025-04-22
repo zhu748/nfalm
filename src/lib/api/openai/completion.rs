@@ -15,14 +15,15 @@ use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
 use crate::{
+    api::body::ClientRequestBody,
     client::{SUPER_CLIENT, SetupRequest},
     error::{ClewdrError, check_res_err},
-    messages::ClientRequestBody,
-    openai::stream::{ClewdrTransformer, NonStreamEventData},
     state::ClientState,
     text::merge_sse,
     utils::{print_out_json, print_out_text},
 };
+
+use super::stream::{ClewdrTransformer, NonStreamEventData};
 
 /// Axum handler for the API messages
 pub async fn api_completion(

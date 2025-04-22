@@ -1,28 +1,24 @@
-use std::{fmt::Debug, mem, sync::LazyLock};
+use std::{mem, sync::LazyLock};
 
 use axum::{
     Json,
     body::Body,
-    extract::{FromRequestParts, State},
+    extract::State,
     response::{IntoResponse, Response},
 };
 use colored::Colorize;
 use eventsource_stream::Eventsource;
 use rquest::{StatusCode, header::ACCEPT};
 use scopeguard::defer;
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::json;
 use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    client::{SUPER_CLIENT, SetupRequest},
-    error::{ClewdrError, check_res_err},
-    state::ClientState,
-    text::merge_sse,
-    types::message::{ContentBlock, ImageSource, Message, Role},
-    utils::{print_out_json, print_out_text},
+    api::body::non_stream_message, client::{SetupRequest, SUPER_CLIENT}, error::{check_res_err, ClewdrError}, state::ClientState, text::merge_sse, types::message::{ContentBlock, Message, Role}, utils::{print_out_json, print_out_text}
 };
+
+use super::body::{ClientRequestBody, KeyAuth};
 
 /// Exact test message send by SillyTavern
 pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
@@ -34,99 +30,9 @@ pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
     )
 });
 
-/// Claude.ai attachment
-#[derive(Deserialize, Serialize, Debug)]
-pub struct Attachment {
-    extracted_content: String,
-    file_name: String,
-    file_type: String,
-    file_size: u64,
-}
-
-impl Attachment {
-    pub fn new(content: String) -> Self {
-        Attachment {
-            file_size: content.len() as u64,
-            extracted_content: content,
-            file_name: "paste.txt".to_string(),
-            file_type: "txt".to_string(),
-        }
-    }
-}
-
-/// Request body to be sent to the Claude.ai
-#[derive(Deserialize, Serialize, Debug)]
-pub struct RequestBody {
-    pub max_tokens_to_sample: u64,
-    pub attachments: Vec<Attachment>,
-    pub files: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    pub rendering_mode: String,
-    pub prompt: String,
-    pub timezone: String,
-    #[serde(skip)]
-    pub images: Vec<ImageSource>,
-}
-
-fn max_tokens() -> u64 {
-    4096
-}
-
-/// Request body sent from the client
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct ClientRequestBody {
-    #[serde(default = "max_tokens")]
-    pub max_tokens: u64,
-    pub messages: Vec<Message>,
-    #[serde(default)]
-    pub stop_sequences: Vec<String>,
-    pub model: String,
-    #[serde(default)]
-    pub stream: bool,
-    #[serde(default)]
-    pub thinking: Option<Thinking>,
-    #[serde(default)]
-    pub system: Value,
-    #[serde(default)]
-    pub temperature: f32,
-    #[serde(default)]
-    pub top_p: f32,
-    #[serde(default)]
-    pub top_k: u64,
-}
-
-/// Thinking mode in Claude API Request
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Thinking {
-    budget_tokens: u64,
-    r#type: String,
-}
-
-pub struct Auth(pub String);
-
-impl FromRequestParts<ClientState> for Auth {
-    type Rejection = StatusCode;
-    async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        state: &ClientState,
-    ) -> Result<Self, Self::Rejection> {
-        let key = parts
-            .headers
-            .get("x-api-key")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default();
-        if !state.config.auth(key) {
-            warn!("Invalid password: {}", key);
-            return Err(StatusCode::UNAUTHORIZED);
-        }
-        Ok(Auth(key.to_string()))
-    }
-}
-
 /// Axum handler for the API messages
 pub async fn api_messages(
-    Auth(_): Auth,
+    KeyAuth(_): KeyAuth,
     State(state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
@@ -304,9 +210,4 @@ impl ClientState {
         let input_stream = api_res.bytes_stream();
         Ok(Body::from_stream(input_stream).into_response())
     }
-}
-
-/// Transform a string to a message
-pub fn non_stream_message(str: String) -> Message {
-    Message::new_blocks(Role::Assistant, vec![ContentBlock::Text { text: str }])
 }

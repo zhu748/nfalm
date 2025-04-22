@@ -11,7 +11,7 @@ use tracing::error;
 use tracing::warn;
 
 use crate::{
-    messages::{Attachment, ClientRequestBody, RequestBody},
+    api::body::{Attachment, ClientRequestBody, RequestBody},
     state::ClientState,
     types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
     utils::{TIME_ZONE, print_out_text},

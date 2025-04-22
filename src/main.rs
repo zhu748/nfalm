@@ -58,14 +58,16 @@ async fn main() -> Result<(), ClewdrError> {
     }
 
     // print the address
-    let addr = format!("http://{}/v1", config.address());
+    let addr = format!("http://{}", config.address());
+    let api_addr = format!("{}/v1", addr);
     if let Ok(dir) = config_dir() {
         println!(
             "Config dir: {}",
             dir.join(CONFIG_NAME).display().to_string().blue()
         );
     }
-    println!("Listening on {}", addr.green());
+    println!("API address: {}", api_addr.green());
+    println!("Web address: {}", addr.green());
     println!("{}", config);
 
     // initialize the application state

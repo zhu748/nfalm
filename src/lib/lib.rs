@@ -1,34 +1,34 @@
 use std::sync::LazyLock;
 
 use clap::Parser;
+use const_format::formatc;
 use figlet_rs::FIGfont;
 
+pub mod api;
 pub mod bootstrap;
 pub mod client;
 pub mod config;
 pub mod cookie_manager;
 pub mod error;
-pub mod messages;
-pub mod openai;
 pub mod router;
 pub mod state;
-pub mod submit;
 pub mod text;
 pub mod types;
 pub mod update;
 pub mod utils;
+
+pub const VERSION_AUTHOR: &str = formatc!(
+    "v{} by {}",
+    env!("CARGO_PKG_VERSION"),
+    env!("CARGO_PKG_AUTHORS")
+);
 
 /// Header for the application
 pub static BANNER: LazyLock<String> = LazyLock::new(|| {
     let standard_font = FIGfont::standard().unwrap();
     let figure = standard_font.convert("ClewdR");
     let banner = figure.unwrap().to_string();
-    format!(
-        "{}\nv{} by {}\n",
-        banner,
-        env!("CARGO_PKG_VERSION"),
-        env!("CARGO_PKG_AUTHORS")
-    )
+    format!("{}\n{}", banner, VERSION_AUTHOR)
 });
 
 /// Command line arguments for the application
