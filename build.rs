@@ -8,12 +8,6 @@ fn main() {
     if env::var("CARGO_CFG_TARGET_OS").unwrap() == "android" {
         android();
     }
-    // cd frontend && pnpm run build
-    Command::new("pnpm")
-        .args(["run", "build"])
-        .current_dir("frontend")
-        .status()
-        .expect("Failed to run pnpm build");
 }
 
 fn android() {

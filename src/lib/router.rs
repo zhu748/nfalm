@@ -22,7 +22,7 @@ impl RouterBuilder {
     /// Create a new RouterBuilder instance
     pub fn new(state: ClientState) -> Self {
         // Serve static files from "static" directory
-        let static_service = ServeDir::new("frontend/dist");
+        let static_service = ServeDir::new("static");
 
         let r = Router::new()
             .route("/v1", options(api_options))
