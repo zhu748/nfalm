@@ -6,8 +6,8 @@ const CookieTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"submit" | "status">("submit");
 
   return (
-    <div>
-      <div className="flex mb-6 border-b border-gray-700">
+    <div className="w-full">
+      <div className="flex mb-6 border-b border-gray-700 w-full">
         <button
           onClick={() => setActiveTab("submit")}
           className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${

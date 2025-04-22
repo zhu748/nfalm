@@ -116,8 +116,8 @@ const CookieVisualization: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center mb-4">
+    <div className="space-y-6 w-full">
+      <div className="flex justify-between items-center mb-4 w-full">
         <div>
           <h3 className="text-lg font-semibold text-white">Cookie Status</h3>
           <p className="text-xs text-gray-400 mt-1">
@@ -168,9 +168,9 @@ const CookieVisualization: React.FC = () => {
       )}
 
       {cookieStatus && (
-        <div className="space-y-6">
+        <div className="space-y-6 w-full">
           {/* Valid Cookies */}
-          <div className="rounded-lg border border-green-600 bg-gray-800 overflow-hidden">
+          <div className="rounded-lg border border-green-600 bg-gray-800 overflow-hidden w-full">
             <div className="bg-green-900 px-4 py-2 flex justify-between items-center">
               <h4 className="font-medium text-green-100">Valid Cookies</h4>
               <span className="bg-green-700 text-green-100 text-xs px-2 py-1 rounded-full">
@@ -192,7 +192,7 @@ const CookieVisualization: React.FC = () => {
           </div>
 
           {/* Dispatched Cookies */}
-          <div className="rounded-lg border border-blue-600 bg-gray-800 overflow-hidden">
+          <div className="rounded-lg border border-blue-600 bg-gray-800 overflow-hidden w-full">
             <div className="bg-blue-900 px-4 py-2 flex justify-between items-center">
               <h4 className="font-medium text-blue-100">In-Use Cookies</h4>
               <span className="bg-blue-700 text-blue-100 text-xs px-2 py-1 rounded-full">
@@ -214,7 +214,7 @@ const CookieVisualization: React.FC = () => {
           </div>
 
           {/* Exhausted Cookies */}
-          <div className="rounded-lg border border-yellow-600 bg-gray-800 overflow-hidden">
+          <div className="rounded-lg border border-yellow-600 bg-gray-800 overflow-hidden w-full">
             <div className="bg-yellow-900 px-4 py-2 flex justify-between items-center">
               <h4 className="font-medium text-yellow-100">Exhausted Cookies</h4>
               <span className="bg-yellow-700 text-yellow-100 text-xs px-2 py-1 rounded-full">
@@ -240,7 +240,7 @@ const CookieVisualization: React.FC = () => {
           </div>
 
           {/* Invalid Cookies */}
-          <div className="rounded-lg border border-red-600 bg-gray-800 overflow-hidden">
+          <div className="rounded-lg border border-red-600 bg-gray-800 overflow-hidden w-full">
             <div className="bg-red-900 px-4 py-2 flex justify-between items-center">
               <h4 className="font-medium text-red-100">Invalid Cookies</h4>
               <span className="bg-red-700 text-red-100 text-xs px-2 py-1 rounded-full">

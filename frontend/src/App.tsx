@@ -50,7 +50,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      <div className="container mx-auto px-4 py-10">
+      <div className="w-full px-4 sm:px-6 md:px-8 py-10 mx-auto max-w-full sm:max-w-4xl lg:max-w-5xl xl:max-w-6xl">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
             ClewdR
@@ -60,7 +60,7 @@ function App() {
 
         {isAuthenticated ? (
           // Protected content - only shown when authenticated
-          <div className="max-w-md mx-auto rounded-xl shadow-xl p-6 border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+          <div className="w-full max-w-md sm:max-w-lg md:max-w-xl mx-auto rounded-xl shadow-xl p-6 border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
             <div className="flex mb-6 border-b border-gray-700">
               <button
                 onClick={() => setActiveTab("cookie")}
@@ -110,7 +110,7 @@ function App() {
           </div>
         ) : (
           // Auth gatekeeper - shown when not authenticated
-          <div className="max-w-md mx-auto rounded-xl shadow-xl overflow-hidden border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+          <div className="w-full max-w-md sm:max-w-lg md:max-w-xl mx-auto rounded-xl shadow-xl overflow-hidden border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
             <div className="p-6">
               <h2 className="text-xl font-semibold text-center mb-6">
                 Authentication Required
