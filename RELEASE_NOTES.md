@@ -1,7 +1,11 @@
-# v0.5.10
+# v0.6.0
+
+## New Features
+
+- Add a simple React frontend to show the current status of the server.
+- ClewdR will now change chat name when `preserve_chat` is `true` to distinguish between different chats.
 
 ## Improvements
 
-- Update README.md to include the new features and improvements.
-- Improve http error handling.
-- Print config directory when starting.
+- Completely change event model, now using single channel for all events.
+- Improve http error display.
