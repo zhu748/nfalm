@@ -1,8 +1,8 @@
 import "./App.css";
 import { getVersion } from "./api";
 import { useState, useEffect } from "react";
-import CookieSubmitForm from "./SubmitCookieForm";
 import AuthGatekeeper from "./AuthGatekeeper";
+import CookieTabs from "./CookieTabs";
 
 function App() {
   const [version, setVersion] = useState("");
@@ -85,7 +85,7 @@ function App() {
             </div>
 
             {activeTab === "cookie" ? (
-              <CookieSubmitForm />
+              <CookieTabs />
             ) : (
               <div className="bg-gray-700 p-6 rounded-lg">
                 <div className="flex items-center justify-between mb-4">

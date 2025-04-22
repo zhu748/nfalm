@@ -27,3 +27,29 @@ export async function postCookie(cookie: string) {
 
   return response;
 }
+
+/**
+ * Gets cookie status information from the server.
+ * @returns The cookie status data
+ *
+ * Possible Status Codes:
+ * - 200: Success with cookie status data
+ * - 401: Invalid bearer token
+ * - 500: Server error
+ */
+export async function getCookieStatus() {
+  const bearer = localStorage.getItem("authToken") || "";
+  const response = await fetch("/api/get_cookies", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearer}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error ${response.status}: ${response.statusText}`);
+  }
+
+  return await response.json();
+}
