@@ -16,9 +16,6 @@ export async function getVersion() {
  */
 export async function postCookie(cookie: string) {
   const bearer = localStorage.getItem("authToken") || "";
-  if (!bearer) {
-    throw new Error("Bearer token is missing");
-  }
   const response = await fetch("/api/submit", {
     method: "POST",
     headers: {

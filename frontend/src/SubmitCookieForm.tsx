@@ -41,7 +41,7 @@ const CookieSubmitForm = () => {
       } else if (response.status === 401) {
         setStatus({
           type: "error",
-          message: "Authentication failed. Please log in again.",
+          message: "Authentication failed. Please set a valid auth token.",
         });
       } else {
         setStatus({
