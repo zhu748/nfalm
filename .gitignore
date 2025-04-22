@@ -5,5 +5,4 @@ log/
 cookie.txt
 .DS_Store
 *.txt
-*.json
 static/
