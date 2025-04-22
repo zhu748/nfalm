@@ -41,11 +41,6 @@ impl ClientState {
             })
             .and_then(|m| m["organization"].as_object())
             .ok_or(ClewdrError::UnexpectedNone)?;
-        let name = boot_acc_info["name"]
-            .as_str()
-            .and_then(|n| n.split_once("@"))
-            .map(|(n, _)| n)
-            .unwrap_or_default();
         let email = bootstrap["account"]["email_address"]
             .as_str()
             .unwrap_or_default();
@@ -62,8 +57,7 @@ impl ClientState {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
-            "name: {}, email: {}\ncapabilities: {}",
-            name.blue(),
+            "email: {}\ncapabilities: {}",
             email.blue(),
             self.capabilities.join(", ").blue()
         );
