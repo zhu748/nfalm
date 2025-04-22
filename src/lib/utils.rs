@@ -16,6 +16,9 @@ pub fn config_dir() -> Result<PathBuf, ClewdrError> {
         .parent()
         .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
         .to_path_buf();
+    // cd to the exec dir
+    std::env::set_current_dir(&exec_dir)
+        .map_err(|_| ClewdrError::PathNotFound("exec dir".to_string()))?;
     Ok(exec_dir)
 }
 
