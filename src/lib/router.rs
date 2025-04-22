@@ -9,7 +9,7 @@ use rquest::header::{
 use tower_http::services::ServeDir;
 
 use crate::{
-    api::{ api_auth, api_completion, api_messages, api_submit, api_version, api_get_cookies},
+    api::{api_auth, api_completion, api_get_cookies, api_messages, api_submit, api_version},
     state::ClientState,
 };
 

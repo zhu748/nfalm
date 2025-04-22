@@ -1,4 +1,5 @@
 use colored::Colorize;
+use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -9,7 +10,6 @@ use tokio::{
     time::{Instant, Interval},
 };
 use tracing::{error, info, warn};
-use serde::Serialize;
 
 use crate::{
     config::{Config, CookieStatus, Reason, UselessCookie},
@@ -38,7 +38,7 @@ pub enum CookieEvent {
     // 请求获取Cookie
     Request(oneshot::Sender<Result<CookieStatus, ClewdrError>>),
     // 获取全部Cookie
-    GetStatus(oneshot::Sender<CookieStatusInfo>)
+    GetStatus(oneshot::Sender<CookieStatusInfo>),
 }
 
 // 为CookieEvent实现比较特性，用于优先级排序
@@ -361,7 +361,9 @@ impl CookieManager {
                         CookieEvent::GetStatus(sender) => {
                             let status_info = CookieStatusInfo {
                                 valid: self.valid.iter().cloned().collect(),
-                                dispatched: self.dispatched.iter()
+                                dispatched: self
+                                    .dispatched
+                                    .iter()
                                     .map(|(cookie, instant)| {
                                         (cookie.clone(), format!("{:?}", instant.elapsed()))
                                     })
@@ -369,9 +371,9 @@ impl CookieManager {
                                 exhausted: self.exhausted.iter().cloned().collect(),
                                 invalid: self.invalid.iter().cloned().collect(),
                             };
-                            if let Err(_) = sender.send(status_info) {
-                                error!("Failed to send cookie status info");
-                            }
+                            sender.send(status_info).unwrap_or_else(|_| {
+                                error!("Failed to send status info");
+                            });
                         }
                     }
                     self.log();
