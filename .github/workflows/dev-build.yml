@@ -91,7 +91,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: static-files
-          path: .
+          path: static
 
       - name: Move artifact to work dir and zip
         run: |
