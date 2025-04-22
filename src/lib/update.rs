@@ -160,8 +160,7 @@ impl Updater {
         let current_dir = config_dir()?;
         let static_path = current_dir.join("static");
         if static_path.exists() {
-            std::fs::remove_dir_all(&static_path)
-                .map_err(|e| ClewdrError::IoError(e))?;
+            std::fs::remove_dir_all(&static_path)?;
         }
         // copy new static assets
         copy_dir_all(&extract_static_path, &static_path)?;

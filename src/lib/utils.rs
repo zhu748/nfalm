@@ -39,13 +39,7 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), 
     fs::create_dir_all(dst)?;
     
     for entry in WalkDir::new(src).min_depth(1) {
-        let entry = entry.map_err(|e| {
-            if let Some(io_err) = e.io_error() {
-                ClewdrError::IoError(std::io::Error::new(io_err.kind(), io_err.to_string()))
-            } else {
-                ClewdrError::PathNotFound(format!("Walk error: {}", e))
-            }
-        })?;
+        let entry = entry?;
         
         let path = entry.path();
         let relative_path = path.strip_prefix(src)

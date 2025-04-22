@@ -65,6 +65,8 @@ pub enum ClewdrError {
     PathNotFound(String),
     #[error("Invalid timestamp: {0}")]
     TimestampError(i64),
+    #[error("Walk directory error: {0}")]
+    WalkDirError(#[from] walkdir::Error),
 }
 
 /// HTTP error response
