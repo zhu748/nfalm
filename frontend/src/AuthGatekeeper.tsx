@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from "react";
 
-const AuthTokenForm = () => {
+interface AuthGatekeeperProps {
+  onAuthenticated?: (status: boolean) => void;
+}
+
+const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
   const [authToken, setAuthToken] = useState("");
   const [status, setStatus] = useState({
     type: "idle",
     message: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
   const [savedToken, setSavedToken] = useState("");
 
-  // Check for existing token on component mount
+  // Check for existing token on component mount and validate it
   useEffect(() => {
     const storedToken = localStorage.getItem("authToken");
     if (storedToken) {
       // Only show first few and last few characters for security
       const maskedToken = maskToken(storedToken);
       setSavedToken(maskedToken);
+      validateToken(storedToken);
     }
   }, []);
 
@@ -25,7 +31,58 @@ const AuthTokenForm = () => {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const validateToken = async (token: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        setStatus({
+          type: "success",
+          message: "Authentication successful!",
+        });
+        // Call the onAuthenticated callback with true if it exists
+        if (onAuthenticated) {
+          onAuthenticated(true);
+        }
+      } else {
+        localStorage.removeItem("authToken");
+        setSavedToken("");
+        setStatus({
+          type: "error",
+          message: "Invalid token. Please try again.",
+        });
+        // Call the onAuthenticated callback with false if it exists
+        if (onAuthenticated) {
+          onAuthenticated(false);
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setStatus({
+        type: "error",
+        message: "Authentication failed: " + message,
+      });
+      // Call the onAuthenticated callback with false if it exists
+      if (onAuthenticated) {
+        onAuthenticated(false);
+      }
+    } finally {
+      setIsLoading(false);
+      // Clear status message after 3 seconds
+      setTimeout(() => {
+        setStatus({ type: "idle", message: "" });
+      }, 3000);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!authToken.trim()) {
@@ -37,20 +94,14 @@ const AuthTokenForm = () => {
     }
 
     try {
+      // Validate the token with API
+      await validateToken(authToken);
+
+      // Save token to localStorage (validateToken will handle authentication state)
       localStorage.setItem("authToken", authToken);
-      setStatus({
-        type: "success",
-        message: "Auth token saved successfully!",
-      });
       setSavedToken(maskToken(authToken));
-
-      // Clear the input on success
+      // Clear the input on completion
       setAuthToken("");
-
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setStatus({ type: "idle", message: "" });
-      }, 3000);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       setStatus({
@@ -67,6 +118,11 @@ const AuthTokenForm = () => {
       type: "success",
       message: "Auth token removed successfully!",
     });
+
+    // Call the onAuthenticated callback with false if it exists
+    if (onAuthenticated) {
+      onAuthenticated(false);
+    }
 
     // Clear success message after 3 seconds
     setTimeout(() => {
@@ -92,12 +148,14 @@ const AuthTokenForm = () => {
               onChange={(e) => setAuthToken(e.target.value)}
               placeholder="Enter your auth token..."
               className="w-full p-4 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-sm text-gray-200 shadow-sm transition-all duration-200 placeholder-gray-400"
+              disabled={isLoading}
             />
             {authToken && (
               <button
                 type="button"
                 className="absolute top-3 right-2 text-gray-400 hover:text-gray-200"
                 onClick={() => setAuthToken("")}
+                disabled={isLoading}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -117,12 +175,13 @@ const AuthTokenForm = () => {
           {savedToken && (
             <div className="flex items-center justify-between mt-2">
               <p className="text-xs text-gray-400">
-                Current token: <span className="font-mono">{savedToken}</span>
+                Previous token: <span className="font-mono">{savedToken}</span>
               </p>
               <button
                 type="button"
                 onClick={handleClearToken}
                 className="text-xs text-red-400 hover:text-red-300"
+                disabled={isLoading}
               >
                 Clear
               </button>
@@ -175,13 +234,44 @@ const AuthTokenForm = () => {
 
         <button
           type="submit"
-          className="w-full py-3 px-4 rounded-md text-white font-medium transition-all duration-200 bg-purple-600 hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 shadow-md hover:shadow-lg"
+          className={`w-full py-3 px-4 rounded-md text-white font-medium transition-all duration-200 ${
+            isLoading
+              ? "bg-purple-700 cursor-not-allowed"
+              : "bg-purple-600 hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 shadow-md hover:shadow-lg"
+          }`}
+          disabled={isLoading}
         >
-          Save Auth Token
+          {isLoading ? (
+            <div className="flex items-center justify-center">
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Verifying...
+            </div>
+          ) : (
+            "Authenticate"
+          )}
         </button>
       </form>
     </div>
   );
 };
 
-export default AuthTokenForm;
+export default AuthGatekeeper;

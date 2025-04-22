@@ -56,3 +56,11 @@ pub async fn api_get_cookies(
 pub async fn api_version() -> String {
     VERSION_AUTHOR.to_string()
 }
+
+pub async fn api_auth(State(s): State<ClientState>, AuthBearer(t): AuthBearer) -> StatusCode {
+    if !s.config.auth(&t) {
+        return StatusCode::UNAUTHORIZED;
+    }
+    info!("Auth token accepted,");
+    StatusCode::OK
+}

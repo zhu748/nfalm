@@ -7,7 +7,7 @@ use std::io::{BufReader, copy};
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::{config::Config, error::ClewdrError, Args, utils::config_dir, utils::copy_dir_all};
+use crate::{Args, config::Config, error::ClewdrError, utils::config_dir, utils::copy_dir_all};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
