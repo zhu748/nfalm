@@ -21,7 +21,7 @@ const INTERVAL: u64 = 300;
 #[derive(Debug, Serialize, Clone)]
 pub struct CookieStatusInfo {
     pub valid: Vec<CookieStatus>,
-    pub dispatched: Vec<(CookieStatus, String)>,
+    pub dispatched: Vec<(CookieStatus, u64)>,
     pub exhausted: Vec<CookieStatus>,
     pub invalid: Vec<UselessCookie>,
 }
@@ -121,7 +121,7 @@ impl CookieEventSender {
     pub async fn get_status(&self) -> Result<CookieStatusInfo, ClewdrError> {
         let (tx, rx) = oneshot::channel();
         self.sender.send(CookieEvent::GetStatus(tx)).await?;
-        rx.await.map_err(Into::into)
+        Ok(rx.await?)
     }
 
     // 用于内部超时检查
@@ -271,6 +271,19 @@ impl CookieManager {
         self.valid.push_back(cookie.clone());
     }
 
+    fn report(&self) -> CookieStatusInfo {
+        CookieStatusInfo {
+            valid: self.valid.iter().cloned().collect(),
+            dispatched: self
+                .dispatched
+                .iter()
+                .map(|(cookie, instant)| (cookie.clone(), instant.elapsed().as_secs()))
+                .collect(),
+            exhausted: self.exhausted.iter().cloned().collect(),
+            invalid: self.invalid.iter().cloned().collect(),
+        }
+    }
+
     fn check_timeout(&mut self) {
         // 处理超时的cookie
         let now = Instant::now();
@@ -351,26 +364,13 @@ impl CookieManager {
                         CookieEvent::Request(sender) => {
                             // 处理请求 (最低优先级)
                             let cookie = self.dispatch();
-                            if let Err(e) = sender.send(cookie) {
+                            if let Err(Ok(c)) = sender.send(cookie) {
                                 error!("Failed to send cookie");
-                                if let Ok(c) = e {
-                                    self.valid.push_back(c);
-                                }
+                                self.valid.push_back(c);
                             }
                         }
                         CookieEvent::GetStatus(sender) => {
-                            let status_info = CookieStatusInfo {
-                                valid: self.valid.iter().cloned().collect(),
-                                dispatched: self
-                                    .dispatched
-                                    .iter()
-                                    .map(|(cookie, instant)| {
-                                        (cookie.clone(), format!("{:?}", instant.elapsed()))
-                                    })
-                                    .collect(),
-                                exhausted: self.exhausted.iter().cloned().collect(),
-                                invalid: self.invalid.iter().cloned().collect(),
-                            };
+                            let status_info = self.report();
                             sender.send(status_info).unwrap_or_else(|_| {
                                 error!("Failed to send status info");
                             });
