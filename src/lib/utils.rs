@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use tracing::error;
 use std::fs;
+use walkdir::WalkDir;
 
 use crate::{config::CONFIG_NAME, error::ClewdrError};
 
@@ -37,16 +38,29 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), 
     
     fs::create_dir_all(dst)?;
     
-    for entry in fs::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
+    for entry in WalkDir::new(src).min_depth(1) {
+        let entry = entry.map_err(|e| {
+            if let Some(io_err) = e.io_error() {
+                ClewdrError::IoError(std::io::Error::new(io_err.kind(), io_err.to_string()))
+            } else {
+                ClewdrError::PathNotFound(format!("Walk error: {}", e))
+            }
+        })?;
         
-        if ty.is_dir() {
-            copy_dir_all(&src_path, &dst_path)?;
+        let path = entry.path();
+        let relative_path = path.strip_prefix(src)
+            .map_err(|_| ClewdrError::PathNotFound(format!("Failed to strip prefix from path: {}", path.display())))?;
+        let target_path = dst.join(relative_path);
+        
+        if path.is_dir() {
+            fs::create_dir_all(&target_path)?;
         } else {
-            fs::copy(&src_path, &dst_path)?;
+            if let Some(parent) = target_path.parent() {
+                if !parent.exists() {
+                    fs::create_dir_all(parent)?;
+                }
+            }
+            fs::copy(path, &target_path)?;
         }
     }
     
