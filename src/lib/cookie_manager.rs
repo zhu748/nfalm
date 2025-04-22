@@ -15,6 +15,8 @@ use crate::{
     error::ClewdrError,
 };
 
+const INTERVAL: u64 = 300;
+
 // 定义统一的事件枚举，内置优先级顺序
 #[derive(Debug)]
 pub enum CookieEvent {
@@ -68,11 +70,9 @@ pub struct CookieManager {
     dispatched: HashMap<CookieStatus, Instant>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
-    event_sender: CookieEventSender,
     event_queue: Arc<Mutex<BinaryHeap<CookieEvent>>>,
     event_notify: Arc<Notify>, // 添加一个通知器
     config: Config,
-    interval: u64,
 }
 
 // 提供给外部的发送者接口
@@ -113,8 +113,7 @@ impl CookieEventSender {
 }
 
 impl CookieManager {
-    pub fn start(config: Config) -> CookieEventSender {
-        let mut config = config;
+    pub fn start(mut config: Config) -> CookieEventSender {
         config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
         let valid = VecDeque::from_iter(
             config
@@ -147,15 +146,13 @@ impl CookieManager {
             valid,
             exhausted: exhaust,
             invalid,
-            event_sender: sender.clone(),
             event_queue,
             event_notify,
             config,
             dispatched,
-            interval: 300,
         };
         // 启动事件处理器
-        spawn(manager.run(event_rx));
+        spawn(manager.run(event_rx, sender.clone()));
 
         sender
     }
@@ -302,12 +299,12 @@ impl CookieManager {
         });
     }
 
-    async fn run(mut self, event_rx: mpsc::Receiver<CookieEvent>) {
+    async fn run(mut self, event_rx: mpsc::Receiver<CookieEvent>, event_sender: CookieEventSender) {
         // 启动事件接收器
         self.spawn_event_enqueuer(event_rx);
         // 启动超时检查协程
-        let interval = tokio::time::interval(tokio::time::Duration::from_secs(self.interval));
-        Self::spawn_timeout_checker(interval, self.event_sender.clone());
+        let interval = tokio::time::interval(tokio::time::Duration::from_secs(INTERVAL));
+        Self::spawn_timeout_checker(interval, event_sender);
 
         // 事件处理主循环
         loop {
