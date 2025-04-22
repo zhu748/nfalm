@@ -7,7 +7,7 @@ use std::io::{BufReader, copy};
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::{config::Config, error::ClewdrError, Args};
+use crate::{config::Config, error::ClewdrError, Args, utils::config_dir, utils::copy_dir_all};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -148,6 +148,24 @@ impl Updater {
                 binary_name
             )));
         }
+
+        let extract_static_path = extract_dir.join("static");
+        if !extract_static_path.exists() {
+            return Err(ClewdrError::AssetError(
+                "Static assets not found in the update package".to_string(),
+            ));
+        }
+
+        // delete old static assets
+        let current_dir = config_dir()?;
+        let static_path = current_dir.join("static");
+        if static_path.exists() {
+            std::fs::remove_dir_all(&static_path)
+                .map_err(|e| ClewdrError::IoError(e))?;
+        }
+        // copy new static assets
+        copy_dir_all(&extract_static_path, &static_path)?;
+        info!("Replace new static assets to {}", static_path.display());
 
         // Make the binary executable on Unix systems
         #[cfg(unix)]
