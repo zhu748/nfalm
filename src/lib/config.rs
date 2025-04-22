@@ -138,30 +138,6 @@ pub struct CookieStatus {
     #[serde(deserialize_with = "validate_reset")]
     #[serde(default)]
     pub reset_time: Option<i64>,
-    pub discord: Option<String>,
-    pub due: Option<i64>,
-}
-
-impl PartialOrd for CookieStatus {
-    /// small due > big due > none
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for CookieStatus {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.due.is_none() && other.due.is_none() {
-            return std::cmp::Ordering::Equal;
-        }
-        if self.due.is_none() {
-            return std::cmp::Ordering::Less;
-        }
-        if other.due.is_none() {
-            return std::cmp::Ordering::Greater;
-        }
-        other.due.cmp(&self.due)
-    }
 }
 
 impl PartialEq for CookieStatus {
@@ -212,17 +188,10 @@ where
 }
 
 impl CookieStatus {
-    pub fn new(
-        cookie: &str,
-        reset_time: Option<i64>,
-        discord: Option<String>,
-        due: Option<i64>,
-    ) -> Self {
+    pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
         Self {
             cookie: CookieInfo::from(cookie),
             reset_time,
-            discord,
-            due,
         }
     }
 
@@ -349,15 +318,7 @@ impl Default for Config {
             max_retries: default_max_retries(),
             check_update: true,
             auto_update: false,
-            cookie_array: vec![
-                CookieStatus::new(PLACEHOLDER_COOKIE, None, None, None),
-                CookieStatus::new(
-                    PLACEHOLDER_COOKIE,
-                    Some(114514000),
-                    Some("YJSNPI".to_string()),
-                    Some(114514000),
-                ),
-            ],
+            cookie_array: vec![],
             wasted_cookie: Vec::new(),
             password: String::new(),
             proxy: String::new(),
