@@ -15,7 +15,13 @@ use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    api::body::non_stream_message, client::{SetupRequest, SUPER_CLIENT}, error::{check_res_err, ClewdrError}, state::ClientState, text::merge_sse, types::message::{ContentBlock, Message, Role}, utils::{print_out_json, print_out_text}
+    api::body::non_stream_message,
+    client::{SUPER_CLIENT, SetupRequest},
+    error::{ClewdrError, check_res_err},
+    state::ClientState,
+    text::merge_sse,
+    types::message::{ContentBlock, Message, Role},
+    utils::{print_out_json, print_out_text},
 };
 
 use super::body::{ClientRequestBody, KeyAuth};
