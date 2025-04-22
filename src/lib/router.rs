@@ -29,7 +29,7 @@ impl RouterBuilder {
             .route("/v1/messages", post(api_messages))
             .route("/api/submit", post(api_submit))
             .route("/api/version", get(api_version))
-            .route("/api/auth", post(api_auth));
+            .route("/api/auth", get(api_auth));
         let r = if state.config.enable_oai {
             r.route("/v1/chat/completions", post(api_completion))
         } else {

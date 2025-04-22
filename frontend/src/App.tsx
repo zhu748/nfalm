@@ -2,16 +2,51 @@ import "./App.css";
 import { getVersion } from "./api";
 import { useState, useEffect } from "react";
 import CookieSubmitForm from "./SubmitCookieForm";
-import AuthTokenForm from "./AuthTokenForm";
+import AuthGatekeeper from "./AuthGatekeeper";
 
 function App() {
   const [version, setVersion] = useState("");
   const [activeTab, setActiveTab] = useState("token"); // "cookie" or "token"
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     // Fetch and set the version when component mounts
     getVersion().then((v) => setVersion(v));
+
+    // Check for authentication status
+    const checkAuth = async () => {
+      const storedToken = localStorage.getItem("authToken");
+      if (storedToken) {
+        try {
+          const response = await fetch("/api/auth", {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${storedToken}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (response.ok) {
+            setIsAuthenticated(true);
+          } else {
+            // Invalid token, clear it
+            localStorage.removeItem("authToken");
+            setIsAuthenticated(false);
+          }
+        } catch (error) {
+          console.error("Authentication check failed:", error);
+          setIsAuthenticated(false);
+        }
+      }
+    };
+
+    checkAuth();
   }, []);
+
+  // Function to handle successful authentication
+  const handleAuthenticated = (status: boolean) => {
+    setIsAuthenticated(status);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -23,32 +58,70 @@ function App() {
           <h2 className="text-sm font-mono text-gray-400">{version}</h2>
         </header>
 
-        <div className="max-w-md mx-auto rounded-xl shadow-xl p-6 border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
-          <div className="flex mb-6 border-b border-gray-700">
-            <button
-              onClick={() => setActiveTab("cookie")}
-              className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${
-                activeTab === "cookie"
-                  ? "text-cyan-400 border-b-2 border-cyan-400"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Cookie
-            </button>
-            <button
-              onClick={() => setActiveTab("token")}
-              className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${
-                activeTab === "token"
-                  ? "text-purple-400 border-b-2 border-purple-400"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Auth Token
-            </button>
-          </div>
+        {isAuthenticated ? (
+          // Protected content - only shown when authenticated
+          <div className="max-w-md mx-auto rounded-xl shadow-xl p-6 border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+            <div className="flex mb-6 border-b border-gray-700">
+              <button
+                onClick={() => setActiveTab("cookie")}
+                className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${
+                  activeTab === "cookie"
+                    ? "text-cyan-400 border-b-2 border-cyan-400"
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+              >
+                Cookie
+              </button>
+              <button
+                onClick={() => setActiveTab("token")}
+                className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${
+                  activeTab === "token"
+                    ? "text-purple-400 border-b-2 border-purple-400"
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+              >
+                Account
+              </button>
+            </div>
 
-          {activeTab === "cookie" ? <CookieSubmitForm /> : <AuthTokenForm />}
-        </div>
+            {activeTab === "cookie" ? (
+              <CookieSubmitForm />
+            ) : (
+              <div className="bg-gray-700 p-6 rounded-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-white">
+                    Account Settings
+                  </h3>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem("authToken");
+                      setIsAuthenticated(false);
+                    }}
+                    className="py-2 px-4 bg-red-600 hover:bg-red-500 text-white rounded-md text-sm font-medium transition-colors duration-200"
+                  >
+                    Logout
+                  </button>
+                </div>
+                <p className="text-gray-300 text-sm mb-4">
+                  You are currently logged in and have access to all features.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Auth gatekeeper - shown when not authenticated
+          <div className="max-w-md mx-auto rounded-xl shadow-xl overflow-hidden border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-center mb-6">
+                Authentication Required
+              </h2>
+              <p className="text-gray-400 text-sm mb-6 text-center">
+                Please log in with your auth token to access ClewdR features.
+              </p>
+              <AuthGatekeeper onAuthenticated={handleAuthenticated} />
+            </div>
+          </div>
+        )}
 
         <footer className="mt-12 text-center text-gray-500 text-sm">
           <p>© {new Date().getFullYear()} ClewdR - All rights reserved</p>
