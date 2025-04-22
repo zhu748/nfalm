@@ -9,7 +9,7 @@ use std::{
 use tiktoken_rs::o200k_base;
 use tracing::{error, info, warn};
 
-use crate::{Args, error::ClewdrError, utils::config_dir};
+use crate::{error::ClewdrError, utils::config_dir};
 
 pub const CONFIG_NAME: &str = "config.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
@@ -138,30 +138,6 @@ pub struct CookieStatus {
     #[serde(deserialize_with = "validate_reset")]
     #[serde(default)]
     pub reset_time: Option<i64>,
-    pub discord: Option<String>,
-    pub due: Option<i64>,
-}
-
-impl PartialOrd for CookieStatus {
-    /// small due > big due > none
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for CookieStatus {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.due.is_none() && other.due.is_none() {
-            return std::cmp::Ordering::Equal;
-        }
-        if self.due.is_none() {
-            return std::cmp::Ordering::Less;
-        }
-        if other.due.is_none() {
-            return std::cmp::Ordering::Greater;
-        }
-        other.due.cmp(&self.due)
-    }
 }
 
 impl PartialEq for CookieStatus {
@@ -212,17 +188,10 @@ where
 }
 
 impl CookieStatus {
-    pub fn new(
-        cookie: &str,
-        reset_time: Option<i64>,
-        discord: Option<String>,
-        due: Option<i64>,
-    ) -> Self {
+    pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
         Self {
             cookie: CookieInfo::from(cookie),
             reset_time,
-            discord,
-            due,
         }
     }
 
@@ -349,15 +318,7 @@ impl Default for Config {
             max_retries: default_max_retries(),
             check_update: true,
             auto_update: false,
-            cookie_array: vec![
-                CookieStatus::new(PLACEHOLDER_COOKIE, None, None, None),
-                CookieStatus::new(
-                    PLACEHOLDER_COOKIE,
-                    Some(114514000),
-                    Some("YJSNPI".to_string()),
-                    Some(114514000),
-                ),
-            ],
+            cookie_array: vec![],
             wasted_cookie: Vec::new(),
             password: String::new(),
             proxy: String::new(),
@@ -438,7 +399,6 @@ impl Config {
             Ok(file_string) => {
                 // parse the config file
                 let mut config: Config = toml::de::from_str(&file_string)?;
-                config.load_from_arg_file();
                 config.load_padtxt();
                 config = config.validate();
                 config.save()?;
@@ -457,7 +417,6 @@ impl Config {
                     canonical_path.join(CONFIG_NAME).display()
                 );
                 println!("{}", "SET YOUR COOKIE HERE".green());
-                default_config.load_from_arg_file();
                 default_config = default_config.validate();
                 default_config.save()?;
                 Ok(default_config)
@@ -562,46 +521,5 @@ impl Config {
         };
         self.rquest_proxy = proxy;
         self
-    }
-
-    /// Load cookies from command line arguments
-    fn load_from_arg_file(&mut self) {
-        let args: Args = clap::Parser::parse();
-        let file = args.cookie_file;
-        let Some(file) = file else {
-            return;
-        };
-        let Ok(file_string) = std::fs::read_to_string(file) else {
-            return;
-        };
-        // one line per cookie
-        let mut new_array = file_string
-            .lines()
-            .filter_map(|line| {
-                let c = CookieInfo::from(line);
-                if !c.validate() {
-                    warn!("Invalid cookie format: {}", line);
-                    return None;
-                }
-                if self.cookie_array.iter().any(|x| x.cookie == c) {
-                    warn!("Duplicate cookie: {}", line);
-                    return None;
-                }
-                if self.wasted_cookie.iter().any(|x| x.cookie == c) {
-                    warn!("Wasted cookie: {}", line);
-                    return None;
-                }
-                Some(CookieStatus {
-                    cookie: c,
-                    reset_time: None,
-                    discord: None,
-                    due: None,
-                })
-            })
-            .collect::<Vec<_>>();
-        // remove duplicates
-        new_array.sort_unstable_by(|a, b| a.cookie.cmp(&b.cookie));
-        new_array.dedup_by(|a, b| a.cookie == b.cookie);
-        self.cookie_array.extend(new_array);
     }
 }

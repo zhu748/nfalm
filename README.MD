@@ -4,6 +4,7 @@ Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in R
 
 ## Advantages
 
+- **React Frontend**: ClewdR uses a tiny React frontend for simple configuration. Clewd uses a HTML frontend, which is not very user-friendly.
 - **Concurrent**: ClewdR implies a event-driven architecture, which means it can handle multiple requests at the same time. Clewd only handles one request at a time. This is a huge advantage when you are using it as a reverse proxy for SillyTavern.
 - **Configurable Proxy**: You can use your own HTTP/HTTPS/SOCKS5 proxy. ClewdR will use the proxy you set in `config.toml` to send requests to Claude. Clewd doesn't support this feature and needs TUN to work with proxy.
 - **No Node.js**: ~~Although I'm sure all of you playing SillyTavern have it installed~~
@@ -21,8 +22,3 @@ Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in R
 3. A default config file `config.toml` will be generated in the same directory as the binary.
 4. Edit `config.toml` to set your own config. Replace the placeholder cookie.
 5. Fill proxy setting in SillyTavern as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill the password.
-
-## Advanced usage
-
-- Store cookies you want to add in a txt file, one cookie per line. Pass the file path as first argument to `clewdr` or `clewdr.exe`. ClewdR will read the file save the cookies in `cookie_array`. E.g. `clewdr.exe cookie.txt` or `clewdr cookie.txt`. In desktop mode, you can simply drag and drop the file to the `clewdr` or `clewdr.exe` icon. The file path will be passed as the first argument.
-- ClewdR will automatically sanitize cookies, cleaning up non-standard chars. But you need to ensure there are no extra numbers, letters, `_`, `=` or `-` in the cookie.

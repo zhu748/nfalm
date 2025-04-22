@@ -4,12 +4,12 @@ use rquest::{Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{convert::Infallible, fmt::Display};
-use tokio::sync::{mpsc::error::SendError, oneshot};
+use tokio::sync::oneshot;
 use tracing::{debug, error};
 
 use crate::{
     api::body::non_stream_message,
-    config::{CookieStatus, Reason},
+    config::Reason,
     cookie_manager::CookieEvent,
     types::message::{
         ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent,
@@ -37,14 +37,10 @@ pub enum ClewdrError {
     UrlParseError(#[from] url::ParseError),
     #[error("Tokio oneshot recv error: {0}")]
     CookieDispatchError(#[from] oneshot::error::RecvError),
-    #[error("Tokio mpsc send error: {0}")]
-    CookieReqError(#[from] SendError<oneshot::Sender<Result<CookieStatus, ClewdrError>>>),
     #[error("No cookie available")]
     NoCookieAvailable,
     #[error("Invalid Cookie, reason: {0}")]
     InvalidCookie(Reason),
-    #[error("Json error: {0}")]
-    JsonError(#[from] serde_json::Error),
     #[error("TOML Deserialize error: {0}")]
     TomlDeError(#[from] toml::de::Error),
     #[error("TOML Serialize error: {0}")]
