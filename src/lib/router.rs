@@ -28,6 +28,7 @@ impl RouterBuilder {
             .route("/v1", options(api_options))
             .route("/v1/messages", post(api_messages))
             .route("/api/submit", post(api_submit))
+            .route("/api/version", get(api_version))
             .route("/api/get_cookies", get(api_get_cookies))
             .route("/api/auth", get(api_auth));
         let r = if state.config.enable_oai {
