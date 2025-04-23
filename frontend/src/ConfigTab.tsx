@@ -37,10 +37,11 @@ interface ConfigData {
 
 const ConfigTab = () => {
   const [config, setConfig] = useState<ConfigData | null>(null);
+  const [originalPassword, setOriginalPassword] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
+  
   // Fetch config on component mount
   useEffect(() => {
     fetchConfig();
@@ -55,7 +56,7 @@ const ConfigTab = () => {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          "Authorization": `Bearer ${token}`
         },
       });
 
@@ -65,12 +66,10 @@ const ConfigTab = () => {
 
       const data = await response.json();
       setConfig(data);
+      // Store the original password for comparison later
+      setOriginalPassword(data.password || "");
     } catch (err) {
-      setError(
-        `Error fetching configuration: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
+      setError(`Error fetching configuration: ${err instanceof Error ? err.message : String(err)}`);
       console.error("Config fetch error:", err);
     } finally {
       setLoading(false);
@@ -79,7 +78,7 @@ const ConfigTab = () => {
 
   const saveConfig = async () => {
     if (!config) return;
-
+    
     setSaving(true);
     setError("");
     try {
@@ -88,7 +87,7 @@ const ConfigTab = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(config),
       });
@@ -98,12 +97,24 @@ const ConfigTab = () => {
       }
 
       toast.success("Configuration saved successfully");
+      
+      // Check if password was changed
+      if (config.password !== originalPassword) {
+        // Show toast notification
+        toast.success("Password changed. You will be redirected to login page.", {
+          duration: 3000,
+          icon: '🔐',
+        });
+        
+        // Wait 3 seconds before logging out to allow user to see the toast
+        setTimeout(() => {
+          localStorage.removeItem("authToken");
+          // Redirect with a query parameter to indicate password change
+          window.location.href = '/?passwordChanged=true';
+        }, 3000);
+      }
     } catch (err) {
-      setError(
-        `Error saving configuration: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
+      setError(`Error saving configuration: ${err instanceof Error ? err.message : String(err)}`);
       console.error("Config save error:", err);
       toast.error("Failed to save configuration");
     } finally {
@@ -111,15 +122,11 @@ const ConfigTab = () => {
     }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     if (!config) return;
-
+    
     const { name, value, type } = e.target;
-
+    
     // Handle checkboxes
     if (type === "checkbox") {
       const checked = (e.target as HTMLInputElement).checked;
@@ -129,7 +136,7 @@ const ConfigTab = () => {
       });
       return;
     }
-
+    
     // Handle numbers
     if (type === "number") {
       setConfig({
@@ -138,21 +145,16 @@ const ConfigTab = () => {
       });
       return;
     }
-
+    
     // Handle empty strings for nullable fields
-    if (
-      ["proxy", "rproxy", "custom_h", "custom_a", "padtxt_file"].includes(
-        name
-      ) &&
-      value === ""
-    ) {
+    if (["proxy", "rproxy", "custom_h", "custom_a", "padtxt_file"].includes(name) && value === "") {
       setConfig({
         ...config,
         [name]: null,
       });
       return;
     }
-
+    
     // Handle regular text inputs
     setConfig({
       ...config,
@@ -172,7 +174,7 @@ const ConfigTab = () => {
     return (
       <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-4">
         <p className="text-red-200">{error}</p>
-        <button
+        <button 
           onClick={fetchConfig}
           className="mt-2 py-1 px-3 bg-red-500 hover:bg-red-400 text-white rounded-md text-sm transition-colors duration-200"
         >
@@ -210,18 +212,12 @@ const ConfigTab = () => {
       <div className="space-y-6">
         {/* Server Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">
-            Server Settings
-          </h4>
-          <p className="text-xs text-gray-400 mb-3">
-            These settings require a restart to take effect.
-          </p>
-
+          <h4 className="text-md font-medium text-cyan-300 mb-3">Server Settings</h4>
+          <p className="text-xs text-gray-400 mb-3">These settings require a restart to take effect.</p>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                IP Address
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">IP Address</label>
               <input
                 type="text"
                 name="ip"
@@ -230,11 +226,9 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Port
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Port</label>
               <input
                 type="number"
                 name="port"
@@ -244,7 +238,7 @@ const ConfigTab = () => {
               />
             </div>
           </div>
-
+          
           <div className="mt-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -254,19 +248,15 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">
-                Enable OpenAI compatibility
-              </span>
+              <span className="text-sm text-gray-300">Enable OpenAI compatibility</span>
             </label>
           </div>
         </div>
-
+        
         {/* App Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">
-            App Settings
-          </h4>
-
+          <h4 className="text-md font-medium text-cyan-300 mb-3">App Settings</h4>
+          
           <div className="space-y-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -278,7 +268,7 @@ const ConfigTab = () => {
               />
               <span className="text-sm text-gray-300">Check for updates</span>
             </label>
-
+            
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -291,18 +281,14 @@ const ConfigTab = () => {
             </label>
           </div>
         </div>
-
+        
         {/* Network Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">
-            Network Settings
-          </h4>
-
+          <h4 className="text-md font-medium text-cyan-300 mb-3">Network Settings</h4>
+          
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
               <input
                 type="password"
                 name="password"
@@ -311,11 +297,9 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Proxy (optional)
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Proxy (optional)</label>
               <input
                 type="text"
                 name="proxy"
@@ -325,11 +309,9 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Reverse Proxy (optional)
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Reverse Proxy (optional)</label>
               <input
                 type="text"
                 name="rproxy"
@@ -341,18 +323,14 @@ const ConfigTab = () => {
             </div>
           </div>
         </div>
-
+        
         {/* API Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">
-            API Settings
-          </h4>
-
+          <h4 className="text-md font-medium text-cyan-300 mb-3">API Settings</h4>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Max Retries
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Max Retries</label>
               <input
                 type="number"
                 name="max_retries"
@@ -362,7 +340,7 @@ const ConfigTab = () => {
               />
             </div>
           </div>
-
+          
           <div className="space-y-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -374,7 +352,7 @@ const ConfigTab = () => {
               />
               <span className="text-sm text-gray-300">Pass Parameters</span>
             </label>
-
+            
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -387,13 +365,11 @@ const ConfigTab = () => {
             </label>
           </div>
         </div>
-
+        
         {/* Cookie Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">
-            Cookie Settings
-          </h4>
-
+          <h4 className="text-md font-medium text-cyan-300 mb-3">Cookie Settings</h4>
+          
           <div className="space-y-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -405,7 +381,7 @@ const ConfigTab = () => {
               />
               <span className="text-sm text-gray-300">Skip Warning</span>
             </label>
-
+            
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -416,7 +392,7 @@ const ConfigTab = () => {
               />
               <span className="text-sm text-gray-300">Skip Restricted</span>
             </label>
-
+            
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -429,13 +405,11 @@ const ConfigTab = () => {
             </label>
           </div>
         </div>
-
+        
         {/* Prompt Configurations Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">
-            Prompt Configurations
-          </h4>
-
+          <h4 className="text-md font-medium text-cyan-300 mb-3">Prompt Configurations</h4>
+          
           <div className="space-y-4">
             <label className="flex items-center space-x-2 cursor-pointer mb-3">
               <input
@@ -447,11 +421,9 @@ const ConfigTab = () => {
               />
               <span className="text-sm text-gray-300">Use Real Roles</span>
             </label>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Custom Human (optional)
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Custom Human (optional)</label>
               <input
                 type="text"
                 name="custom_h"
@@ -460,11 +432,9 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Custom Assistant (optional)
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Custom Assistant (optional)</label>
               <input
                 type="text"
                 name="custom_a"
@@ -473,11 +443,9 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Custom Prompt
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Custom Prompt</label>
               <textarea
                 name="custom_prompt"
                 value={config.custom_prompt}
@@ -486,11 +454,9 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Pad Text File (optional)
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Pad Text File (optional)</label>
               <input
                 type="text"
                 name="padtxt_file"
@@ -499,11 +465,9 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Pad Text Length
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Pad Text Length</label>
               <input
                 type="number"
                 name="padtxt_len"

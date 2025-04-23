@@ -10,10 +10,19 @@ function App() {
   const [version, setVersion] = useState("");
   const [activeTab, setActiveTab] = useState("cookie"); // "cookie", "config", or "token"
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
   useEffect(() => {
     // Fetch and set the version when component mounts
     getVersion().then((v) => setVersion(v));
+    
+    // Check if redirected due to password change
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('passwordChanged') === 'true') {
+      setPasswordChanged(true);
+      // Clean up the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     // Check for authentication status
     const checkAuth = async () => {
@@ -128,6 +137,13 @@ function App() {
               <h2 className="text-xl font-semibold text-center mb-6">
                 Authentication Required
               </h2>
+              {passwordChanged && (
+                <div className="bg-blue-900/40 border border-blue-700 rounded-lg p-4 mb-4">
+                  <p className="text-blue-200 text-sm">
+                    <span className="font-bold">Note:</span> You have been logged out because your password was changed. Please log in with your new credentials.
+                  </p>
+                </div>
+              )}
               <p className="text-gray-400 text-sm mb-6 text-center">
                 Please log in with your auth token to access ClewdR features.
               </p>
