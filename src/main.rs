@@ -1,7 +1,7 @@
 use clap::Parser;
 use clewdr::{
     self, BANNER,
-    config::{CONFIG_NAME, Config},
+    config::{CONFIG_NAME, ClewdrConfig},
     cookie_manager::CookieManager,
     error::ClewdrError,
     state::ClientState,
@@ -50,9 +50,9 @@ async fn main() -> Result<(), ClewdrError> {
 
     println!("{}", *BANNER);
     // load config from file
-    let config = Config::load()?;
+    let config = ClewdrConfig::load()?;
 
-    let updater = clewdr::update::Updater::new(config.clone())?;
+    let updater = clewdr::update::ClewdrUpdater::new(config.clone())?;
     if let Err(e) = updater.check_for_updates().await {
         warn!("Update check failed: {}", e);
     }

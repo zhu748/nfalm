@@ -62,3 +62,4 @@ tiktoken-rs = "0.6"
 passwords = "3"
 tower-http = { version = "0.6", features = ["fs", "trace"] }
 walkdir = "2"
+config = "0.15"

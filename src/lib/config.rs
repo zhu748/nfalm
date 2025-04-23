@@ -20,7 +20,7 @@ const fn default_max_retries() -> usize {
 
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config {
+pub struct ClewdrConfig {
     // App settings
     #[serde(default)]
     pub check_update: bool,
@@ -311,7 +311,7 @@ fn generate_password(length: usize) -> String {
     pg.generate_one().unwrap()
 }
 
-impl Default for Config {
+impl Default for ClewdrConfig {
     fn default() -> Self {
         Self {
             enable_oai: false,
@@ -342,7 +342,7 @@ impl Default for Config {
     }
 }
 
-impl Display for Config {
+impl Display for ClewdrConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // one line per field
         write!(
@@ -373,7 +373,7 @@ impl Display for Config {
     }
 }
 
-impl Config {
+impl ClewdrConfig {
     pub fn auth(&self, key: &str) -> bool {
         key == self.password
     }
@@ -398,7 +398,7 @@ impl Config {
         match file_string {
             Ok(file_string) => {
                 // parse the config file
-                let mut config: Config = toml::de::from_str(&file_string)?;
+                let mut config: ClewdrConfig = toml::de::from_str(&file_string)?;
                 config.load_padtxt();
                 config = config.validate();
                 config.save()?;
@@ -410,7 +410,7 @@ impl Config {
                 let config_dir = exec_path.parent().ok_or(ClewdrError::PathNotFound(
                     "Failed to get parent directory".to_string(),
                 ))?;
-                let mut default_config = Config::default();
+                let mut default_config = ClewdrConfig::default();
                 let canonical_path = std::fs::canonicalize(config_dir)?;
                 println!(
                     "Default config file created at {}",

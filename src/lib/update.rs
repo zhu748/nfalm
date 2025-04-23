@@ -7,7 +7,7 @@ use std::io::{BufReader, copy};
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::{Args, config::Config, error::ClewdrError, utils::config_dir, utils::copy_dir_all};
+use crate::{Args, config::ClewdrConfig, error::ClewdrError, utils::config_dir, utils::copy_dir_all};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -21,16 +21,16 @@ struct GitHubAsset {
     browser_download_url: String,
 }
 
-pub struct Updater {
-    config: Config,
+pub struct ClewdrUpdater {
+    config: ClewdrConfig,
     client: Client,
     user_agent: String,
     repo_owner: &'static str,
     repo_name: &'static str,
 }
 
-impl Updater {
-    pub fn new(config: Config) -> Result<Self, ClewdrError> {
+impl ClewdrUpdater {
+    pub fn new(config: ClewdrConfig) -> Result<Self, ClewdrError> {
         let authors = option_env!("CARGO_PKG_AUTHORS").unwrap_or_default();
         let repo_owner = authors.split(':').next().unwrap_or("Xerxes-2");
         let repo_name = env!("CARGO_PKG_NAME");
