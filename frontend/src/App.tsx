@@ -3,10 +3,12 @@ import { getVersion } from "./api";
 import { useState, useEffect } from "react";
 import AuthGatekeeper from "./AuthGatekeeper";
 import CookieTabs from "./CookieTabs";
+import ConfigTab from "./ConfigTab";
+import ToastProvider from "./ToastProvider";
 
 function App() {
   const [version, setVersion] = useState("");
-  const [activeTab, setActiveTab] = useState("cookie"); // "cookie" or "token"
+  const [activeTab, setActiveTab] = useState("cookie"); // "cookie", "config", or "token"
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -50,6 +52,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+      <ToastProvider />
       <div className="w-full px-4 sm:px-6 md:px-8 py-10 mx-auto max-w-full sm:max-w-4xl lg:max-w-5xl xl:max-w-6xl">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
@@ -73,6 +76,16 @@ function App() {
                 Cookie
               </button>
               <button
+                onClick={() => setActiveTab("config")}
+                className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${
+                  activeTab === "config"
+                    ? "text-green-400 border-b-2 border-green-400"
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+              >
+                Config
+              </button>
+              <button
                 onClick={() => setActiveTab("token")}
                 className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${
                   activeTab === "token"
@@ -86,6 +99,8 @@ function App() {
 
             {activeTab === "cookie" ? (
               <CookieTabs />
+            ) : activeTab === "config" ? (
+              <ConfigTab />
             ) : (
               <div className="bg-gray-700 p-6 rounded-lg">
                 <div className="flex items-center justify-between mb-4">
