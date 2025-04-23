@@ -28,10 +28,10 @@ pub async fn api_get_config(
         )
     })?;
     // remove cookie_array and wasted_cookie
-    config_json.as_object_mut().map(|obj| {
+    if let Some(obj) = config_json.as_object_mut() {
         obj.remove("cookie_array");
         obj.remove("wasted_cookie");
-    });
+    }
 
     Ok(Json(config_json))
 }
