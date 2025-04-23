@@ -1,6 +1,5 @@
-# v0.7.1
+# v0.7.2
 
-## Bug fixes
+## Feature
 
-- Fix directory initialization.
-- Fix config merge strategy.
+- Add back `--file` argument load cookies from a file
