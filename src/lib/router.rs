@@ -1,7 +1,7 @@
 use axum::{
     Router,
     http::HeaderMap,
-    routing::{get, options, post},
+    routing::{get, options, post, delete},
 };
 use rquest::header::{
     ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
@@ -9,7 +9,7 @@ use rquest::header::{
 use tower_http::services::ServeDir;
 
 use crate::{
-    api::{api_auth, api_completion, api_get_cookies, api_messages, api_submit, api_version},
+    api::{api_auth, api_completion, api_get_cookies, api_messages, api_submit, api_delete_cookie, api_version},
     state::ClientState,
 };
 
@@ -28,6 +28,7 @@ impl RouterBuilder {
             .route("/v1", options(api_options))
             .route("/v1/messages", post(api_messages))
             .route("/api/submit", post(api_submit))
+            .route("/api/delete_cookie/{cookie}", delete(api_delete_cookie))
             .route("/api/version", get(api_version))
             .route("/api/get_cookies", get(api_get_cookies))
             .route("/api/auth", get(api_auth));

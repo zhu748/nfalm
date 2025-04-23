@@ -1,4 +1,4 @@
-use axum::{Json, extract::State};
+use axum::{extract::{Path, State}, Json};
 use axum_auth::AuthBearer;
 use rquest::StatusCode;
 use tracing::{error, info, warn};
@@ -54,6 +54,40 @@ pub async fn api_get_cookies(
                 "error": format!("Failed to get cookie status: {}", e)
             })),
         )),
+    }
+}
+
+pub async fn api_delete_cookie(
+    State(s): State<ClientState>,
+    AuthBearer(t): AuthBearer,
+    Path(cookie_string): axum::extract::Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
+    if !s.config.auth(&t) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Unauthorized"
+            })),
+        ));
+    }
+
+    // Convert string to CookieStatus
+    let cookie = CookieStatus::new(&cookie_string, None);
+
+    match s.event_sender.delete_cookie(cookie).await {
+        Ok(_) => {
+            info!("Cookie deleted successfully: {}", cookie_string);
+            Ok(StatusCode::NO_CONTENT)
+        },
+        Err(e) => {
+            error!("Failed to delete cookie: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to delete cookie: {}", e)
+                })),
+            ))
+        },
     }
 }
 
