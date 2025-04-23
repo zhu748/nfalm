@@ -36,12 +36,15 @@ const fn default_use_real_roles() -> bool {
 const fn default_padtxt_len() -> usize {
     4000
 }
+const fn default_check_update() -> bool {
+    true
+}
 
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClewdrConfig {
     // App settings
-    #[serde(default)]
+    #[serde(default = "default_check_update")]
     pub check_update: bool,
     #[serde(default)]
     pub auto_update: bool,
@@ -56,9 +59,9 @@ pub struct ClewdrConfig {
     #[serde(default)]
     password: String,
     #[serde(default)]
-    pub proxy: String,
+    pub proxy: Option<String>,
     #[serde(default)]
-    pub rproxy: String,
+    pub rproxy: Option<String>,
     #[serde(default = "default_ip")]
     ip: String,
     #[serde(default = "default_port")]
@@ -92,7 +95,7 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub custom_prompt: String,
     #[serde(default)]
-    pub padtxt_file: String,
+    pub padtxt_file: Option<String>,
     #[serde(default = "default_padtxt_len")]
     pub padtxt_len: usize,
 
@@ -318,19 +321,19 @@ impl Default for ClewdrConfig {
         Self {
             enable_oai: false,
             max_retries: default_max_retries(),
-            check_update: true,
+            check_update: default_check_update(),
             auto_update: false,
             cookie_array: vec![],
             wasted_cookie: Vec::new(),
             password: String::new(),
-            proxy: String::new(),
-            ip: "127.0.0.1".to_string(),
-            port: 8484,
-            rproxy: String::new(),
-            use_real_roles: true,
+            proxy: None,
+            ip: default_ip(),
+            port: default_port(),
+            rproxy: None,
+            use_real_roles: default_use_real_roles(),
             custom_prompt: String::new(),
-            padtxt_file: String::new(),
-            padtxt_len: 4000,
+            padtxt_file: None,
+            padtxt_len: default_padtxt_len(),
             custom_h: None,
             custom_a: None,
             rquest_proxy: None,
@@ -354,8 +357,8 @@ impl Display for ClewdrConfig {
             Reverse Proxy: {}\n\
             Available Cookies in array: {}\n",
             self.password.yellow(),
-            self.proxy.to_string().blue(),
-            self.rproxy.to_string().blue(),
+            self.proxy.clone().unwrap_or_default().blue(),
+            self.rproxy.clone().unwrap_or_default().blue(),
             self.cookie_array
                 .iter()
                 .filter(|x| x.reset_time.is_none())
@@ -392,7 +395,10 @@ impl ClewdrConfig {
     }
 
     fn load_padtxt(&mut self) {
-        let padtxt = &self.padtxt_file.trim();
+        let Some(padtxt) = &self.padtxt_file else {
+            return;
+        };
+        let padtxt = padtxt.trim();
         if padtxt.is_empty() {
             return;
         }
@@ -424,11 +430,10 @@ impl ClewdrConfig {
 
     /// API endpoint of server
     pub fn endpoint(&self) -> String {
-        if self.rproxy.is_empty() {
-            ENDPOINT.to_string()
-        } else {
-            self.rproxy.clone()
+        if let Some(ref proxy) = self.rproxy {
+            return proxy.clone();
         }
+        return ENDPOINT.to_string();
     }
 
     /// address of proxy
@@ -457,17 +462,15 @@ impl ClewdrConfig {
             .collect();
         self.cookie_array.dedup();
         self.ip = self.ip.trim().to_string();
-        self.rproxy = self.rproxy.trim().to_string();
-        self.proxy = self.proxy.trim().to_string();
-        let proxy = if self.proxy.is_empty() {
-            None
-        } else {
-            Proxy::all(self.proxy.clone())
+        self.rproxy = self.rproxy.map(|x| x.trim().to_string());
+        self.proxy = self.proxy.map(|x| x.trim().to_string());
+        let proxy = self.proxy.as_ref().and_then(|p| {
+            Proxy::all(p)
                 .inspect_err(|e| {
                     error!("Failed to parse proxy: {}", e);
                 })
                 .ok()
-        };
+        });
         self.rquest_proxy = proxy;
         self.load_padtxt();
         self
