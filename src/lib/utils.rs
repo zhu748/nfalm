@@ -14,26 +14,34 @@ pub const STATIC_DIR: &str = "static";
 
 /// Get directory of the config file
 fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
-    #[cfg(debug_assertions)]
-    {
-        // In debug mode, use the current working directory
-        // to find the config file
-        return Ok(std::env::current_dir()?);
+    let dir = {
+        #[cfg(debug_assertions)]
+        {
+            // In debug mode, use the current working directory
+            // to find the config file
+            std::env::current_dir()?
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            // In release mode, use the directory of the executable
+            // to find the config file
+            let exec_path = std::env::current_exe()?;
+            let exec_dir = exec_path
+                .parent()
+                .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
+                .canonicalize()?
+                .to_path_buf();
+            // cd to the exec dir
+            std::env::set_current_dir(&exec_dir)?;
+            exec_dir
+        }
+    };
+    // create log dir
+    let log_dir = dir.join(LOG_DIR);
+    if !log_dir.exists() {
+        fs::create_dir_all(&log_dir)?;
     }
-    #[cfg(not(debug_assertions))]
-    {
-        // In release mode, use the directory of the executable
-        // to find the config file
-        let exec_path = std::env::current_exe()?;
-        let exec_dir = exec_path
-            .parent()
-            .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
-            .canonicalize()?
-            .to_path_buf();
-        // cd to the exec dir
-        std::env::set_current_dir(&exec_dir)?;
-        Ok(exec_dir)
-    }
+    Ok(dir)
 }
 
 /// Recursively copies all files and subdirectories from `src` to `dst`

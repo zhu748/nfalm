@@ -21,6 +21,8 @@ async fn main() -> Result<(), ClewdrError> {
     enable_ansi_support::enable_ansi_support()?;
     // parse command line arguments
     clewdr::Args::parse();
+    // setup dir
+    let _ = CLEWDR_DIR;
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
