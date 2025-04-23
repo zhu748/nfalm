@@ -1,12 +1,19 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::sync::LazyLock;
 use tracing::error;
 use walkdir::WalkDir;
 
 use crate::error::ClewdrError;
 
+pub static CLEWDR_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| set_clewdr_dir().expect("Failed to get dir"));
+pub const LOG_DIR: &str = "log";
+pub const STATIC_DIR: &str = "static";
+
 /// Get directory of the config file
-pub fn config_dir() -> Result<PathBuf, ClewdrError> {
+fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
     #[cfg(debug_assertions)]
     {
         // In debug mode, use the current working directory
@@ -78,17 +85,7 @@ pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
 
 /// Helper function to print out text
 pub fn print_out_text(text: &str, file_name: &str) {
-    let Ok(dir) = config_dir() else {
-        error!("No config found in cwd or exec dir");
-        return;
-    };
-    let log_dir = dir.join("log");
-    if !log_dir.exists() {
-        if let Err(e) = std::fs::create_dir_all(&log_dir) {
-            error!("Failed to create log dir: {}\n", e);
-            return;
-        }
-    }
+    let Ok(log_dir) = PathBuf::from_str(LOG_DIR);
     let file_name = log_dir.join(file_name);
     let Ok(mut file) = std::fs::File::options()
         .write(true)

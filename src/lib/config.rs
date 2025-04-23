@@ -5,11 +5,13 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
+    path::PathBuf,
+    str::FromStr,
 };
 use tiktoken_rs::o200k_base;
 use tracing::{error, info, warn};
 
-use crate::{error::ClewdrError, utils::config_dir};
+use crate::error::ClewdrError;
 
 pub const CONFIG_NAME: &str = "config.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
@@ -426,16 +428,11 @@ impl ClewdrConfig {
     }
 
     fn load_padtxt(&mut self) {
-        let padtxt = &self.padtxt_file;
-        if padtxt.trim().is_empty() {
+        let padtxt = &self.padtxt_file.trim();
+        if padtxt.is_empty() {
             return;
         }
-
-        let Ok(dir) = config_dir() else {
-            error!("No config found in cwd or exec dir");
-            return;
-        };
-        let padtxt_path = dir.join(padtxt);
+        let Ok(padtxt_path) = PathBuf::from_str(padtxt);
         if !padtxt_path.exists() {
             error!("Pad txt file not found: {}", padtxt_path.display());
             return;
@@ -477,27 +474,8 @@ impl ClewdrConfig {
 
     /// Save the configuration to a file
     pub fn save(&self) -> Result<(), ClewdrError> {
-        // try find existing config file
-        let existing = config_dir();
-        if let Ok(existing) = existing {
-            let config_path = existing.join(CONFIG_NAME);
-            // overwrite the file if it exists
-            std::fs::write(config_path, toml::ser::to_string_pretty(self)?)?;
-            return Ok(());
-        }
-        // try to create a new config file in exec path or pwd
-        let exec_path = std::env::current_exe()?;
-        let config_dir = exec_path.parent().ok_or(ClewdrError::PathNotFound(
-            "Failed to get parent directory".to_string(),
-        ))?;
-        // create the config directory if it doesn't exist
-        if !config_dir.exists() {
-            std::fs::create_dir_all(config_dir)?;
-        }
-        // Save the config to a file
-        let config_path = config_dir.join(CONFIG_NAME);
-        let config_string = toml::ser::to_string_pretty(self)?;
-        std::fs::write(config_path, config_string)?;
+        let Ok(config_path) = PathBuf::from_str(CONFIG_NAME);
+        std::fs::write(config_path, toml::ser::to_string_pretty(self)?)?;
         Ok(())
     }
 
