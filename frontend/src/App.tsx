@@ -80,7 +80,7 @@ function App() {
                     : "text-gray-400 hover:text-gray-300"
                 }`}
               >
-                Account
+                Auth
               </button>
             </div>
 
@@ -90,7 +90,7 @@ function App() {
               <div className="bg-gray-700 p-6 rounded-lg">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium text-white">
-                    Account Settings
+                    Log Out
                   </h3>
                   <button
                     onClick={() => {

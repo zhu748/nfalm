@@ -33,6 +33,10 @@ const CookieVisualization: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  // State to track which cookies are expanded
+  const [expandedCookies, setExpandedCookies] = useState<
+    Record<string, boolean>
+  >({});
 
   const fetchCookieStatus = async () => {
     setLoading(true);
@@ -116,10 +120,109 @@ const CookieVisualization: React.FC = () => {
     return "Unknown";
   };
 
-  const formatCookieValue = (cookie: string): string => {
-    if (!cookie) return "";
-    // Return the full cookie value
-    return cookie;
+  // Generate a unique ID for each cookie to track expanded state
+  const getCookieId = (cookie: string, type: string, index: number): string => {
+    return `${type}-${index}-${cookie.substring(0, 8)}`;
+  };
+
+  // Toggle expanded state for a cookie
+  const toggleExpand = (cookieId: string) => {
+    setExpandedCookies((prev) => ({
+      ...prev,
+      [cookieId]: !prev[cookieId],
+    }));
+  };
+
+  // Copy content to clipboard
+  const copyToClipboard = (text: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent toggling expansion when clicking copy button
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        // Optional: Show a brief tooltip or notification that text was copied
+        console.log("Copied to clipboard");
+      })
+      .catch((err) => {
+        console.error("Failed to copy: ", err);
+      });
+  };
+
+  // Format cookie for display with option to collapse and copy
+  const formatCookieValue = (
+    cookie: string,
+    cookieId: string
+  ): React.JSX.Element => {
+    if (!cookie) return <></>;
+    // remove sessionKey=
+    cookie = cookie.replace(/sessionKey=sk-ant-sid01-/, "");
+    const isExpanded = expandedCookies[cookieId] || false;
+    const displayText = isExpanded
+      ? cookie
+      : `${cookie.substring(0, 30)}${cookie.length > 30 ? "..." : ""}`;
+
+    return (
+      <div className="flex flex-wrap items-center">
+        <div
+          className="flex items-center cursor-pointer flex-1 mr-2 min-w-0"
+          onClick={() => toggleExpand(cookieId)}
+        >
+          <code
+            className={`font-mono ${
+              isExpanded ? "break-all" : "truncate"
+            } w-full`}
+          >
+            {displayText}
+          </code>
+          <span className="ml-2 text-gray-500 flex-shrink-0">
+            {cookie.length > 30 && (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                {isExpanded ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 15l7-7 7 7"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                )}
+              </svg>
+            )}
+          </span>
+        </div>
+        <button
+          onClick={(e) => copyToClipboard(cookie, e)}
+          className="p-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300 focus:outline-none flex-shrink-0"
+          title="Copy to clipboard"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-3 w-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+            />
+          </svg>
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -233,17 +336,19 @@ const CookieVisualization: React.FC = () => {
             </div>
             {cookieStatus?.valid?.length > 0 ? (
               <div className="p-4 divide-y divide-gray-700">
-                {cookieStatus.valid.map((status, index) => (
-                  <div
-                    key={index}
-                    className="py-2 text-sm text-gray-300 flex justify-between"
-                  >
-                    <code className="font-mono text-green-300">
-                      {formatCookieValue(status.cookie)}
-                    </code>
-                    <span className="text-gray-400">Available</span>
-                  </div>
-                ))}
+                {cookieStatus.valid.map((status, index) => {
+                  const cookieId = getCookieId(status.cookie, "valid", index);
+                  return (
+                    <div
+                      key={index}
+                      className="py-2 text-sm text-gray-300 flex flex-wrap justify-between items-start"
+                    >
+                      <div className="text-green-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
+                        {formatCookieValue(status.cookie, cookieId)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="p-4 text-sm text-gray-400 italic">
@@ -262,19 +367,26 @@ const CookieVisualization: React.FC = () => {
             </div>
             {cookieStatus?.dispatched?.length > 0 ? (
               <div className="p-4 divide-y divide-gray-700">
-                {cookieStatus.dispatched.map(([status, time], index) => (
-                  <div
-                    key={index}
-                    className="py-2 flex justify-between text-sm"
-                  >
-                    <code className="font-mono text-blue-300">
-                      {formatCookieValue(status.cookie)}
-                    </code>
-                    <span className="text-gray-400">
-                      Used for {formatTimeElapsed(time)}
-                    </span>
-                  </div>
-                ))}
+                {cookieStatus.dispatched.map(([status, time], index) => {
+                  const cookieId = getCookieId(
+                    status.cookie,
+                    "dispatched",
+                    index
+                  );
+                  return (
+                    <div
+                      key={index}
+                      className="py-2 flex flex-wrap justify-between text-sm items-start"
+                    >
+                      <div className="text-blue-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
+                        {formatCookieValue(status.cookie, cookieId)}
+                      </div>
+                      <span className="text-gray-400 shrink-0 ml-2">
+                        Used for {formatTimeElapsed(time)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="p-4 text-sm text-gray-400 italic">
@@ -293,21 +405,28 @@ const CookieVisualization: React.FC = () => {
             </div>
             {cookieStatus?.exhausted?.length > 0 ? (
               <div className="p-4 divide-y divide-gray-700">
-                {cookieStatus.exhausted.map((status, index) => (
-                  <div
-                    key={index}
-                    className="py-2 flex justify-between text-sm"
-                  >
-                    <code className="font-mono text-yellow-300">
-                      {formatCookieValue(status.cookie)}
-                    </code>
-                    <span className="text-gray-400">
-                      {status.reset_time
-                        ? `Resets at ${formatTimestamp(status.reset_time)}`
-                        : "Unknown reset time"}
-                    </span>
-                  </div>
-                ))}
+                {cookieStatus.exhausted.map((status, index) => {
+                  const cookieId = getCookieId(
+                    status.cookie,
+                    "exhausted",
+                    index
+                  );
+                  return (
+                    <div
+                      key={index}
+                      className="py-2 flex flex-wrap justify-between text-sm items-start"
+                    >
+                      <div className="text-yellow-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
+                        {formatCookieValue(status.cookie, cookieId)}
+                      </div>
+                      <span className="text-gray-400 shrink-0 ml-2">
+                        {status.reset_time
+                          ? `Resets at ${formatTimestamp(status.reset_time)}`
+                          : "Unknown reset time"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="p-4 text-sm text-gray-400 italic">
@@ -326,19 +445,22 @@ const CookieVisualization: React.FC = () => {
             </div>
             {cookieStatus?.invalid?.length > 0 ? (
               <div className="p-4 divide-y divide-gray-700">
-                {cookieStatus.invalid.map((status, index) => (
-                  <div
-                    key={index}
-                    className="py-2 flex justify-between text-sm"
-                  >
-                    <code className="font-mono text-red-300">
-                      {formatCookieValue(status.cookie)}
-                    </code>
-                    <span className="text-gray-400">
-                      {getReasonText(status.reason)}
-                    </span>
-                  </div>
-                ))}
+                {cookieStatus.invalid.map((status, index) => {
+                  const cookieId = getCookieId(status.cookie, "invalid", index);
+                  return (
+                    <div
+                      key={index}
+                      className="py-2 flex flex-wrap justify-between text-sm items-start"
+                    >
+                      <div className="text-red-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
+                        {formatCookieValue(status.cookie, cookieId)}
+                      </div>
+                      <span className="text-gray-400 shrink-0 ml-2">
+                        {getReasonText(status.reason)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="p-4 text-sm text-gray-400 italic">
