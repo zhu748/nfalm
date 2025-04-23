@@ -4,7 +4,7 @@ use tracing::warn;
 
 use crate::{
     client::{SUPER_CLIENT, SetupRequest},
-    config::Reason,
+    config::{CLEWDR_CONFIG, Reason},
     error::{ClewdrError, check_res_err},
     state::ClientState,
     utils::print_out_json,
@@ -15,11 +15,10 @@ impl ClientState {
     /// This function will send a request to the server to get the bootstrap data
     /// It will also check if the cookie is valid
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
-        let proxy = self.config.rquest_proxy.clone();
-        let end_point = format!("{}/api/bootstrap", self.config.endpoint());
+        let end_point = format!("{}/api/bootstrap", self.endpoint);
         let res = SUPER_CLIENT
             .get(end_point)
-            .setup_request("", self.header_cookie(), proxy.clone())
+            .setup_request("", self.header_cookie(), self.proxy.clone())
             .send()
             .await?;
         self.update_cookie_from_res(&res);
@@ -53,7 +52,7 @@ impl ClientState {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        if !self.is_pro() && self.config.skip_non_pro {
+        if !self.is_pro() && CLEWDR_CONFIG.load().skip_non_pro {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
@@ -63,11 +62,10 @@ impl ClientState {
         );
 
         // Bootstrap complete
-        let end_point = self.config.endpoint();
-        let end_point = format!("{}/api/organizations", end_point);
+        let end_point = format!("{}/api/organizations", self.endpoint);
         let res = SUPER_CLIENT
             .get(end_point)
-            .setup_request("", self.header_cookie(), proxy)
+            .setup_request("", self.header_cookie(), self.proxy.clone())
             .send()
             .await?;
         self.update_cookie_from_res(&res);
@@ -166,11 +164,12 @@ impl ClientState {
             .filter_map(|f| f["type"].as_str())
             .any(|flag_type| {
                 // skip flags ending with warning
-                let warning_match = self.config.skip_warning && flag_type.ends_with("warning");
+                let warning_match =
+                    CLEWDR_CONFIG.load().skip_warning && flag_type.ends_with("warning");
 
                 //  skip flags containing restricted
                 let restricted_match =
-                    self.config.skip_restricted && flag_type.contains("restricted");
+                    CLEWDR_CONFIG.load().skip_restricted && flag_type.contains("restricted");
 
                 warning_match || restricted_match
             });
@@ -178,10 +177,10 @@ impl ClientState {
         println!("{}", "Your account is restricted.".red());
 
         if should_skip && restrict_until > 0 {
-            if self.config.skip_warning {
+            if CLEWDR_CONFIG.load().skip_warning {
                 warn!("skip_warning is enabled, skipping...");
             }
-            if self.config.skip_restricted {
+            if CLEWDR_CONFIG.load().skip_restricted {
                 warn!("skip_restricted is enabled, skipping...");
             }
             return Err(ClewdrError::InvalidCookie(Reason::Restricted(

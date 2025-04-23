@@ -1,5 +1,6 @@
 use colored::Colorize;
 use regex::RegexBuilder;
+use rquest::Proxy;
 use rquest::Response;
 use rquest::header::SET_COOKIE;
 use serde_json::json;
@@ -7,11 +8,10 @@ use tracing::debug;
 use tracing::error;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::client::SUPER_CLIENT;
 use crate::client::SetupRequest;
-use crate::config::ClewdrConfig;
+use crate::config::CLEWDR_CONFIG;
 use crate::config::CookieStatus;
 use crate::config::Reason;
 use crate::cookie_manager::CookieEventSender;
@@ -21,25 +21,27 @@ use crate::error::ClewdrError;
 #[derive(Clone)]
 pub struct ClientState {
     pub cookie: Option<CookieStatus>,
-    pub config: Arc<ClewdrConfig>,
     pub event_sender: CookieEventSender,
     pub org_uuid: Option<String>,
     pub conv_uuid: Option<String>,
     cookies: HashMap<String, String>,
     pub capabilities: Vec<String>,
+    pub endpoint: String,
+    pub proxy: Option<Proxy>,
 }
 
 impl ClientState {
     /// Create a new AppState instance
-    pub fn new(config: ClewdrConfig, event_sender: CookieEventSender) -> Self {
+    pub fn new(event_sender: CookieEventSender) -> Self {
         ClientState {
-            config: Arc::new(config),
             event_sender,
             cookie: None,
             org_uuid: None,
             conv_uuid: None,
             cookies: HashMap::new(),
             capabilities: Vec::new(),
+            endpoint: CLEWDR_CONFIG.load().endpoint(),
+            proxy: CLEWDR_CONFIG.load().rquest_proxy.clone(),
         }
     }
 
@@ -100,6 +102,9 @@ impl ClientState {
         let res = self.event_sender.request().await?;
         self.cookie = Some(res.clone());
         self.update_cookies(res.cookie.to_string().as_str());
+        // load newest config
+        self.proxy = CLEWDR_CONFIG.load().rquest_proxy.clone();
+        self.endpoint = CLEWDR_CONFIG.load().endpoint();
         println!("Cookie: {}", res.cookie.to_string().green());
         Ok(())
     }
@@ -126,21 +131,18 @@ impl ClientState {
             return Ok(());
         };
         // if preserve_chats is true, do not delete chat, just rename it
-        if self.config.preserve_chats {
+        if CLEWDR_CONFIG.load().preserve_chats {
             debug!("Renaming chat: {}", conv_uuid);
             let endpoint = format!(
                 "{}/api/organizations/{}/chat_conversations/{}",
-                self.config.endpoint(),
-                org_uuid,
-                conv_uuid
+                self.endpoint, org_uuid, conv_uuid
             );
             let pld = json!({
                 "name": format!("ClewdR-{}-{}", org_uuid, conv_uuid),
             });
-            let proxy = self.config.rquest_proxy.clone();
             let _ = SUPER_CLIENT
                 .put(endpoint)
-                .setup_request(conv_uuid, self.header_cookie(), proxy)
+                .setup_request(conv_uuid, self.header_cookie(), self.proxy.clone())
                 .json(&pld)
                 .send()
                 .await?;
@@ -149,14 +151,11 @@ impl ClientState {
         debug!("Deleting chat: {}", conv_uuid);
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}",
-            self.config.endpoint(),
-            org_uuid,
-            conv_uuid
+            self.endpoint, org_uuid, conv_uuid
         );
-        let proxy = self.config.rquest_proxy.clone();
         let _ = SUPER_CLIENT
             .delete(endpoint)
-            .setup_request(conv_uuid, self.header_cookie(), proxy)
+            .setup_request(conv_uuid, self.header_cookie(), self.proxy.clone())
             .send()
             .await?;
         Ok(())

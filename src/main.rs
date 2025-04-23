@@ -1,7 +1,7 @@
 use clap::Parser;
 use clewdr::{
     self, BANNER,
-    config::{CONFIG_NAME, ClewdrConfig},
+    config::{CLEWDR_CONFIG, CONFIG_NAME},
     cookie_manager::CookieManager,
     error::ClewdrError,
     state::ClientState,
@@ -44,16 +44,14 @@ async fn main() -> Result<(), ClewdrError> {
     tracing::subscriber::set_global_default(subscriber).expect("unable to set global subscriber");
 
     println!("{}", *BANNER);
-    // load config from file
-    let config = ClewdrConfig::load()?;
 
-    let updater = clewdr::update::ClewdrUpdater::new(config.clone())?;
+    let updater = clewdr::update::ClewdrUpdater::new()?;
     if let Err(e) = updater.check_for_updates().await {
         warn!("Update check failed: {}", e);
     }
 
     // print the address
-    let addr = format!("http://{}", config.address());
+    let addr = format!("http://{}", CLEWDR_CONFIG.load().address());
     let api_addr = format!("{}/v1", addr);
     println!(
         "Config dir: {}",
@@ -61,14 +59,14 @@ async fn main() -> Result<(), ClewdrError> {
     );
     println!("API address: {}", api_addr.green());
     println!("Web address: {}", addr.green());
-    println!("{}", config);
+    println!("{}", *CLEWDR_CONFIG);
 
     // initialize the application state
-    let tx = CookieManager::start(config.clone());
-    let state = ClientState::new(config, tx);
+    let tx = CookieManager::start();
+    let state = ClientState::new(tx);
     // build axum router
     // create a TCP listener
-    let addr = state.config.address().to_string();
+    let addr = CLEWDR_CONFIG.load().address().to_string();
     let listener = tokio::net::TcpListener::bind(addr).await?;
     let router = clewdr::router::RouterBuilder::new(state).build();
     // serve the application

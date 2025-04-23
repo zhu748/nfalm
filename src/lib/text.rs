@@ -10,6 +10,7 @@ use std::fmt::Write;
 use tracing::error;
 use tracing::warn;
 
+use crate::config::CLEWDR_CONFIG;
 use crate::{
     api::body::{Attachment, ClientRequestBody, RequestBody},
     state::ClientState,
@@ -82,22 +83,26 @@ impl ClientState {
         if msgs.is_empty() {
             return None;
         }
-        let h = self.config.custom_h.clone().unwrap_or("Human".to_string());
-        let a = self
-            .config
+        let h = CLEWDR_CONFIG
+            .load()
+            .custom_h
+            .clone()
+            .unwrap_or("Human".to_string());
+        let a = CLEWDR_CONFIG
+            .load()
             .custom_a
             .clone()
             .unwrap_or("Assistant".to_string());
 
-        let user_real_roles = self.config.use_real_roles;
+        let user_real_roles = CLEWDR_CONFIG.load().use_real_roles;
         let line_breaks = if user_real_roles { "\n\n\x08" } else { "\n\n" };
         let system = system.trim().to_string();
         let size = size_of_val(&msgs);
         // preallocate string to avoid reallocations
         let mut w = String::with_capacity(size);
         // generate padding text
-        if !self.config.pad_tokens.is_empty() {
-            let len = self.config.padtxt_len;
+        if !CLEWDR_CONFIG.load().pad_tokens.is_empty() {
+            let len = CLEWDR_CONFIG.load().padtxt_len;
             let padding = self.generate_padding(len);
             w.push_str(padding.as_str());
         }
@@ -166,7 +171,7 @@ impl ClientState {
         print_out_text(w.as_str(), "paste.txt");
 
         // prompt polyfill
-        let p = self.config.custom_prompt.clone();
+        let p = CLEWDR_CONFIG.load().custom_prompt.clone();
 
         Some(Merged {
             paste: w,
@@ -180,7 +185,7 @@ impl ClientState {
         if length == 0 {
             return String::new();
         }
-        let conf = &self.config;
+        let conf = CLEWDR_CONFIG.load();
         let tokens = conf
             .pad_tokens
             .iter()

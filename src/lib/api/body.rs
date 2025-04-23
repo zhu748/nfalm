@@ -5,6 +5,7 @@ use serde_json::Value;
 use tracing::warn;
 
 use crate::{
+    config::CLEWDR_CONFIG,
     state::ClientState,
     types::message::{ContentBlock, ImageSource, Message, Role},
 };
@@ -84,14 +85,14 @@ impl FromRequestParts<ClientState> for KeyAuth {
     type Rejection = StatusCode;
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        state: &ClientState,
+        _: &ClientState,
     ) -> Result<Self, Self::Rejection> {
         let key = parts
             .headers
             .get("x-api-key")
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default();
-        if !state.config.auth(key) {
+        if !CLEWDR_CONFIG.load().auth(key) {
             warn!("Invalid password: {}", key);
             return Err(StatusCode::UNAUTHORIZED);
         }

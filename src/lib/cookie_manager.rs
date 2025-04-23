@@ -11,6 +11,7 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
+use crate::config::CLEWDR_CONFIG;
 use crate::{
     config::{ClewdrConfig, CookieStatus, Reason, UselessCookie},
     error::ClewdrError,
@@ -87,7 +88,6 @@ pub struct CookieManager {
     invalid: HashSet<UselessCookie>,
     event_queue: Arc<Mutex<BinaryHeap<CookieEvent>>>,
     event_notify: Arc<Notify>, // 添加一个通知器
-    config: ClewdrConfig,
 }
 
 // 提供给外部的发送者接口
@@ -140,23 +140,24 @@ impl CookieEventSender {
 }
 
 impl CookieManager {
-    pub fn start(mut config: ClewdrConfig) -> CookieEventSender {
-        config.cookie_array = config.cookie_array.into_iter().map(|c| c.reset()).collect();
+    pub fn start() -> CookieEventSender {
         let valid = VecDeque::from_iter(
-            config
+            CLEWDR_CONFIG
+                .load()
                 .cookie_array
                 .iter()
                 .filter(|c| c.reset_time.is_none())
                 .cloned(),
         );
         let exhaust = HashSet::from_iter(
-            config
+            CLEWDR_CONFIG
+                .load()
                 .cookie_array
                 .iter()
                 .filter(|c| c.reset_time.is_some())
                 .cloned(),
         );
-        let invalid = HashSet::from_iter(config.wasted_cookie.iter().cloned());
+        let invalid = HashSet::from_iter(CLEWDR_CONFIG.load().wasted_cookie.iter().cloned());
         let dispatched = HashMap::new();
 
         // 创建事件通道
@@ -175,7 +176,6 @@ impl CookieManager {
             invalid,
             event_queue,
             event_notify,
-            config,
             dispatched,
         };
         // 启动事件处理器
@@ -196,15 +196,18 @@ impl CookieManager {
     }
 
     fn save(&mut self) {
-        self.config.cookie_array = self
-            .valid
-            .iter()
-            .chain(self.exhausted.iter())
-            .chain(self.dispatched.keys())
-            .cloned()
-            .collect::<Vec<_>>();
-        self.config.wasted_cookie = self.invalid.iter().cloned().collect();
-        self.config.save().unwrap_or_else(|e| {
+        CLEWDR_CONFIG.rcu(|config| {
+            let mut config = ClewdrConfig::clone(config);
+            config.cookie_array = self
+                .valid
+                .iter()
+                .chain(self.exhausted.iter())
+                .cloned()
+                .collect::<Vec<_>>();
+            config.wasted_cookie = self.invalid.iter().cloned().collect();
+            config
+        });
+        CLEWDR_CONFIG.load().save().unwrap_or_else(|e| {
             error!("Failed to save config: {}", e);
         });
     }
@@ -265,9 +268,9 @@ impl CookieManager {
     }
 
     fn accept(&mut self, cookie: CookieStatus) {
-        if self.config.cookie_array.contains(&cookie)
-            || self
-                .config
+        if CLEWDR_CONFIG.load().cookie_array.contains(&cookie)
+            || CLEWDR_CONFIG
+                .load()
                 .wasted_cookie
                 .iter()
                 .any(|c| c.cookie == cookie.cookie)
@@ -275,9 +278,8 @@ impl CookieManager {
             warn!("Cookie already exists");
             return;
         }
-        self.config.cookie_array.push(cookie.clone());
-        self.save();
         self.valid.push_back(cookie.clone());
+        self.save();
     }
 
     fn report(&self) -> CookieStatusInfo {
@@ -321,15 +323,15 @@ impl CookieManager {
                 true // keep
             }
         });
-        
+
         if self.dispatched.remove(&cookie).is_some() {
             found = true;
         }
-        
+
         if self.exhausted.remove(&cookie) {
             found = true;
         }
-        
+
         let cookie_info = &cookie.cookie;
         self.invalid.retain(|c| {
             if c.cookie == *cookie_info {
@@ -339,10 +341,10 @@ impl CookieManager {
                 true // keep
             }
         });
-        
+
         // Update config to reflect changes
         self.save();
-        
+
         if found {
             Ok(())
         } else {
@@ -425,7 +427,7 @@ impl CookieManager {
                         }
                         CookieEvent::Delete(cookie, sender) => {
                             let result = self.delete(cookie);
-                            if let Err(_) = sender.send(result) {
+                            if sender.send(result).is_err() {
                                 error!("Failed to send delete result");
                             }
                         }

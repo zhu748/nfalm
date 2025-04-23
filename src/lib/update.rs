@@ -9,8 +9,9 @@ use std::str::FromStr;
 use tracing::info;
 use zip::ZipArchive;
 
+use crate::config::CLEWDR_CONFIG;
 use crate::utils::STATIC_DIR;
-use crate::{Args, config::ClewdrConfig, error::ClewdrError, utils::copy_dir_all};
+use crate::{Args, error::ClewdrError, utils::copy_dir_all};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -25,7 +26,6 @@ struct GitHubAsset {
 }
 
 pub struct ClewdrUpdater {
-    config: ClewdrConfig,
     client: Client,
     user_agent: String,
     repo_owner: &'static str,
@@ -33,7 +33,7 @@ pub struct ClewdrUpdater {
 }
 
 impl ClewdrUpdater {
-    pub fn new(config: ClewdrConfig) -> Result<Self, ClewdrError> {
+    pub fn new() -> Result<Self, ClewdrError> {
         let authors = option_env!("CARGO_PKG_AUTHORS").unwrap_or_default();
         let repo_owner = authors.split(':').next().unwrap_or("Xerxes-2");
         let repo_name = env!("CARGO_PKG_NAME");
@@ -48,7 +48,6 @@ impl ClewdrUpdater {
         );
 
         Ok(Self {
-            config,
             client,
             user_agent,
             repo_owner,
@@ -58,7 +57,7 @@ impl ClewdrUpdater {
 
     pub async fn check_for_updates(&self) -> Result<bool, ClewdrError> {
         let args: Args = clap::Parser::parse();
-        if !args.update && !self.config.check_update {
+        if !args.update && !CLEWDR_CONFIG.load().check_update {
             return Ok(false);
         }
 
@@ -94,7 +93,7 @@ impl ClewdrUpdater {
             current_version.yellow()
         );
         // Auto update if enabled
-        if args.update || self.config.auto_update {
+        if args.update || CLEWDR_CONFIG.load().auto_update {
             self.perform_update(&release).await?;
         }
 

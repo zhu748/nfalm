@@ -89,20 +89,12 @@ impl ClientState {
                 // create the part and form
                 let part = Part::bytes(bytes).file_name(file_name);
                 let form = Form::new().part("file", part);
-                let endpoint = format!(
-                    "{}/api/{}/upload",
-                    self.config.endpoint(),
-                    self.org_uuid.as_ref()?
-                );
+                let endpoint = format!("{}/api/{}/upload", self.endpoint, self.org_uuid.as_ref()?);
                 Some(
                     // send the request into future
                     SUPER_CLIENT
                         .post(endpoint)
-                        .setup_request(
-                            "new",
-                            self.header_cookie(),
-                            self.config.rquest_proxy.clone(),
-                        )
+                        .setup_request("new", self.header_cookie(), self.proxy.clone())
                         .header_append("anthropic-client-platform", "web_claude_ai")
                         .multipart(form)
                         .send(),

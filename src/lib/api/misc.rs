@@ -1,10 +1,16 @@
-use axum::{extract::{Path, State}, Json};
+use axum::{
+    Json,
+    extract::{Path, State},
+};
 use axum_auth::AuthBearer;
 use rquest::StatusCode;
 use tracing::{error, info, warn};
 
 use crate::{
-    VERSION_INFO, config::CookieStatus, cookie_manager::CookieStatusInfo, state::ClientState,
+    VERSION_INFO,
+    config::{CLEWDR_CONFIG, CookieStatus},
+    cookie_manager::CookieStatusInfo,
+    state::ClientState,
 };
 
 pub async fn api_submit(
@@ -12,7 +18,7 @@ pub async fn api_submit(
     AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {
-    if !s.config.auth(&t) {
+    if !CLEWDR_CONFIG.load().auth(&t) {
         return StatusCode::UNAUTHORIZED;
     }
     if !c.cookie.validate() {
@@ -37,7 +43,7 @@ pub async fn api_get_cookies(
     State(s): State<ClientState>,
     AuthBearer(t): AuthBearer,
 ) -> Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)> {
-    if !s.config.auth(&t) {
+    if !CLEWDR_CONFIG.load().auth(&t) {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -62,7 +68,7 @@ pub async fn api_delete_cookie(
     AuthBearer(t): AuthBearer,
     Path(cookie_string): axum::extract::Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
-    if !s.config.auth(&t) {
+    if !CLEWDR_CONFIG.load().auth(&t) {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -78,7 +84,7 @@ pub async fn api_delete_cookie(
         Ok(_) => {
             info!("Cookie deleted successfully: {}", cookie_string);
             Ok(StatusCode::NO_CONTENT)
-        },
+        }
         Err(e) => {
             error!("Failed to delete cookie: {}", e);
             Err((
@@ -87,7 +93,7 @@ pub async fn api_delete_cookie(
                     "error": format!("Failed to delete cookie: {}", e)
                 })),
             ))
-        },
+        }
     }
 }
 
@@ -95,8 +101,8 @@ pub async fn api_version() -> String {
     VERSION_INFO.to_string()
 }
 
-pub async fn api_auth(State(s): State<ClientState>, AuthBearer(t): AuthBearer) -> StatusCode {
-    if !s.config.auth(&t) {
+pub async fn api_auth(AuthBearer(t): AuthBearer) -> StatusCode {
+    if !CLEWDR_CONFIG.load().auth(&t) {
         return StatusCode::UNAUTHORIZED;
     }
     info!("Auth token accepted,");

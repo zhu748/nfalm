@@ -1,3 +1,4 @@
+use arc_swap::ArcSwap;
 use colored::Colorize;
 use figment::{
     Figment,
@@ -12,6 +13,7 @@ use std::{
     hash::Hash,
     path::PathBuf,
     str::FromStr,
+    sync::{Arc, LazyLock},
 };
 use tiktoken_rs::o200k_base;
 use tracing::{error, info, warn};
@@ -20,6 +22,10 @@ use crate::error::ClewdrError;
 
 pub const CONFIG_NAME: &str = "config.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
+pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
+    let config = ClewdrConfig::new().unwrap_or_default();
+    ArcSwap::from_pointee(config)
+});
 
 const fn default_max_retries() -> usize {
     5
@@ -43,33 +49,35 @@ const fn default_check_update() -> bool {
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClewdrConfig {
-    // App settings
-    #[serde(default = "default_check_update")]
-    pub check_update: bool,
-    #[serde(default)]
-    pub auto_update: bool,
-
     // Cookie configurations
     #[serde(default)]
     pub cookie_array: Vec<CookieStatus>,
     #[serde(default)]
     pub wasted_cookie: Vec<UselessCookie>,
 
-    // Network settings
+    // Server settings, cannot hot reload
+    #[serde(default = "default_ip")]
+    ip: String,
+    #[serde(default = "default_port")]
+    port: u16,
+    #[serde(default)]
+    pub enable_oai: bool,
+
+    // App settings, can hot reload, but meaningless
+    #[serde(default = "default_check_update")]
+    pub check_update: bool,
+    #[serde(default)]
+    pub auto_update: bool,
+
+    // Network settings, can hot reload
     #[serde(default)]
     password: String,
     #[serde(default)]
     pub proxy: Option<String>,
     #[serde(default)]
     pub rproxy: Option<String>,
-    #[serde(default = "default_ip")]
-    ip: String,
-    #[serde(default = "default_port")]
-    port: u16,
 
-    // Api settings
-    #[serde(default)]
-    pub enable_oai: bool,
+    // Api settings, can hot reload
     #[serde(default = "default_max_retries")]
     pub max_retries: usize,
     #[serde(default)]
@@ -77,7 +85,7 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub preserve_chats: bool,
 
-    // Cookie settings
+    // Cookie settings, can hot reload
     #[serde(default)]
     pub skip_warning: bool,
     #[serde(default)]
@@ -85,7 +93,7 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub skip_non_pro: bool,
 
-    // Prompt configurations
+    // Prompt configurations, can hot reload
     #[serde(default = "default_use_real_roles")]
     pub use_real_roles: bool,
     #[serde(default)]
@@ -99,11 +107,11 @@ pub struct ClewdrConfig {
     #[serde(default = "default_padtxt_len")]
     pub padtxt_len: usize,
 
-    // Skip field
+    // Skip field, can hot reload
     #[serde(skip)]
     pub rquest_proxy: Option<Proxy>,
     #[serde(skip)]
-    pub pad_tokens: Vec<String>,
+    pub pad_tokens: Arc<Vec<String>>,
 }
 
 /// Reason why a cookie is considered useless
@@ -337,7 +345,7 @@ impl Default for ClewdrConfig {
             custom_h: None,
             custom_a: None,
             rquest_proxy: None,
-            pad_tokens: Vec::new(),
+            pad_tokens: Arc::new(vec![]),
             pass_params: false,
             preserve_chats: false,
             skip_warning: false,
@@ -354,17 +362,10 @@ impl Display for ClewdrConfig {
             f,
             "Password: {}\n\
             Forward Proxy: {}\n\
-            Reverse Proxy: {}\n\
-            Available Cookies in array: {}\n",
+            Reverse Proxy: {}\n",
             self.password.yellow(),
             self.proxy.clone().unwrap_or_default().blue(),
             self.rproxy.clone().unwrap_or_default().blue(),
-            self.cookie_array
-                .iter()
-                .filter(|x| x.reset_time.is_none())
-                .count()
-                .to_string()
-                .blue()
         )?;
         if !self.pad_tokens.is_empty() {
             Ok(writeln!(
@@ -384,13 +385,18 @@ impl ClewdrConfig {
     }
 
     /// Load the configuration from the file
-    pub fn load() -> Result<Self, ClewdrError> {
+    pub fn new() -> Result<Self, ClewdrError> {
         let config: ClewdrConfig = Figment::new()
             .merge(Toml::file(CONFIG_NAME))
             .merge(Env::prefixed("CLEWDR_"))
-            .extract_lossy()?;
+            .extract_lossy()
+            .inspect_err(|e| {
+                error!("Failed to load config: {}", e);
+            })?;
         let config = config.validate();
-        config.save()?;
+        config.save().inspect_err(|e| {
+            error!("Failed to save config: {}", e);
+        })?;
         Ok(config)
     }
 
@@ -425,7 +431,7 @@ impl ClewdrConfig {
         if tokens.len() < 4096 {
             panic!("Pad txt file is too short: {}", padtxt_path.display());
         }
-        self.pad_tokens = tokens;
+        self.pad_tokens = Arc::new(tokens);
     }
 
     /// API endpoint of server
@@ -433,7 +439,7 @@ impl ClewdrConfig {
         if let Some(ref proxy) = self.rproxy {
             return proxy.clone();
         }
-        return ENDPOINT.to_string();
+        ENDPOINT.to_string()
     }
 
     /// address of proxy
@@ -462,8 +468,15 @@ impl ClewdrConfig {
             .collect();
         self.cookie_array.dedup();
         self.ip = self.ip.trim().to_string();
-        self.rproxy = self.rproxy.map(|x| x.trim().to_string());
-        self.proxy = self.proxy.map(|x| x.trim().to_string());
+        if self.rproxy == Some("".to_string()) {
+            self.rproxy = None;
+        }
+        if self.proxy == Some("".to_string()) {
+            self.proxy = None;
+        }
+        if self.padtxt_file == Some("".to_string()) {
+            self.padtxt_file = None;
+        }
         let proxy = self.proxy.as_ref().and_then(|p| {
             Proxy::all(p)
                 .inspect_err(|e| {

@@ -13,6 +13,7 @@ use crate::{
         api_auth, api_completion, api_delete_cookie, api_get_cookies, api_messages, api_submit,
         api_version,
     },
+    config::CLEWDR_CONFIG,
     state::ClientState,
     utils::STATIC_DIR,
 };
@@ -36,7 +37,7 @@ impl RouterBuilder {
             .route("/api/version", get(api_version))
             .route("/api/get_cookies", get(api_get_cookies))
             .route("/api/auth", get(api_auth));
-        let r = if state.config.enable_oai {
+        let r = if CLEWDR_CONFIG.load().enable_oai {
             r.route("/v1/chat/completions", post(api_completion))
         } else {
             r

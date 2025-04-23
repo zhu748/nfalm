@@ -17,6 +17,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     api::body::ClientRequestBody,
     client::{SUPER_CLIENT, SetupRequest},
+    config::CLEWDR_CONFIG,
     error::{ClewdrError, check_res_err},
     state::ClientState,
     text::merge_sse,
@@ -31,7 +32,7 @@ pub async fn api_completion(
     State(mut state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
-    if !state.config.auth(&token) {
+    if !CLEWDR_CONFIG.load().auth(&token) {
         return (StatusCode::UNAUTHORIZED, Json("Unauthorized".to_string())).into_response();
     }
     // TODO: Check if the request is a test message
@@ -45,7 +46,7 @@ pub async fn api_completion(
         p.model.to_string().green()
     );
 
-    for i in 0..state.config.max_retries {
+    for i in 0..CLEWDR_CONFIG.load().max_retries {
         let p = p.clone();
         if i > 0 {
             info!("Retrying request, attempt: {}", (i + 1).to_string().green());
@@ -141,7 +142,6 @@ impl ClientState {
     async fn try_completion(&mut self, mut p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
-        let proxy = self.config.rquest_proxy.clone();
         let Some(org_uuid) = self.org_uuid.clone() else {
             return Ok(Json(json!(
                 {
@@ -161,8 +161,7 @@ impl ClientState {
         self.conv_uuid = Some(new_uuid.to_string());
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
-            self.config.endpoint(),
-            org_uuid
+            self.endpoint, org_uuid
         );
         let mut body = json!({
             "uuid": new_uuid,
@@ -179,7 +178,7 @@ impl ClientState {
         let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .setup_request("", self.header_cookie(), proxy.clone())
+            .setup_request("", self.header_cookie(), self.proxy.clone())
             .send()
             .await?;
         debug!("New conversation created: {}", new_uuid);
@@ -213,15 +212,13 @@ impl ClientState {
         print_out_json(&body, "4.req.json");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}/completion",
-            self.config.endpoint(),
-            org_uuid,
-            new_uuid
+            self.endpoint, org_uuid, new_uuid
         );
 
         let api_res = SUPER_CLIENT
             .post(endpoint)
             .json(&body)
-            .setup_request("", self.header_cookie(), proxy)
+            .setup_request("", self.header_cookie(), self.proxy.clone())
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;

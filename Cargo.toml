@@ -62,3 +62,4 @@ passwords = "3"
 tower-http = { version = "0.6", features = ["fs", "trace"] }
 walkdir = "2"
 figment = { version = "0.10", features = ["env", "json", "toml"] }
+arc-swap = "1.7.1"
