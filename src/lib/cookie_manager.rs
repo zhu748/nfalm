@@ -39,6 +39,8 @@ pub enum CookieEvent {
     Request(oneshot::Sender<Result<CookieStatus, ClewdrError>>),
     // 获取全部Cookie
     GetStatus(oneshot::Sender<CookieStatusInfo>),
+    // 删除Cookie
+    Delete(CookieStatus, oneshot::Sender<Result<(), ClewdrError>>),
 }
 
 // 为CookieEvent实现比较特性，用于优先级排序
@@ -69,9 +71,10 @@ impl CookieEvent {
         match self {
             CookieEvent::Return(_, _) => 0, // 最高优先级
             CookieEvent::Submit(_) => 1,
-            CookieEvent::GetStatus(_) => 2,
-            CookieEvent::CheckTimeout => 3,
-            CookieEvent::Request(_) => 4, // 最低优先级
+            CookieEvent::Delete(_, _) => 2,
+            CookieEvent::GetStatus(_) => 3,
+            CookieEvent::CheckTimeout => 4,
+            CookieEvent::Request(_) => 5, // 最低优先级
         }
     }
 }
@@ -122,6 +125,12 @@ impl CookieEventSender {
         let (tx, rx) = oneshot::channel();
         self.sender.send(CookieEvent::GetStatus(tx)).await?;
         Ok(rx.await?)
+    }
+
+    pub async fn delete_cookie(&self, cookie: CookieStatus) -> Result<(), ClewdrError> {
+        let (tx, rx) = oneshot::channel();
+        self.sender.send(CookieEvent::Delete(cookie, tx)).await?;
+        rx.await?
     }
 
     // 用于内部超时检查
@@ -302,6 +311,45 @@ impl CookieManager {
         self.reset();
     }
 
+    fn delete(&mut self, cookie: CookieStatus) -> Result<(), ClewdrError> {
+        let mut found = false;
+        self.valid.retain(|c| {
+            if *c == cookie {
+                found = true;
+                false // remove
+            } else {
+                true // keep
+            }
+        });
+        
+        if self.dispatched.remove(&cookie).is_some() {
+            found = true;
+        }
+        
+        if self.exhausted.remove(&cookie) {
+            found = true;
+        }
+        
+        let cookie_info = &cookie.cookie;
+        self.invalid.retain(|c| {
+            if c.cookie == *cookie_info {
+                found = true;
+                false // remove
+            } else {
+                true // keep
+            }
+        });
+        
+        // Update config to reflect changes
+        self.save();
+        
+        if found {
+            Ok(())
+        } else {
+            Err(ClewdrError::UnexpectedNone)
+        }
+    }
+
     // 启动协程监听定时器并发送超时检查事件
     fn spawn_timeout_checker(mut interval: Interval, event_tx: CookieEventSender) {
         tokio::spawn(async move {
@@ -374,6 +422,12 @@ impl CookieManager {
                             sender.send(status_info).unwrap_or_else(|_| {
                                 error!("Failed to send status info");
                             });
+                        }
+                        CookieEvent::Delete(cookie, sender) => {
+                            let result = self.delete(cookie);
+                            if let Err(_) = sender.send(result) {
+                                error!("Failed to send delete result");
+                            }
                         }
                     }
                     self.log();

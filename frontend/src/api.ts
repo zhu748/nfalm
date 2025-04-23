@@ -63,3 +63,27 @@ export async function getCookieStatus() {
 
   return await response.json();
 }
+
+/**
+ * Deletes a cookie from the server.
+ * @param cookie The cookie string to delete
+ * @returns The fetch response object
+ *
+ * Possible Status Codes:
+ * - 204: Success (No Content)
+ * - 401: Invalid bearer token
+ * - 500: Server error
+ */
+export async function deleteCookie(cookie: string) {
+  const bearer = localStorage.getItem("authToken") || "";
+  // URL encode the cookie to handle special characters in the URL path
+  const encodedCookie = encodeURIComponent(cookie);
+  const response = await fetch(`/api/delete_cookie/${encodedCookie}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${bearer}`,
+    },
+  });
+
+  return response;
+}
