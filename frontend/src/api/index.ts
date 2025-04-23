@@ -1,6 +1,26 @@
+// frontend/src/api/index.ts
+/**
+ * Fetches the current application version
+ */
 export async function getVersion() {
   const response = await fetch("/api/version");
   return await response.text();
+}
+
+/**
+ * Validates authentication token
+ * @param token The auth token to validate
+ */
+export async function validateAuthToken(token: string) {
+  const response = await fetch("/api/auth", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  return response.ok;
 }
 
 /**
@@ -15,12 +35,12 @@ export async function getVersion() {
  * - 500: Server error
  */
 export async function postCookie(cookie: string) {
-  const bearer = localStorage.getItem("authToken") || "";
+  const token = localStorage.getItem("authToken") || "";
   const response = await fetch("/api/submit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${bearer}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ cookie }),
   });
@@ -36,6 +56,8 @@ export async function postCookie(cookie: string) {
   if (!response.ok) {
     throw new Error(`Error ${response.status}: ${response.statusText}`);
   }
+
+  return response;
 }
 
 /**
@@ -48,12 +70,12 @@ export async function postCookie(cookie: string) {
  * - 500: Server error
  */
 export async function getCookieStatus() {
-  const bearer = localStorage.getItem("authToken") || "";
+  const token = localStorage.getItem("authToken") || "";
   const response = await fetch("/api/get_cookies", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${bearer}`,
+      Authorization: `Bearer ${token}`,
     },
   });
 
@@ -75,15 +97,57 @@ export async function getCookieStatus() {
  * - 500: Server error
  */
 export async function deleteCookie(cookie: string) {
-  const bearer = localStorage.getItem("authToken") || "";
+  const token = localStorage.getItem("authToken") || "";
   // URL encode the cookie to handle special characters in the URL path
   const encodedCookie = encodeURIComponent(cookie);
   const response = await fetch(`/api/delete_cookie/${encodedCookie}`, {
     method: "DELETE",
     headers: {
-      Authorization: `Bearer ${bearer}`,
+      Authorization: `Bearer ${token}`,
     },
   });
+
+  return response;
+}
+
+/**
+ * Fetches the config data from the server
+ */
+export async function getConfig() {
+  const token = localStorage.getItem("authToken") || "";
+  const response = await fetch("/api/config", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch config: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Saves config data to the server
+ * @param configData The config data to save
+ */
+export async function saveConfig(configData: any) {
+  const token = localStorage.getItem("authToken") || "";
+  const response = await fetch("/api/config", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(configData),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save config: ${response.status}`);
+  }
 
   return response;
 }
