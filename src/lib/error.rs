@@ -20,7 +20,7 @@ use crate::{
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
     #[error(transparent)]
-    ConfigError(#[from] config::ConfigError),
+    FigmentError(#[from] figment::Error),
     #[error("Cookie request error: {0}")]
     MpscSendError(#[from] tokio::sync::mpsc::error::SendError<CookieEvent>),
     #[error("Retries exceeded")]

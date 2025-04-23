@@ -18,7 +18,7 @@ use tracing_subscriber::{
 /// Async main function using tokio runtime
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {
-    enable_ansi_support::enable_ansi_support()?;
+    let _ = enable_ansi_support::enable_ansi_support();
     // parse command line arguments
     clewdr::Args::parse();
     // setup dir

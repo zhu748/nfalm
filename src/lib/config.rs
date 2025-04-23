@@ -1,4 +1,9 @@
 use colored::Colorize;
+use figment::{
+    Figment,
+    providers::{Env, Format, Toml},
+};
+use itertools::Itertools;
 use passwords::PasswordGenerator;
 use rquest::Proxy;
 use serde::{Deserialize, Serialize};
@@ -173,6 +178,16 @@ impl Eq for CookieStatus {}
 impl Hash for CookieStatus {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.cookie.hash(state);
+    }
+}
+impl Ord for CookieStatus {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.cookie.cmp(&other.cookie)
+    }
+}
+impl PartialOrd for CookieStatus {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -367,12 +382,10 @@ impl ClewdrConfig {
 
     /// Load the configuration from the file
     pub fn load() -> Result<Self, ClewdrError> {
-        let settings = config::Config::builder()
-            .add_source(config::File::with_name("clewdr").required(false))
-            .add_source(config::File::with_name("config").required(false))
-            .add_source(config::Environment::with_prefix("clewdr"))
-            .build()?;
-        let config: ClewdrConfig = settings.try_deserialize()?;
+        let config: ClewdrConfig = Figment::new()
+            .merge(Toml::file(CONFIG_NAME))
+            .merge(Env::prefixed("CLEWDR_"))
+            .extract_lossy()?;
         let config = config.validate();
         config.save()?;
         Ok(config)
@@ -436,7 +449,13 @@ impl ClewdrConfig {
             self.password = generate_password();
             self.save().expect("Failed to save config");
         }
-        self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
+        self.cookie_array = self
+            .cookie_array
+            .into_iter()
+            .map(|x| x.reset())
+            .sorted()
+            .collect();
+        self.cookie_array.dedup();
         self.ip = self.ip.trim().to_string();
         self.rproxy = self.rproxy.trim().to_string();
         self.proxy = self.proxy.trim().to_string();
