@@ -26,6 +26,11 @@ const CookieSubmitForm = () => {
 
     try {
       await postCookie(cookie);
+      setStatus({
+        type: "success",
+        message: "Cookie submitted successfully!",
+      });
+      setCookie(""); // Clear the input field after successful submission
     } catch (e) {
       setStatus({
         type: "error",
