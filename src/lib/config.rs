@@ -137,7 +137,6 @@ impl UselessCookie {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CookieStatus {
     pub cookie: ClewdrCookie,
-    #[serde(deserialize_with = "validate_reset")]
     #[serde(default)]
     pub reset_time: Option<i64>,
 }
@@ -156,38 +155,6 @@ impl Hash for CookieStatus {
 
 /// Default cookie value for testing purposes
 const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";
-
-/// Function to validate the reset time of a cookie while deserializing
-fn validate_reset<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    // skip no deserializable value
-    let Ok(value) = Option::<i64>::deserialize(deserializer) else {
-        return Ok(None);
-    };
-    // skip empty value
-    let Some(v) = value else {
-        return Ok(None);
-    };
-    // parse timestamp
-    let Some(time) = chrono::DateTime::from_timestamp(v, 0) else {
-        warn!("Invalid reset time: {}", v);
-        return Ok(None);
-    };
-    let now = chrono::Utc::now();
-    if time < now {
-        // cookie have reset
-        info!(
-            "Cookie reset time is in the past: {}",
-            time.to_string().green()
-        );
-        return Ok(None);
-    }
-    let remaining_time = time - now;
-    info!("Cookie reset in {} hours", remaining_time.num_hours());
-    Ok(Some(v))
-}
 
 impl CookieStatus {
     pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
@@ -485,6 +452,7 @@ impl ClewdrConfig {
             self.password = generate_password(32);
             self.save().expect("Failed to save config");
         }
+        self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
         self.ip = self.ip.trim().to_string();
         self.rproxy = self.rproxy.trim().to_string();
         self.proxy = self.proxy.trim().to_string();
