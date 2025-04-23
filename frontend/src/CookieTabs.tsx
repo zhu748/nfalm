@@ -1,8 +1,11 @@
+// frontend/src/CookieTabs.tsx
 import React, { useState } from "react";
-import CookieSubmitForm from "./SubmitCookieForm";
+import { useTranslation } from "react-i18next";
+import CookieSubmitForm from "./CookieSubmitForm";
 import CookieVisualization from "./CookieVisualization";
 
 const CookieTabs: React.FC = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"submit" | "status">("submit");
 
   return (
@@ -16,7 +19,7 @@ const CookieTabs: React.FC = () => {
               : "text-gray-400 hover:text-gray-300"
           }`}
         >
-          Submit Cookie
+          {t('cookieTab.submit')}
         </button>
         <button
           onClick={() => setActiveTab("status")}
@@ -26,7 +29,7 @@ const CookieTabs: React.FC = () => {
               : "text-gray-400 hover:text-gray-300"
           }`}
         >
-          Cookie Status
+          {t('cookieTab.status')}
         </button>
       </div>
 

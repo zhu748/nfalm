@@ -1,4 +1,6 @@
+// frontend/src/CookieVisualization.tsx
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { getCookieStatus, deleteCookie } from "./api";
 
 // Simplified interfaces
@@ -28,6 +30,7 @@ const emptyCookieStatus: CookieStatusInfo = {
 };
 
 const CookieVisualization: React.FC = () => {
+  const { t } = useTranslation();
   const [cookieStatus, setCookieStatus] =
     useState<CookieStatusInfo>(emptyCookieStatus);
   const [loading, setLoading] = useState(false);
@@ -67,7 +70,7 @@ const CookieVisualization: React.FC = () => {
   const handleRefresh = () => setRefreshCounter((prev) => prev + 1);
 
   const handleDeleteCookie = async (cookie: string) => {
-    if (!window.confirm("Are you sure you want to delete this cookie?")) return;
+    if (!window.confirm(t("cookieStatus.deleteConfirm"))) return;
 
     setDeletingCookie(cookie);
     setError(null);
@@ -80,11 +83,13 @@ const CookieVisualization: React.FC = () => {
       } else {
         const errorMessage =
           response.status === 401
-            ? "Authentication failed. Please provide a valid token."
+            ? t("cookieSubmit.error.auth")
             : await response
                 .json()
                 .then(
-                  (data) => data.error || `Server error (${response.status})`
+                  (data) =>
+                    data.error ||
+                    t("common.error", { message: response.status })
                 );
         setError(errorMessage);
       }
@@ -116,25 +121,31 @@ const CookieVisualization: React.FC = () => {
   };
 
   const getReasonText = (reason: any): string => {
-    if (!reason) return "Unknown";
+    if (!reason) return t("cookieStatus.status.reasons.unknown");
     if (typeof reason === "string") return reason;
 
     try {
-      if ("NonPro" in reason) return "Free account";
-      if ("Disabled" in reason) return "Organization Disabled";
-      if ("Banned" in reason) return "Banned";
-      if ("Null" in reason) return "Invalid";
+      if ("NonPro" in reason)
+        return t("cookieStatus.status.reasons.freAccount");
+      if ("Disabled" in reason)
+        return t("cookieStatus.status.reasons.disabled");
+      if ("Banned" in reason) return t("cookieStatus.status.reasons.banned");
+      if ("Null" in reason) return t("cookieStatus.status.reasons.invalid");
       if ("Restricted" in reason && typeof reason.Restricted === "number")
-        return `Restricted until ${formatTimestamp(reason.Restricted)}`;
+        return t("cookieStatus.status.reasons.restricted", {
+          time: formatTimestamp(reason.Restricted),
+        });
       if (
         "TooManyRequest" in reason &&
         typeof reason.TooManyRequest === "number"
       )
-        return `Rate limited until ${formatTimestamp(reason.TooManyRequest)}`;
+        return t("cookieStatus.status.reasons.rateLimited", {
+          time: formatTimestamp(reason.TooManyRequest),
+        });
     } catch (e) {
       console.error("Error parsing reason:", e, reason);
     }
-    return "Unknown";
+    return t("cookieStatus.status.reasons.unknown");
   };
 
   const getCookieId = (cookie: string, type: string, index: number): string =>
@@ -204,7 +215,7 @@ const CookieVisualization: React.FC = () => {
         <button
           onClick={(e) => copyToClipboard(cleanCookie, e)}
           className="p-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300 focus:outline-none flex-shrink-0"
-          title="Copy to clipboard"
+          title={t("cookieStatus.copy")}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -304,7 +315,7 @@ const CookieVisualization: React.FC = () => {
         </div>
       ) : (
         <div className="p-4 text-sm text-gray-400 italic">
-          No {title.toLowerCase()}
+          {t("cookieStatus.noCookies", { type: title.toLowerCase() })}
         </div>
       )}
     </div>
@@ -322,9 +333,11 @@ const CookieVisualization: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-4 w-full">
         <div>
-          <h3 className="text-lg font-semibold text-white">Cookie Status</h3>
+          <h3 className="text-lg font-semibold text-white">
+            {t("cookieStatus.title")}
+          </h3>
           <p className="text-xs text-gray-400 mt-1">
-            Total: {totalCookies} cookies
+            {t("cookieStatus.total", { count: totalCookies })}
           </p>
         </div>
         <button
@@ -353,7 +366,7 @@ const CookieVisualization: React.FC = () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              Refreshing...
+              {t("cookieStatus.refreshing")}
             </span>
           ) : (
             <span className="flex items-center">
@@ -371,7 +384,7 @@ const CookieVisualization: React.FC = () => {
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
               </svg>
-              Refresh
+              {t("cookieStatus.refresh")}
             </span>
           )}
         </button>
@@ -414,7 +427,7 @@ const CookieVisualization: React.FC = () => {
       <div className="space-y-6 w-full">
         {/* Valid Cookies */}
         <CookieSection
-          title="Valid Cookies"
+          title={t("cookieStatus.sections.valid")}
           cookies={cookieStatus.valid}
           color="green"
           renderStatus={(status, index) => {
@@ -428,7 +441,9 @@ const CookieVisualization: React.FC = () => {
                   <CookieValue cookie={status.cookie} cookieId={cookieId} />
                 </div>
                 <div className="flex items-center">
-                  <span className="text-gray-400">Available</span>
+                  <span className="text-gray-400">
+                    {t("cookieStatus.status.available")}
+                  </span>
                   <DeleteButton cookie={status.cookie} />
                 </div>
               </div>
@@ -438,7 +453,7 @@ const CookieVisualization: React.FC = () => {
 
         {/* Dispatched Cookies */}
         <CookieSection
-          title="In-Use Cookies"
+          title={t("cookieStatus.sections.inUse")}
           cookies={cookieStatus.dispatched}
           color="blue"
           renderStatus={(item, index) => {
@@ -454,7 +469,9 @@ const CookieVisualization: React.FC = () => {
                 </div>
                 <div className="flex items-center">
                   <span className="text-gray-400">
-                    Used for {formatTimeElapsed(time)}
+                    {t("cookieStatus.status.used", {
+                      time: formatTimeElapsed(time),
+                    })}
                   </span>
                   <DeleteButton cookie={status.cookie} />
                 </div>
@@ -465,7 +482,7 @@ const CookieVisualization: React.FC = () => {
 
         {/* Exhausted Cookies */}
         <CookieSection
-          title="Exhausted Cookies"
+          title={t("cookieStatus.sections.exhausted")}
           cookies={cookieStatus.exhausted}
           color="yellow"
           renderStatus={(status, index) => {
@@ -481,8 +498,10 @@ const CookieVisualization: React.FC = () => {
                 <div className="flex items-center">
                   <span className="text-gray-400">
                     {status.reset_time
-                      ? `Resets at ${formatTimestamp(status.reset_time)}`
-                      : "Unknown reset time"}
+                      ? t("cookieStatus.status.resets", {
+                          time: formatTimestamp(status.reset_time),
+                        })
+                      : t("cookieStatus.status.unknownReset")}
                   </span>
                   <DeleteButton cookie={status.cookie} />
                 </div>
@@ -493,7 +512,7 @@ const CookieVisualization: React.FC = () => {
 
         {/* Invalid Cookies */}
         <CookieSection
-          title="Invalid Cookies"
+          title={t("cookieStatus.sections.invalid")}
           cookies={cookieStatus.invalid}
           color="red"
           renderStatus={(status, index) => {

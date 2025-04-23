@@ -1,4 +1,6 @@
+// frontend/src/ConfigTab.tsx
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-hot-toast";
 
 interface ConfigData {
@@ -36,12 +38,13 @@ interface ConfigData {
 }
 
 const ConfigTab = () => {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [originalPassword, setOriginalPassword] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  
+
   // Fetch config on component mount
   useEffect(() => {
     fetchConfig();
@@ -56,7 +59,7 @@ const ConfigTab = () => {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -69,7 +72,11 @@ const ConfigTab = () => {
       // Store the original password for comparison later
       setOriginalPassword(data.password || "");
     } catch (err) {
-      setError(`Error fetching configuration: ${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        t("common.error", {
+          message: err instanceof Error ? err.message : String(err),
+        })
+      );
       console.error("Config fetch error:", err);
     } finally {
       setLoading(false);
@@ -78,7 +85,7 @@ const ConfigTab = () => {
 
   const saveConfig = async () => {
     if (!config) return;
-    
+
     setSaving(true);
     setError("");
     try {
@@ -87,7 +94,7 @@ const ConfigTab = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(config),
       });
@@ -96,37 +103,45 @@ const ConfigTab = () => {
         throw new Error(`Failed to save config: ${response.status}`);
       }
 
-      toast.success("Configuration saved successfully");
-      
+      toast.success(t("config.success"));
+
       // Check if password was changed
       if (config.password !== originalPassword) {
         // Show toast notification
-        toast.success("Password changed. You will be redirected to login page.", {
+        toast.success(t("config.passwordChanged"), {
           duration: 3000,
-          icon: '🔐',
+          icon: "🔐",
         });
-        
+
         // Wait 3 seconds before logging out to allow user to see the toast
         setTimeout(() => {
           localStorage.removeItem("authToken");
           // Redirect with a query parameter to indicate password change
-          window.location.href = '/?passwordChanged=true';
+          window.location.href = "/?passwordChanged=true";
         }, 3000);
       }
     } catch (err) {
-      setError(`Error saving configuration: ${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        t("common.error", {
+          message: err instanceof Error ? err.message : String(err),
+        })
+      );
       console.error("Config save error:", err);
-      toast.error("Failed to save configuration");
+      toast.error(t("config.error"));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     if (!config) return;
-    
+
     const { name, value, type } = e.target;
-    
+
     // Handle checkboxes
     if (type === "checkbox") {
       const checked = (e.target as HTMLInputElement).checked;
@@ -136,7 +151,7 @@ const ConfigTab = () => {
       });
       return;
     }
-    
+
     // Handle numbers
     if (type === "number") {
       setConfig({
@@ -145,16 +160,21 @@ const ConfigTab = () => {
       });
       return;
     }
-    
+
     // Handle empty strings for nullable fields
-    if (["proxy", "rproxy", "custom_h", "custom_a", "padtxt_file"].includes(name) && value === "") {
+    if (
+      ["proxy", "rproxy", "custom_h", "custom_a", "padtxt_file"].includes(
+        name
+      ) &&
+      value === ""
+    ) {
       setConfig({
         ...config,
         [name]: null,
       });
       return;
     }
-    
+
     // Handle regular text inputs
     setConfig({
       ...config,
@@ -174,11 +194,11 @@ const ConfigTab = () => {
     return (
       <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-4">
         <p className="text-red-200">{error}</p>
-        <button 
+        <button
           onClick={fetchConfig}
           className="mt-2 py-1 px-3 bg-red-500 hover:bg-red-400 text-white rounded-md text-sm transition-colors duration-200"
         >
-          Retry
+          {t("config.retry")}
         </button>
       </div>
     );
@@ -187,7 +207,7 @@ const ConfigTab = () => {
   if (!config) {
     return (
       <div className="bg-amber-500/20 border border-amber-500 rounded-lg p-4">
-        <p className="text-amber-200">No configuration data available.</p>
+        <p className="text-amber-200">{t("config.noData")}</p>
       </div>
     );
   }
@@ -195,7 +215,7 @@ const ConfigTab = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-white">Configuration</h3>
+        <h3 className="text-lg font-medium text-white">{t("config.title")}</h3>
         <button
           onClick={saveConfig}
           disabled={saving}
@@ -205,19 +225,25 @@ const ConfigTab = () => {
               : "bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400"
           } text-white rounded-md text-sm font-medium transition-colors duration-200`}
         >
-          {saving ? "Saving..." : "Save Configuration"}
+          {saving ? t("config.saving") : t("config.saveButton")}
         </button>
       </div>
 
       <div className="space-y-6">
         {/* Server Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">Server Settings</h4>
-          <p className="text-xs text-gray-400 mb-3">These settings require a restart to take effect.</p>
-          
+          <h4 className="text-md font-medium text-cyan-300 mb-3">
+            {t("config.sections.server.title")}
+          </h4>
+          <p className="text-xs text-gray-400 mb-3">
+            {t("config.sections.server.description")}
+          </p>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">IP Address</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.server.ip")}
+              </label>
               <input
                 type="text"
                 name="ip"
@@ -226,9 +252,11 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Port</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.server.port")}
+              </label>
               <input
                 type="number"
                 name="port"
@@ -238,7 +266,7 @@ const ConfigTab = () => {
               />
             </div>
           </div>
-          
+
           <div className="mt-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -248,15 +276,19 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Enable OpenAI compatibility</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.server.enableOai")}
+              </span>
             </label>
           </div>
         </div>
-        
+
         {/* App Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">App Settings</h4>
-          
+          <h4 className="text-md font-medium text-cyan-300 mb-3">
+            {t("config.sections.app.title")}
+          </h4>
+
           <div className="space-y-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -266,9 +298,11 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Check for updates</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.app.checkUpdate")}
+              </span>
             </label>
-            
+
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -277,18 +311,24 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Auto update</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.app.autoUpdate")}
+              </span>
             </label>
           </div>
         </div>
-        
+
         {/* Network Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">Network Settings</h4>
-          
+          <h4 className="text-md font-medium text-cyan-300 mb-3">
+            {t("config.sections.network.title")}
+          </h4>
+
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.network.password")}
+              </label>
               <input
                 type="password"
                 name="password"
@@ -297,40 +337,48 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Proxy (optional)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.network.proxy")}
+              </label>
               <input
                 type="text"
                 name="proxy"
                 value={config.proxy || ""}
                 onChange={handleChange}
-                placeholder="http://proxy:port"
+                placeholder={t("config.sections.network.proxyPlaceholder")}
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Reverse Proxy (optional)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.network.rproxy")}
+              </label>
               <input
                 type="text"
                 name="rproxy"
                 value={config.rproxy || ""}
                 onChange={handleChange}
-                placeholder="https://example.com"
+                placeholder={t("config.sections.network.rproxyPlaceholder")}
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
           </div>
         </div>
-        
+
         {/* API Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">API Settings</h4>
-          
+          <h4 className="text-md font-medium text-cyan-300 mb-3">
+            {t("config.sections.api.title")}
+          </h4>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Max Retries</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.api.maxRetries")}
+              </label>
               <input
                 type="number"
                 name="max_retries"
@@ -340,7 +388,7 @@ const ConfigTab = () => {
               />
             </div>
           </div>
-          
+
           <div className="space-y-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -350,9 +398,11 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Pass Parameters</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.api.passParams")}
+              </span>
             </label>
-            
+
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -361,15 +411,19 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Preserve Chats</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.api.preserveChats")}
+              </span>
             </label>
           </div>
         </div>
-        
+
         {/* Cookie Settings Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">Cookie Settings</h4>
-          
+          <h4 className="text-md font-medium text-cyan-300 mb-3">
+            {t("config.sections.cookie.title")}
+          </h4>
+
           <div className="space-y-3">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -379,9 +433,11 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Skip Warning</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.cookie.skipWarning")}
+              </span>
             </label>
-            
+
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -390,9 +446,11 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Skip Restricted</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.cookie.skipRestricted")}
+              </span>
             </label>
-            
+
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -401,15 +459,19 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Skip Non-Pro</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.cookie.skipNonPro")}
+              </span>
             </label>
           </div>
         </div>
-        
+
         {/* Prompt Configurations Section */}
         <div className="bg-gray-700/60 p-4 rounded-lg">
-          <h4 className="text-md font-medium text-cyan-300 mb-3">Prompt Configurations</h4>
-          
+          <h4 className="text-md font-medium text-cyan-300 mb-3">
+            {t("config.sections.prompt.title")}
+          </h4>
+
           <div className="space-y-4">
             <label className="flex items-center space-x-2 cursor-pointer mb-3">
               <input
@@ -419,11 +481,15 @@ const ConfigTab = () => {
                 onChange={handleChange}
                 className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-opacity-25"
               />
-              <span className="text-sm text-gray-300">Use Real Roles</span>
+              <span className="text-sm text-gray-300">
+                {t("config.sections.prompt.realRoles")}
+              </span>
             </label>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Custom Human (optional)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.prompt.customH")}
+              </label>
               <input
                 type="text"
                 name="custom_h"
@@ -432,9 +498,11 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Custom Assistant (optional)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.prompt.customA")}
+              </label>
               <input
                 type="text"
                 name="custom_a"
@@ -443,9 +511,11 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Custom Prompt</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.prompt.customPrompt")}
+              </label>
               <textarea
                 name="custom_prompt"
                 value={config.custom_prompt}
@@ -454,9 +524,11 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Pad Text File (optional)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.prompt.padtxtFile")}
+              </label>
               <input
                 type="text"
                 name="padtxt_file"
@@ -465,9 +537,11 @@ const ConfigTab = () => {
                 className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Pad Text Length</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                {t("config.sections.prompt.padtxtLen")}
+              </label>
               <input
                 type="number"
                 name="padtxt_len"

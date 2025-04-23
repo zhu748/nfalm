@@ -1,8 +1,11 @@
+// frontend/src/SubmitCookieForm.tsx
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import "./App.css";
 import { postCookie } from "./api";
 
 const CookieSubmitForm = () => {
+  const { t } = useTranslation();
   const [cookie, setCookie] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState({
@@ -16,7 +19,7 @@ const CookieSubmitForm = () => {
     if (!cookie.trim()) {
       setStatus({
         type: "error",
-        message: "Please enter a cookie value",
+        message: t("cookieSubmit.error.empty"),
       });
       return;
     }
@@ -28,14 +31,34 @@ const CookieSubmitForm = () => {
       await postCookie(cookie);
       setStatus({
         type: "success",
-        message: "Cookie submitted successfully!",
+        message: t("cookieSubmit.success"),
       });
       setCookie(""); // Clear the input field after successful submission
     } catch (e) {
-      setStatus({
-        type: "error",
-        message: e instanceof Error ? e.message : "Unknown error",
-      });
+      // Try to match specific error messages to translations
+      const errorMessage = e instanceof Error ? e.message : "Unknown error";
+
+      if (errorMessage.includes("Invalid cookie format")) {
+        setStatus({
+          type: "error",
+          message: t("cookieSubmit.error.format"),
+        });
+      } else if (errorMessage.includes("Authentication failed")) {
+        setStatus({
+          type: "error",
+          message: t("cookieSubmit.error.auth"),
+        });
+      } else if (errorMessage.includes("Server error")) {
+        setStatus({
+          type: "error",
+          message: t("cookieSubmit.error.server"),
+        });
+      } else {
+        setStatus({
+          type: "error",
+          message: errorMessage,
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -49,14 +72,14 @@ const CookieSubmitForm = () => {
             htmlFor="cookie"
             className="block text-sm font-medium text-gray-300 mb-1"
           >
-            Cookie Value
+            {t("cookieSubmit.value")}
           </label>
           <div className="relative">
             <textarea
               id="cookie"
               value={cookie}
               onChange={(e) => setCookie(e.target.value)}
-              placeholder="Paste your cookie here..."
+              placeholder={t("cookieSubmit.placeholder")}
               className="w-full p-4 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 min-h-32 text-sm text-gray-200 shadow-sm transition-all duration-200 placeholder-gray-400"
               disabled={isSubmitting}
             />
@@ -82,7 +105,7 @@ const CookieSubmitForm = () => {
             )}
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            Enter the complete cookie string including all required parameters.
+            {t("cookieSubmit.description")}
           </p>
         </div>
 
@@ -160,10 +183,10 @@ const CookieSubmitForm = () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              Submitting...
+              {t("cookieSubmit.submitting")}
             </span>
           ) : (
-            "Submit Cookie"
+            t("cookieSubmit.submitButton")
           )}
         </button>
       </form>

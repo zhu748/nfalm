@@ -1,10 +1,13 @@
+// frontend/src/AuthGatekeeper.tsx
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 interface AuthGatekeeperProps {
   onAuthenticated?: (status: boolean) => void;
 }
 
 const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
+  const { t } = useTranslation();
   const [authToken, setAuthToken] = useState("");
   const [status, setStatus] = useState({
     type: "idle",
@@ -45,7 +48,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
       if (response.ok) {
         setStatus({
           type: "success",
-          message: "Authentication successful!",
+          message: t("auth.success"),
         });
         // Call the onAuthenticated callback with true if it exists
         if (onAuthenticated) {
@@ -56,7 +59,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
         setSavedToken("");
         setStatus({
           type: "error",
-          message: "Invalid token. Please try again.",
+          message: t("auth.invalid"),
         });
         // Call the onAuthenticated callback with false if it exists
         if (onAuthenticated) {
@@ -67,7 +70,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
       const message = error instanceof Error ? error.message : "Unknown error";
       setStatus({
         type: "error",
-        message: "Authentication failed: " + message,
+        message: t("auth.error", { message }),
       });
       // Call the onAuthenticated callback with false if it exists
       if (onAuthenticated) {
@@ -88,7 +91,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
     if (!authToken.trim()) {
       setStatus({
         type: "error",
-        message: "Please enter an auth token",
+        message: t("auth.enterToken"),
       });
       return;
     }
@@ -106,7 +109,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
       const message = error instanceof Error ? error.message : "Unknown error";
       setStatus({
         type: "error",
-        message: "Failed to save token: " + message,
+        message: t("auth.error", { message }),
       });
     }
   };
@@ -116,7 +119,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
     setSavedToken("");
     setStatus({
       type: "success",
-      message: "Auth token removed successfully!",
+      message: t("auth.success"),
     });
 
     // Call the onAuthenticated callback with false if it exists
@@ -138,7 +141,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
             htmlFor="authToken"
             className="block text-sm font-medium text-gray-300 mb-1"
           >
-            Auth Token
+            {t("auth.token")}
           </label>
           <div className="relative">
             <input
@@ -146,7 +149,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
               type="password"
               value={authToken}
               onChange={(e) => setAuthToken(e.target.value)}
-              placeholder="Enter your auth token..."
+              placeholder={t("auth.tokenPlaceholder")}
               className="w-full p-4 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-sm text-gray-200 shadow-sm transition-all duration-200 placeholder-gray-400"
               disabled={isLoading}
             />
@@ -175,7 +178,8 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
           {savedToken && (
             <div className="flex items-center justify-between mt-2">
               <p className="text-xs text-gray-400">
-                Previous token: <span className="font-mono">{savedToken}</span>
+                {t("auth.previousToken")}{" "}
+                <span className="font-mono">{savedToken}</span>
               </p>
               <button
                 type="button"
@@ -183,7 +187,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
                 className="text-xs text-red-400 hover:text-red-300"
                 disabled={isLoading}
               >
-                Clear
+                {t("auth.clear")}
               </button>
             </div>
           )}
@@ -263,10 +267,10 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              Verifying...
+              {t("auth.verifying")}
             </div>
           ) : (
-            "Authenticate"
+            t("auth.submitButton")
           )}
         </button>
       </form>

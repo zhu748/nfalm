@@ -1,0 +1,135 @@
+{
+  "app": {
+    "title": "ClewdR",
+    "footer": "© {{year}} ClewdR - All rights reserved",
+    "buyMeCoffee": "Buy me a coffee"
+  },
+  "auth": {
+    "title": "Authentication Required",
+    "description": "Please log in with your auth token to access ClewdR features.",
+    "token": "Auth Token",
+    "tokenPlaceholder": "Enter your auth token...",
+    "previousToken": "Previous token:",
+    "clear": "Clear",
+    "submitButton": "Authenticate",
+    "verifying": "Verifying...",
+    "success": "Authentication successful!",
+    "invalid": "Invalid token. Please try again.",
+    "error": "Authentication failed: {{message}}",
+    "enterToken": "Please enter an auth token",
+    "logoutTitle": "Log Out",
+    "loggedInMessage": "You are currently logged in and have access to all features.",
+    "logout": "Logout",
+    "passwordChanged": "Note: You have been logged out because your password was changed. Please log in with your new credentials."
+  },
+  "tabs": {
+    "cookie": "Cookie",
+    "config": "Config",
+    "auth": "Auth"
+  },
+  "cookieTab": {
+    "submit": "Submit Cookie",
+    "status": "Cookie Status"
+  },
+  "cookieSubmit": {
+    "value": "Cookie Value",
+    "placeholder": "Paste your cookie here...",
+    "description": "Enter the complete cookie string including all required parameters.",
+    "submitting": "Submitting...",
+    "submitButton": "Submit Cookie",
+    "success": "Cookie submitted successfully!",
+    "error": {
+      "empty": "Please enter a cookie value",
+      "format": "Invalid cookie format",
+      "auth": "Authentication failed. Please set a valid auth token.",
+      "server": "Server error."
+    }
+  },
+  "cookieStatus": {
+    "title": "Cookie Status",
+    "total": "Total: {{count}} cookies",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "sections": {
+      "valid": "Valid Cookies",
+      "inUse": "In-Use Cookies",
+      "exhausted": "Exhausted Cookies",
+      "invalid": "Invalid Cookies"
+    },
+    "status": {
+      "available": "Available",
+      "used": "Used for {{time}}",
+      "resets": "Resets at {{time}}",
+      "unknownReset": "Unknown reset time",
+      "reasons": {
+        "freAccount": "Free account",
+        "disabled": "Organization Disabled",
+        "banned": "Banned",
+        "invalid": "Invalid",
+        "restricted": "Restricted until {{time}}",
+        "rateLimited": "Rate limited until {{time}}",
+        "unknown": "Unknown"
+      }
+    },
+    "noCookies": "No {{type}} cookies",
+    "deleteConfirm": "Are you sure you want to delete this cookie?",
+    "copy": "Copy to clipboard"
+  },
+  "config": {
+    "title": "Configuration",
+    "saving": "Saving...",
+    "saveButton": "Save Configuration",
+    "success": "Configuration saved successfully",
+    "error": "Failed to save configuration",
+    "passwordChanged": "Password changed. You will be redirected to login page.",
+    "retry": "Retry",
+    "noData": "No configuration data available.",
+    "sections": {
+      "server": {
+        "title": "Server Settings",
+        "description": "These settings require a restart to take effect.",
+        "ip": "IP Address",
+        "port": "Port",
+        "enableOai": "Enable OpenAI compatibility"
+      },
+      "app": {
+        "title": "App Settings",
+        "checkUpdate": "Check for updates",
+        "autoUpdate": "Auto update"
+      },
+      "network": {
+        "title": "Network Settings",
+        "password": "Password",
+        "proxy": "Proxy (optional)",
+        "proxyPlaceholder": "http://proxy:port",
+        "rproxy": "Reverse Proxy (optional)",
+        "rproxyPlaceholder": "https://example.com"
+      },
+      "api": {
+        "title": "API Settings",
+        "maxRetries": "Max Retries",
+        "passParams": "Pass Parameters",
+        "preserveChats": "Preserve Chats"
+      },
+      "cookie": {
+        "title": "Cookie Settings",
+        "skipWarning": "Skip Warning",
+        "skipRestricted": "Skip Restricted",
+        "skipNonPro": "Skip Non-Pro"
+      },
+      "prompt": {
+        "title": "Prompt Configurations",
+        "realRoles": "Use Real Roles",
+        "customH": "Custom Human (optional)",
+        "customA": "Custom Assistant (optional)",
+        "customPrompt": "Custom Prompt",
+        "padtxtFile": "Pad Text File (optional)",
+        "padtxtLen": "Pad Text Length"
+      }
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error: {{message}}"
+  }
+}
