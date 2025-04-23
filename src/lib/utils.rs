@@ -3,25 +3,30 @@ use std::path::{Path, PathBuf};
 use tracing::error;
 use walkdir::WalkDir;
 
-use crate::{config::CONFIG_NAME, error::ClewdrError};
+use crate::error::ClewdrError;
 
 /// Get directory of the config file
 pub fn config_dir() -> Result<PathBuf, ClewdrError> {
-    let cwd = std::env::current_dir().map_err(|_| ClewdrError::PathNotFound("cwd".to_string()))?;
-    let cwd_config = cwd.join(CONFIG_NAME);
-    if cwd_config.exists() {
-        return Ok(cwd);
+    #[cfg(debug_assertions)]
+    {
+        // In debug mode, use the current working directory
+        // to find the config file
+        return Ok(std::env::current_dir()?);
     }
-    let exec_path =
-        std::env::current_exe().map_err(|_| ClewdrError::PathNotFound("exec".to_string()))?;
-    let exec_dir = exec_path
-        .parent()
-        .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
-        .to_path_buf();
-    // cd to the exec dir
-    std::env::set_current_dir(&exec_dir)
-        .map_err(|_| ClewdrError::PathNotFound("exec dir".to_string()))?;
-    Ok(exec_dir)
+    #[cfg(not(debug_assertions))]
+    {
+        // In release mode, use the directory of the executable
+        // to find the config file
+        let exec_path = std::env::current_exe()?;
+        let exec_dir = exec_path
+            .parent()
+            .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
+            .canonicalize()?
+            .to_path_buf();
+        // cd to the exec dir
+        std::env::set_current_dir(&exec_dir)?;
+        Ok(exec_dir)
+    }
 }
 
 /// Recursively copies all files and subdirectories from `src` to `dst`

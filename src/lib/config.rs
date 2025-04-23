@@ -229,7 +229,7 @@ impl ClewdrCookie {
     /// Check if the cookie is valid format
     pub fn validate(&self) -> bool {
         // Check if the cookie is valid
-        let re = regex::Regex::new(r"sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA").unwrap();
+        let re = regex::Regex::new(r"^sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();
         re.is_match(&self.inner)
     }
 
