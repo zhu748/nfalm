@@ -19,10 +19,10 @@ use tracing_subscriber::{
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {
     let _ = enable_ansi_support::enable_ansi_support();
+    // setup dir
+    let _ = *CLEWDR_DIR;
     // parse command line arguments
     clewdr::Args::parse();
-    // setup dir
-    let _ = CLEWDR_DIR;
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging

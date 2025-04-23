@@ -18,11 +18,12 @@ use std::{
 use tiktoken_rs::o200k_base;
 use tracing::{error, info, warn};
 
-use crate::error::ClewdrError;
+use crate::{error::ClewdrError, utils::CLEWDR_DIR};
 
-pub const CONFIG_NAME: &str = "config.toml";
+pub const CONFIG_NAME: &str = "clewdr.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
 pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
+    let _ = *CLEWDR_DIR;
     let config = ClewdrConfig::new().unwrap_or_default();
     ArcSwap::from_pointee(config)
 });
@@ -387,8 +388,9 @@ impl ClewdrConfig {
     /// Load the configuration from the file
     pub fn new() -> Result<Self, ClewdrError> {
         let config: ClewdrConfig = Figment::new()
-            .merge(Toml::file(CONFIG_NAME))
-            .merge(Env::prefixed("CLEWDR_"))
+            .adjoin(Toml::file("config.toml"))
+            .adjoin(Toml::file(CONFIG_NAME))
+            .admerge(Env::prefixed("CLEWDR_"))
             .extract_lossy()
             .inspect_err(|e| {
                 error!("Failed to load config: {}", e);
