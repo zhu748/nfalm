@@ -19,6 +19,5 @@ Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in R
 
 1. Download binary of your platform from GitHub release page.
 2. Run `clewdr` / `clewdr.exe`.
-3. A default config file `config.toml` will be generated in the same directory as the binary.
-4. Edit `config.toml` to set your own config. Replace the placeholder cookie.
-5. Fill proxy setting in SillyTavern as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill the password.
+3. Open `http://127.0.1:8484` in your browser to configure the proxy.
+4. Fill proxy setting in SillyTavern as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill the password.
