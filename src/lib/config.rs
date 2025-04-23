@@ -19,6 +19,15 @@ pub const ENDPOINT: &str = "https://claude.ai";
 const fn default_max_retries() -> usize {
     5
 }
+fn default_ip() -> String {
+    "127.0.0.1".to_string()
+}
+fn default_port() -> u16 {
+    8484
+}
+const fn default_use_real_roles() -> bool {
+    true
+}
 
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -28,8 +37,6 @@ pub struct ClewdrConfig {
     pub check_update: bool,
     #[serde(default)]
     pub auto_update: bool,
-    #[serde(default = "default_max_retries")]
-    pub max_retries: usize,
 
     // Cookie configurations
     #[serde(default)]
@@ -38,18 +45,28 @@ pub struct ClewdrConfig {
     pub wasted_cookie: Vec<UselessCookie>,
 
     // Network settings
-    password: String,
-    pub proxy: String,
-    ip: String,
-    port: u16,
     #[serde(default)]
-    pub enable_oai: bool,
+    password: String,
+    #[serde(default)]
+    pub proxy: String,
+    #[serde(default)]
+    pub rproxy: String,
+    #[serde(default = "default_ip")]
+    ip: String,
+    #[serde(default = "default_port")]
+    port: u16,
 
     // Api settings
+    #[serde(default)]
+    pub enable_oai: bool,
+    #[serde(default = "default_max_retries")]
+    pub max_retries: usize,
     #[serde(default)]
     pub pass_params: bool,
     #[serde(default)]
     pub preserve_chats: bool,
+
+    // Cookie settings
     #[serde(default)]
     pub skip_warning: bool,
     #[serde(default)]
@@ -57,15 +74,18 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub skip_non_pro: bool,
 
-    // Proxy configurations
-    pub rproxy: String,
-
     // Prompt configurations
+    #[serde(default = "default_use_real_roles")]
     pub use_real_roles: bool,
+    #[serde(default)]
     pub custom_h: Option<String>,
+    #[serde(default)]
     pub custom_a: Option<String>,
+    #[serde(default)]
     pub custom_prompt: String,
+    #[serde(default)]
     pub padtxt_file: String,
+    #[serde(default)]
     pub padtxt_len: usize,
 
     // Skip field
@@ -201,11 +221,6 @@ impl ClewdrCookie {
         let re = regex::Regex::new(r"^sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();
         re.is_match(&self.inner)
     }
-
-    pub fn clear(&mut self) {
-        // Clear the cookie
-        self.inner.clear();
-    }
 }
 
 impl From<&str> for ClewdrCookie {
@@ -261,15 +276,15 @@ impl<'de> Deserialize<'de> for ClewdrCookie {
 }
 
 /// Generate a random password of given length
-fn generate_password(length: usize) -> String {
+fn generate_password() -> String {
     let pg = PasswordGenerator {
-        length,
+        length: 64,
         numbers: true,
         lowercase_letters: true,
         uppercase_letters: true,
         symbols: true,
-        spaces: true,
-        exclude_similar_characters: false,
+        spaces: false,
+        exclude_similar_characters: true,
         strict: true,
     };
 
@@ -349,49 +364,16 @@ impl ClewdrConfig {
 
     /// Load the configuration from the file
     pub fn load() -> Result<Self, ClewdrError> {
-        // try to read from pwd
-        let file_string = std::fs::read_to_string(CONFIG_NAME).or_else(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                // try to read from exec path
-                let exec_path = std::env::current_exe()?;
-                let config_dir = exec_path.parent().ok_or(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "Failed to get parent directory",
-                ))?;
-                let config_path = config_dir.join(CONFIG_NAME);
-                std::fs::read_to_string(config_path)
-            } else {
-                Err(e)
-            }
-        });
-        match file_string {
-            Ok(file_string) => {
-                // parse the config file
-                let mut config: ClewdrConfig = toml::de::from_str(&file_string)?;
-                config.load_padtxt();
-                config = config.validate();
-                config.save()?;
-                Ok(config)
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // create a default config file
-                let exec_path = std::env::current_exe()?;
-                let config_dir = exec_path.parent().ok_or(ClewdrError::PathNotFound(
-                    "Failed to get parent directory".to_string(),
-                ))?;
-                let mut default_config = ClewdrConfig::default();
-                let canonical_path = std::fs::canonicalize(config_dir)?;
-                println!(
-                    "Default config file created at {}",
-                    canonical_path.join(CONFIG_NAME).display()
-                );
-                println!("{}", "SET YOUR COOKIE HERE".green());
-                default_config = default_config.validate();
-                default_config.save()?;
-                Ok(default_config)
-            }
-            Err(e) => Err(e.into()),
-        }
+        let settings = config::Config::builder()
+            .add_source(config::File::with_name("clewdr").required(false))
+            .add_source(config::File::with_name("config").required(false))
+            .add_source(config::Environment::with_prefix("clewdr"))
+            .build()?;
+        let config: ClewdrConfig = settings.try_deserialize()?;
+        let mut config = config.validate();
+        config.load_padtxt();
+        config.save()?;
+        Ok(config)
     }
 
     fn load_padtxt(&mut self) {
@@ -449,7 +431,7 @@ impl ClewdrConfig {
     /// Validate the configuration
     fn validate(mut self) -> Self {
         if self.password.trim().is_empty() {
-            self.password = generate_password(32);
+            self.password = generate_password();
             self.save().expect("Failed to save config");
         }
         self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
