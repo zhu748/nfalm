@@ -28,6 +28,9 @@ fn default_port() -> u16 {
 const fn default_use_real_roles() -> bool {
     true
 }
+const fn default_padtxt_len() -> usize {
+    4000
+}
 
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -85,7 +88,7 @@ pub struct ClewdrConfig {
     pub custom_prompt: String,
     #[serde(default)]
     pub padtxt_file: String,
-    #[serde(default)]
+    #[serde(default = "default_padtxt_len")]
     pub padtxt_len: usize,
 
     // Skip field
@@ -370,8 +373,7 @@ impl ClewdrConfig {
             .add_source(config::Environment::with_prefix("clewdr"))
             .build()?;
         let config: ClewdrConfig = settings.try_deserialize()?;
-        let mut config = config.validate();
-        config.load_padtxt();
+        let config = config.validate();
         config.save()?;
         Ok(config)
     }
@@ -448,6 +450,7 @@ impl ClewdrConfig {
                 .ok()
         };
         self.rquest_proxy = proxy;
+        self.load_padtxt();
         self
     }
 }
