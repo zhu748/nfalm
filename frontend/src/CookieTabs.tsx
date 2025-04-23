@@ -19,7 +19,7 @@ const CookieTabs: React.FC = () => {
               : "text-gray-400 hover:text-gray-300"
           }`}
         >
-          {t('cookieTab.submit')}
+          {t("cookieTab.submit")}
         </button>
         <button
           onClick={() => setActiveTab("status")}
@@ -29,7 +29,7 @@ const CookieTabs: React.FC = () => {
               : "text-gray-400 hover:text-gray-300"
           }`}
         >
-          {t('cookieTab.status')}
+          {t("cookieTab.status")}
         </button>
       </div>
 

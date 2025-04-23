@@ -27,7 +27,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           className={`flex-1 py-2 font-medium text-sm transition-colors duration-200 ${getTabStyle(
-            tab
+            tab,
           )}`}
         >
           {tab.label}

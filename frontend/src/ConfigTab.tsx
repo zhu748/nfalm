@@ -75,7 +75,7 @@ const ConfigTab = () => {
       setError(
         t("common.error", {
           message: err instanceof Error ? err.message : String(err),
-        })
+        }),
       );
       console.error("Config fetch error:", err);
     } finally {
@@ -124,7 +124,7 @@ const ConfigTab = () => {
       setError(
         t("common.error", {
           message: err instanceof Error ? err.message : String(err),
-        })
+        }),
       );
       console.error("Config save error:", err);
       toast.error(t("config.error"));
@@ -136,7 +136,7 @@ const ConfigTab = () => {
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     if (!config) return;
 
@@ -164,7 +164,7 @@ const ConfigTab = () => {
     // Handle empty strings for nullable fields
     if (
       ["proxy", "rproxy", "custom_h", "custom_a", "padtxt_file"].includes(
-        name
+        name,
       ) &&
       value === ""
     ) {

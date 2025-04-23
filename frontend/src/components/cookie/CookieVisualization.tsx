@@ -75,7 +75,7 @@ const CookieVisualization: React.FC = () => {
                 .then(
                   (data) =>
                     data.error ||
-                    t("common.error", { message: response.status })
+                    t("common.error", { message: response.status }),
                 );
         setError(errorMessage);
       }

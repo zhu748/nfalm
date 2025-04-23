@@ -89,7 +89,7 @@ const CookieVisualization: React.FC = () => {
                 .then(
                   (data) =>
                     data.error ||
-                    t("common.error", { message: response.status })
+                    t("common.error", { message: response.status }),
                 );
         setError(errorMessage);
       }
@@ -116,7 +116,7 @@ const CookieVisualization: React.FC = () => {
     if (seconds < 3600)
       return `${Math.floor(seconds / 60)} min ${seconds % 60} sec`;
     return `${Math.floor(seconds / 3600)} hr ${Math.floor(
-      (seconds % 3600) / 60
+      (seconds % 3600) / 60,
     )} min`;
   };
 

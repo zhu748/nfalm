@@ -25,7 +25,7 @@ export interface FormInputProps {
   type?: string;
   value: string;
   onChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
   label?: string;
   placeholder?: string;

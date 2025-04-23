@@ -199,8 +199,8 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
               status.type === "success"
                 ? "bg-green-900 text-green-200 border border-green-700"
                 : status.type === "error"
-                ? "bg-red-900 text-red-200 border border-red-700"
-                : ""
+                  ? "bg-red-900 text-red-200 border border-red-700"
+                  : ""
             }`}
           >
             <div className="flex-shrink-0 mr-3">

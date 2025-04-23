@@ -11,7 +11,7 @@ interface ConfigFormProps {
   onChange: (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => void;
 }
 
