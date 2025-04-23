@@ -55,6 +55,14 @@ pub async fn api_post_config(
     new_c.wasted_cookie = CLEWDR_CONFIG.load().wasted_cookie.clone();
     // update config
     CLEWDR_CONFIG.store(Arc::new(new_c));
+    if let Err(e) = CLEWDR_CONFIG.load().save() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("Failed to save config: {}", e)
+            })),
+        ));
+    }
 
     Ok(Json(serde_json::json!({
         "message": "Config updated successfully",
