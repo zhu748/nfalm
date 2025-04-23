@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{path::PathBuf, sync::LazyLock};
 
 use clap::Parser;
 use const_format::formatc;
@@ -41,4 +41,7 @@ pub struct Args {
     #[arg(short, long)]
     /// Force update of the application
     pub update: bool,
+    #[arg(short, long)]
+    /// load cookie from file
+    pub file: Option<PathBuf>,
 }

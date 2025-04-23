@@ -18,7 +18,10 @@ use std::{
 use tiktoken_rs::o200k_base;
 use tracing::{error, info, warn};
 
-use crate::{error::ClewdrError, utils::CLEWDR_DIR};
+use crate::{
+    error::ClewdrError,
+    utils::{ARG_COOKIE_FILE, CLEWDR_DIR},
+};
 
 pub const CONFIG_NAME: &str = "clewdr.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
@@ -387,7 +390,7 @@ impl ClewdrConfig {
 
     /// Load the configuration from the file
     pub fn new() -> Result<Self, ClewdrError> {
-        let config: ClewdrConfig = Figment::new()
+        let mut config: ClewdrConfig = Figment::new()
             .adjoin(Toml::file("config.toml"))
             .adjoin(Toml::file(CONFIG_NAME))
             .admerge(Env::prefixed("CLEWDR_"))
@@ -395,6 +398,26 @@ impl ClewdrConfig {
             .inspect_err(|e| {
                 error!("Failed to load config: {}", e);
             })?;
+        if let Some(ref f) = *ARG_COOKIE_FILE {
+            // load cookies from file
+            if f.exists() {
+                let Ok(cookies) = std::fs::read_to_string(f) else {
+                    error!("Failed to read cookie file: {}", f.display());
+                    return Err(ClewdrError::InvalidCookie(Reason::Null));
+                };
+                let cookies = cookies.lines().map(ClewdrCookie::from).map_while(|c| {
+                    if c.validate() {
+                        Some(CookieStatus::new(c.to_string().as_str(), None))
+                    } else {
+                        warn!("Invalid cookie format: {}", c);
+                        None
+                    }
+                });
+                config.cookie_array.extend(cookies);
+            } else {
+                error!("Cookie file not found: {}", f.display());
+            }
+        }
         let config = config.validate();
         config.save().inspect_err(|e| {
             error!("Failed to save config: {}", e);

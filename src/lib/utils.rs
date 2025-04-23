@@ -1,3 +1,4 @@
+use clap::Parser;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -6,6 +7,15 @@ use tracing::error;
 use walkdir::WalkDir;
 
 use crate::error::ClewdrError;
+pub static ARG_COOKIE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    let args = crate::Args::parse();
+    if let Some(cookie_file) = args.file {
+        // canonicalize the path
+        cookie_file.canonicalize().ok()
+    } else {
+        None
+    }
+});
 
 pub static CLEWDR_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| set_clewdr_dir().expect("Failed to get dir"));

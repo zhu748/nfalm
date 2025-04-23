@@ -1,11 +1,10 @@
-use clap::Parser;
 use clewdr::{
     self, BANNER,
     config::{CLEWDR_CONFIG, CONFIG_NAME},
     cookie_manager::CookieManager,
     error::ClewdrError,
     state::ClientState,
-    utils::{CLEWDR_DIR, LOG_DIR},
+    utils::{ARG_COOKIE_FILE, CLEWDR_DIR, LOG_DIR},
 };
 use colored::Colorize;
 use tracing::warn;
@@ -20,9 +19,8 @@ use tracing_subscriber::{
 async fn main() -> Result<(), ClewdrError> {
     let _ = enable_ansi_support::enable_ansi_support();
     // setup dir
+    let _ = *ARG_COOKIE_FILE;
     let _ = *CLEWDR_DIR;
-    // parse command line arguments
-    clewdr::Args::parse();
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
