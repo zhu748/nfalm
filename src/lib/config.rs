@@ -402,19 +402,23 @@ impl ClewdrConfig {
 
     fn load_padtxt(&mut self) {
         let Some(padtxt) = &self.padtxt_file else {
+            self.pad_tokens = Arc::new(vec![]);
             return;
         };
         let padtxt = padtxt.trim();
         if padtxt.is_empty() {
+            self.pad_tokens = Arc::new(vec![]);
             return;
         }
         let Ok(padtxt_path) = PathBuf::from_str(padtxt);
         if !padtxt_path.exists() {
             error!("Pad txt file not found: {}", padtxt_path.display());
+            self.pad_tokens = Arc::new(vec![]);
             return;
         }
         let Ok(padtxt_string) = std::fs::read_to_string(padtxt_path.as_path()) else {
             error!("Failed to read pad txt file: {}", padtxt_path.display());
+            self.pad_tokens = Arc::new(vec![]);
             return;
         };
         // remove tokenizer special characters
@@ -455,7 +459,7 @@ impl ClewdrConfig {
     }
 
     /// Validate the configuration
-    fn validate(mut self) -> Self {
+    pub fn validate(mut self) -> Self {
         if self.password.trim().is_empty() {
             self.password = generate_password();
             self.save().expect("Failed to save config");

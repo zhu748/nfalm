@@ -10,8 +10,8 @@ use tower_http::services::ServeDir;
 
 use crate::{
     api::{
-        api_auth, api_completion, api_delete_cookie, api_get_cookies, api_messages, api_submit,
-        api_version,
+        api_auth, api_completion, api_delete_cookie, api_get_config, api_get_cookies, api_messages,
+        api_post_config, api_submit, api_version,
     },
     config::CLEWDR_CONFIG,
     state::ClientState,
@@ -36,7 +36,8 @@ impl RouterBuilder {
             .route("/api/delete_cookie/{cookie}", delete(api_delete_cookie))
             .route("/api/version", get(api_version))
             .route("/api/get_cookies", get(api_get_cookies))
-            .route("/api/auth", get(api_auth));
+            .route("/api/auth", get(api_auth))
+            .route("/api/config", get(api_get_config).post(api_post_config));
         let r = if CLEWDR_CONFIG.load().enable_oai {
             r.route("/v1/chat/completions", post(api_completion))
         } else {
