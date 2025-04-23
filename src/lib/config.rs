@@ -110,7 +110,7 @@ impl Display for Reason {
 /// A struct representing a useless cookie
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UselessCookie {
-    pub cookie: CookieInfo,
+    pub cookie: ClewdrCookie,
     pub reason: Reason,
 }
 impl PartialEq for UselessCookie {
@@ -126,7 +126,7 @@ impl Hash for UselessCookie {
 }
 
 impl UselessCookie {
-    pub fn new(cookie: CookieInfo, reason: Reason) -> Self {
+    pub fn new(cookie: ClewdrCookie, reason: Reason) -> Self {
         Self { cookie, reason }
     }
 }
@@ -134,7 +134,7 @@ impl UselessCookie {
 /// A struct representing a cookie with its information
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CookieStatus {
-    pub cookie: CookieInfo,
+    pub cookie: ClewdrCookie,
     #[serde(deserialize_with = "validate_reset")]
     #[serde(default)]
     pub reset_time: Option<i64>,
@@ -190,7 +190,7 @@ where
 impl CookieStatus {
     pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
         Self {
-            cookie: CookieInfo::from(cookie),
+            cookie: ClewdrCookie::from(cookie),
             reset_time,
         }
     }
@@ -213,11 +213,11 @@ impl CookieStatus {
 
 /// A struct representing a cookie
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct CookieInfo {
+pub struct ClewdrCookie {
     inner: String,
 }
 
-impl Default for CookieInfo {
+impl Default for ClewdrCookie {
     fn default() -> Self {
         Self {
             inner: PLACEHOLDER_COOKIE.to_string(),
@@ -225,7 +225,7 @@ impl Default for CookieInfo {
     }
 }
 
-impl CookieInfo {
+impl ClewdrCookie {
     /// Check if the cookie is valid format
     pub fn validate(&self) -> bool {
         // Check if the cookie is valid
@@ -239,7 +239,7 @@ impl CookieInfo {
     }
 }
 
-impl From<&str> for CookieInfo {
+impl From<&str> for ClewdrCookie {
     /// Create a new cookie from a string
     fn from(original: &str) -> Self {
         // split off first '@' to keep compatibility with clewd
@@ -259,19 +259,19 @@ impl From<&str> for CookieInfo {
     }
 }
 
-impl Display for CookieInfo {
+impl Display for ClewdrCookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "sessionKey={}", self.inner)
     }
 }
 
-impl Debug for CookieInfo {
+impl Debug for ClewdrCookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "sessionKey={}", self.inner)
     }
 }
 
-impl Serialize for CookieInfo {
+impl Serialize for ClewdrCookie {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -281,13 +281,13 @@ impl Serialize for CookieInfo {
     }
 }
 
-impl<'de> Deserialize<'de> for CookieInfo {
+impl<'de> Deserialize<'de> for ClewdrCookie {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(CookieInfo::from(s.as_str()))
+        Ok(ClewdrCookie::from(s.as_str()))
     }
 }
 
