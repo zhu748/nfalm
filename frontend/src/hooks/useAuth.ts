@@ -1,4 +1,6 @@
+// frontend/src/hooks/useAuth.ts
 import { useState, useEffect } from "react";
+import { validateAuthToken } from "../api";
 import { maskToken } from "../utils/formatters";
 
 export const useAuth = (onAuthenticated?: (status: boolean) => void) => {
@@ -13,31 +15,69 @@ export const useAuth = (onAuthenticated?: (status: boolean) => void) => {
     const storedToken = localStorage.getItem("authToken");
     if (storedToken) {
       setSavedToken(maskToken(storedToken));
-      validateToken(storedToken);
+      checkToken(storedToken);
     }
   }, []);
 
-  const validateToken = async (token: string) => {
+  const checkToken = async (token: string) => {
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/auth", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      // Use the centralized API function instead of direct fetch
+      const isValid = await validateAuthToken(token);
 
-      if (response.ok) {
+      if (isValid) {
+        setIsAuthenticated(true);
+        if (onAuthenticated) {
+          onAuthenticated(true);
+        }
+        return true;
+      } else {
+        localStorage.removeItem("authToken");
+        setSavedToken("");
+        setIsAuthenticated(false);
+        setError("Invalid token. Please try again.");
+        if (onAuthenticated) {
+          onAuthenticated(false);
+        }
+        return false;
+      }
+    } catch (err) {
+      setIsAuthenticated(false);
+      setError(err instanceof Error ? err.message : "Unknown error");
+      if (onAuthenticated) {
+        onAuthenticated(false);
+      }
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const login = async (token: string) => {
+    if (!token.trim()) {
+      setError("Please enter an auth token");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Use the centralized API function instead of direct fetch
+      const isValid = await validateAuthToken(token);
+
+      if (isValid) {
+        // Save token to localStorage immediately upon successful validation
+        localStorage.setItem("authToken", token);
+        setSavedToken(maskToken(token));
+        setAuthToken("");
         setIsAuthenticated(true);
         if (onAuthenticated) {
           onAuthenticated(true);
         }
       } else {
-        localStorage.removeItem("authToken");
-        setSavedToken("");
         setIsAuthenticated(false);
         setError("Invalid token. Please try again.");
         if (onAuthenticated) {
@@ -52,25 +92,6 @@ export const useAuth = (onAuthenticated?: (status: boolean) => void) => {
       }
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const login = async (token: string) => {
-    if (!token.trim()) {
-      setError("Please enter an auth token");
-      return;
-    }
-
-    try {
-      await validateToken(token);
-
-      if (isAuthenticated) {
-        localStorage.setItem("authToken", token);
-        setSavedToken(maskToken(token));
-        setAuthToken("");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
     }
   };
 
@@ -92,6 +113,5 @@ export const useAuth = (onAuthenticated?: (status: boolean) => void) => {
     savedToken,
     login,
     logout,
-    validateToken,
   };
 };

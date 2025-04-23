@@ -1,3 +1,4 @@
+// frontend/src/components/auth/AuthGatekeeper.tsx
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Button from "../common/Button";
@@ -22,7 +23,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
   } = useAuth(onAuthenticated);
 
   const [statusMessage, setStatusMessage] = useState({
-    type: "idle" as "idle" | "success" | "error",
+    type: "info" as "success" | "error" | "warning" | "info",
     message: "",
   });
 
@@ -36,34 +37,40 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
     }
   }, [error]);
 
-  // Clear status message after delay
-  useEffect(() => {
-    if (statusMessage.message) {
-      const timer = setTimeout(() => {
-        setStatusMessage({ type: "idle", message: "" });
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [statusMessage]);
+  // Show persistent success message after login
+  // (we don't clear it automatically)
+  const handleLoginSuccess = () => {
+    setStatusMessage({
+      type: "success",
+      message: t("auth.success"),
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setStatusMessage({ type: "info", message: "" });
+
+    if (!authToken.trim()) {
+      setStatusMessage({
+        type: "warning",
+        message: t("auth.enterToken"),
+      });
+      return;
+    }
 
     try {
       await login(authToken);
-      setStatusMessage({
-        type: "success",
-        message: t("auth.success"),
-      });
+      handleLoginSuccess();
     } catch {
       // Error is already handled in the useAuth hook
+      // and will be displayed via the useEffect
     }
   };
 
   const handleClearToken = () => {
     logout();
     setStatusMessage({
-      type: "success",
+      type: "info",
       message: t("auth.tokenCleared"),
     });
   };
@@ -102,7 +109,7 @@ const AuthGatekeeper: React.FC<AuthGatekeeperProps> = ({ onAuthenticated }) => {
 
         {statusMessage.message && (
           <StatusMessage
-            type={statusMessage.type === "success" ? "success" : "error"}
+            type={statusMessage.type}
             message={statusMessage.message}
           />
         )}
