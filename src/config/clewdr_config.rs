@@ -297,6 +297,10 @@ impl ClewdrConfig {
 
     /// Save the configuration to a file
     pub fn save(&self) -> Result<(), ClewdrError> {
+        #[cfg(feature = "no_fs")]
+        {
+            return Ok(());
+        }
         let Ok(config_path) = PathBuf::from_str(CONFIG_NAME);
         std::fs::write(config_path, toml::ser::to_string_pretty(self)?)?;
         Ok(())

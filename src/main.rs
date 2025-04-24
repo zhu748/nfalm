@@ -29,21 +29,25 @@ async fn main() -> Result<(), ClewdrError> {
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
-    let file_appender = tracing_appender::rolling::daily(LOG_DIR, "clewdr.log");
-    let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
+    let subscriber = Registry::default().with(
+        fmt::Layer::default()
+            .with_writer(std::io::stdout)
+            .with_timer(timer.clone()),
+    );
+    #[cfg(not(feature = "no_fs"))]
+    let (subscriber, _guard) = {
+        let file_appender = tracing_appender::rolling::daily(LOG_DIR, "clewdr.log");
+        let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
 
-    let subscriber = Registry::default()
-        .with(
-            fmt::Layer::default()
-                .with_writer(file_writer)
-                .with_timer(timer.clone()),
+        (
+            subscriber.with(
+                fmt::Layer::default()
+                    .with_writer(file_writer)
+                    .with_timer(timer),
+            ),
+            _guard,
         )
-        .with(
-            fmt::Layer::default()
-                .with_writer(std::io::stdout)
-                .with_timer(timer),
-        );
-
+    };
     tracing::subscriber::set_global_default(subscriber).expect("unable to set global subscriber");
 
     println!("{}", *BANNER);

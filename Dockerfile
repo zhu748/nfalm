@@ -26,7 +26,8 @@ COPY . .
 # 复制前端构建产物到static目录
 COPY --from=frontend-builder /usr/src/app/static ./static
 # 构建后端（release 模式）
-RUN RUST_BACKTRACE=1 cargo build --release
+ENV RUSTFLAGS=-Awarnings
+RUN RUST_BACKTRACE=1 cargo build --release --features no_fs
 
 # 使用更小的基础镜像
 FROM debian:bookworm-slim
@@ -49,6 +50,8 @@ VOLUME ["/app/log"]
 # 配置环境变量
 ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484
+ENV CLEWDR_CHECK_UPDATE=0
+ENV CLEWDR_AUTO_UPDATE=0
 
 # 暴露端口
 EXPOSE 8484

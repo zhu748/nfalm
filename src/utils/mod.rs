@@ -73,6 +73,14 @@ fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
 /// # Returns
 /// * `Result<(), ClewdrError>` - Success or an error with details
 pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), ClewdrError> {
+    #[cfg(feature = "no_fs")]
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "File system access is disabled",
+        )
+        .into());
+    }
     let src = src.as_ref();
     let dst = dst.as_ref();
 
@@ -118,6 +126,10 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), 
 /// * `json` - The JSON object to serialize and output
 /// * `file_name` - The name of the file to write in the log directory
 pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
+    #[cfg(feature = "no_fs")]
+    {
+        return;
+    }
     let text = serde_json::to_string_pretty(json).unwrap_or_default();
     print_out_text(&text, file_name);
 }
@@ -128,6 +140,10 @@ pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
 /// * `text` - The text content to write
 /// * `file_name` - The name of the file to write in the log directory
 pub fn print_out_text(text: &str, file_name: &str) {
+    #[cfg(feature = "no_fs")]
+    {
+        return;
+    }
     let Ok(log_dir) = PathBuf::from_str(LOG_DIR);
     let file_name = log_dir.join(file_name);
     let Ok(mut file) = std::fs::File::options()
