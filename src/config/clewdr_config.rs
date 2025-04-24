@@ -1,4 +1,3 @@
-use arc_swap::ArcSwap;
 use colored::Colorize;
 use figment::{
     Figment,
@@ -10,44 +9,37 @@ use rquest::Proxy;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
-    hash::Hash,
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, LazyLock},
+    sync::Arc,
 };
 use tiktoken_rs::o200k_base;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 use crate::{
+    config::{
+        CONFIG_NAME, CookieStatus, Reason, UselessCookie, default_check_update, default_ip,
+        default_max_retries, default_padtxt_len, default_port, default_use_real_roles,
+    },
     error::ClewdrError,
-    utils::{ARG_COOKIE_FILE, CLEWDR_DIR},
+    utils::ARG_COOKIE_FILE,
 };
 
-pub const CONFIG_NAME: &str = "clewdr.toml";
-pub const ENDPOINT: &str = "https://claude.ai";
-pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
-    let _ = *CLEWDR_DIR;
-    let config = ClewdrConfig::new().unwrap_or_default();
-    ArcSwap::from_pointee(config)
-});
+/// Generate a random password of given length
+fn generate_password() -> String {
+    let pg = PasswordGenerator {
+        length: 64,
+        numbers: true,
+        lowercase_letters: true,
+        uppercase_letters: true,
+        symbols: true,
+        spaces: false,
+        exclude_similar_characters: true,
+        strict: true,
+    };
 
-const fn default_max_retries() -> usize {
-    5
-}
-fn default_ip() -> String {
-    "127.0.0.1".to_string()
-}
-fn default_port() -> u16 {
-    8484
-}
-const fn default_use_real_roles() -> bool {
-    true
-}
-const fn default_padtxt_len() -> usize {
-    4000
-}
-const fn default_check_update() -> bool {
-    true
+    println!("{}", "Generating random password......".green());
+    pg.generate_one().unwrap()
 }
 
 /// A struct representing the configuration of the application
@@ -118,213 +110,6 @@ pub struct ClewdrConfig {
     pub rquest_proxy: Option<Proxy>,
     #[serde(skip)]
     pub pad_tokens: Arc<Vec<String>>,
-}
-
-/// Reason why a cookie is considered useless
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-pub enum Reason {
-    NonPro,
-    Disabled,
-    Banned,
-    Null,
-    Restricted(i64),
-    TooManyRequest(i64),
-}
-
-impl Display for Reason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Reason::Disabled => write!(f, "Organization Disabled"),
-            Reason::NonPro => write!(f, "Free account"),
-            Reason::Banned => write!(f, "Banned"),
-            Reason::Null => write!(f, "Null"),
-            Reason::Restricted(i) => {
-                let time = chrono::DateTime::from_timestamp(*i, 0)
-                    .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string().yellow())
-                    .unwrap_or("Invalid date".to_string().yellow());
-                write!(f, "Restricted: until {}", time)
-            }
-            Reason::TooManyRequest(i) => {
-                let time = chrono::DateTime::from_timestamp(*i, 0)
-                    .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string().yellow())
-                    .unwrap_or("Invalid date".to_string().yellow());
-                write!(f, "429 Too many request: until {}", time)
-            }
-        }
-    }
-}
-
-/// A struct representing a useless cookie
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct UselessCookie {
-    pub cookie: ClewdrCookie,
-    pub reason: Reason,
-}
-impl PartialEq for UselessCookie {
-    fn eq(&self, other: &Self) -> bool {
-        self.cookie == other.cookie
-    }
-}
-impl Eq for UselessCookie {}
-impl Hash for UselessCookie {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.cookie.hash(state);
-    }
-}
-
-impl UselessCookie {
-    pub fn new(cookie: ClewdrCookie, reason: Reason) -> Self {
-        Self { cookie, reason }
-    }
-}
-
-/// A struct representing a cookie with its information
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct CookieStatus {
-    pub cookie: ClewdrCookie,
-    #[serde(default)]
-    pub reset_time: Option<i64>,
-}
-
-impl PartialEq for CookieStatus {
-    fn eq(&self, other: &Self) -> bool {
-        self.cookie == other.cookie
-    }
-}
-impl Eq for CookieStatus {}
-impl Hash for CookieStatus {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.cookie.hash(state);
-    }
-}
-impl Ord for CookieStatus {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cookie.cmp(&other.cookie)
-    }
-}
-impl PartialOrd for CookieStatus {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-/// Default cookie value for testing purposes
-const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";
-
-impl CookieStatus {
-    pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
-        Self {
-            cookie: ClewdrCookie::from(cookie),
-            reset_time,
-        }
-    }
-
-    /// check if the cookie is expired
-    /// if expired, set the reset time to None
-    pub fn reset(self) -> Self {
-        if let Some(t) = self.reset_time {
-            if t < chrono::Utc::now().timestamp() {
-                info!("Cookie reset time expired");
-                return Self {
-                    reset_time: None,
-                    ..self
-                };
-            }
-        }
-        self
-    }
-}
-
-/// A struct representing a cookie
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ClewdrCookie {
-    inner: String,
-}
-
-impl Default for ClewdrCookie {
-    fn default() -> Self {
-        Self {
-            inner: PLACEHOLDER_COOKIE.to_string(),
-        }
-    }
-}
-
-impl ClewdrCookie {
-    /// Check if the cookie is valid format
-    pub fn validate(&self) -> bool {
-        // Check if the cookie is valid
-        let re = regex::Regex::new(r"^sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();
-        re.is_match(&self.inner)
-    }
-}
-
-impl From<&str> for ClewdrCookie {
-    /// Create a new cookie from a string
-    fn from(original: &str) -> Self {
-        // split off first '@' to keep compatibility with clewd
-        let cookie = original.split_once('@').map_or(original, |(_, c)| c);
-        // only keep '=' '_' '-' and alphanumeric characters
-        let cookie = cookie
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '=' || *c == '_' || *c == '-')
-            .collect::<String>()
-            .trim_start_matches("sessionKey=")
-            .to_string();
-        let cookie = Self { inner: cookie };
-        if !cookie.validate() {
-            warn!("Invalid cookie format: {}", original);
-        }
-        cookie
-    }
-}
-
-impl Display for ClewdrCookie {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "sessionKey={}", self.inner)
-    }
-}
-
-impl Debug for ClewdrCookie {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "sessionKey={}", self.inner)
-    }
-}
-
-impl Serialize for ClewdrCookie {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let str = self.to_string();
-        serializer.serialize_str(&str)
-    }
-}
-
-impl<'de> Deserialize<'de> for ClewdrCookie {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        Ok(ClewdrCookie::from(s.as_str()))
-    }
-}
-
-/// Generate a random password of given length
-fn generate_password() -> String {
-    let pg = PasswordGenerator {
-        length: 64,
-        numbers: true,
-        lowercase_letters: true,
-        uppercase_letters: true,
-        symbols: true,
-        spaces: false,
-        exclude_similar_characters: true,
-        strict: true,
-    };
-
-    println!("{}", "Generating random password......".green());
-    pg.generate_one().unwrap()
 }
 
 impl Default for ClewdrConfig {
@@ -419,14 +204,16 @@ impl ClewdrConfig {
                     error!("Failed to read cookie file: {}", f.display());
                     return Err(ClewdrError::InvalidCookie(Reason::Null));
                 };
-                let cookies = cookies.lines().map(ClewdrCookie::from).map_while(|c| {
-                    if c.validate() {
-                        Some(CookieStatus::new(c.to_string().as_str(), None))
-                    } else {
-                        warn!("Invalid cookie format: {}", c);
-                        None
-                    }
-                });
+                let cookies = cookies.lines().map(|line| line.into()).map_while(
+                    |c: crate::config::ClewdrCookie| {
+                        if c.validate() {
+                            Some(CookieStatus::new(c.to_string().as_str(), None))
+                        } else {
+                            warn!("Invalid cookie format: {}", c);
+                            None
+                        }
+                    },
+                );
                 config.cookie_array.extend(cookies);
             } else {
                 error!("Cookie file not found: {}", f.display());
@@ -482,7 +269,7 @@ impl ClewdrConfig {
         if let Some(ref proxy) = self.rproxy {
             return proxy.clone();
         }
-        ENDPOINT.to_string()
+        crate::config::ENDPOINT.to_string()
     }
 
     /// address of proxy
