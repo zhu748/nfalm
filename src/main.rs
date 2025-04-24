@@ -1,8 +1,8 @@
 use clewdr::{
     self, BANNER,
     config::{CLEWDR_CONFIG, CONFIG_NAME},
-    cookie_manager::CookieManager,
     error::ClewdrError,
+    services::cookie_manager::CookieManager,
     state::ClientState,
     utils::{ARG_COOKIE_FILE, CLEWDR_DIR, LOG_DIR},
 };
@@ -43,7 +43,7 @@ async fn main() -> Result<(), ClewdrError> {
 
     println!("{}", *BANNER);
 
-    let updater = clewdr::update::ClewdrUpdater::new()?;
+    let updater = clewdr::services::update::ClewdrUpdater::new()?;
     if let Err(e) = updater.check_for_updates().await {
         warn!("Update check failed: {}", e);
     }
