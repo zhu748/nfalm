@@ -84,4 +84,16 @@ export const configService = {
   ): boolean {
     return originalPassword !== currentPassword;
   },
+
+  /**
+   * Check if admin password was changed
+   * @param originalAdminPassword - Original admin password
+   * @param currentAdminPassword - Current admin password
+   */
+  isAdminPasswordChanged(
+    originalAdminPassword: string,
+    currentAdminPassword: string,
+  ): boolean {
+    return originalAdminPassword !== currentAdminPassword;
+  },
 };

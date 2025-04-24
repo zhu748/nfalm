@@ -11,6 +11,8 @@ const ConfigTab: React.FC = () => {
   const { t } = useTranslation();
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [originalPassword, setOriginalPassword] = useState<string>("");
+  const [originalAdminPassword, setOriginalAdminPassword] =
+    useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -26,8 +28,9 @@ const ConfigTab: React.FC = () => {
     try {
       const data = await getConfig();
       setConfig(data);
-      // Store the original password for comparison later
+      // Store the original passwords for comparison later
       setOriginalPassword(data.password || "");
+      setOriginalAdminPassword(data.admin_password || "");
     } catch (err) {
       setError(
         t("common.error", {
@@ -49,10 +52,24 @@ const ConfigTab: React.FC = () => {
       await saveConfig(config);
       toast.success(t("config.success"));
 
-      // Check if password was changed
-      if (config.password !== originalPassword) {
-        // Show toast notification
+      // Check if admin password was changed - this affects the current session
+      const adminPasswordChanged =
+        config.admin_password !== originalAdminPassword;
+
+      // Check if regular password was changed - doesn't affect current session
+      const regularPasswordChanged = config.password !== originalPassword;
+
+      if (regularPasswordChanged) {
         toast.success(t("config.passwordChanged"), {
+          duration: 2000,
+          icon: "🔑",
+        });
+      }
+
+      // If admin password changed, we need to log out and redirect
+      if (adminPasswordChanged) {
+        // Show toast notification about admin password change
+        toast.success(t("config.adminPasswordChanged"), {
           duration: 3000,
           icon: "🔐",
         });

@@ -81,7 +81,8 @@
     "saveButton": "Save Configuration",
     "success": "Configuration saved successfully",
     "error": "Failed to save configuration",
-    "passwordChanged": "Password changed. You will be redirected to login page.",
+    "passwordChanged": "API password has been changed",
+    "adminPasswordChanged": "Admin password changed. You will be redirected to login page.",
     "retry": "Retry",
     "noData": "No configuration data available.",
     "sections": {
@@ -99,7 +100,8 @@
       },
       "network": {
         "title": "Network Settings",
-        "password": "Password",
+        "password": "API Password",
+        "adminPassword": "Admin Password",
         "proxy": "Proxy (optional)",
         "proxyPlaceholder": "http://proxy:port",
         "rproxy": "Reverse Proxy (optional)",

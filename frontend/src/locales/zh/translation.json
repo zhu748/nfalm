@@ -81,7 +81,8 @@
     "saveButton": "保存配置",
     "success": "配置保存成功",
     "error": "保存配置失败",
-    "passwordChanged": "密码已更改。您将被重定向到登录页面。",
+    "passwordChanged": "API密码已更改",
+    "adminPasswordChanged": "管理员密码已更改。您将被重定向到登录页面。",
     "retry": "重试",
     "noData": "没有可用的配置数据。",
     "sections": {
@@ -99,7 +100,8 @@
       },
       "network": {
         "title": "网络设置",
-        "password": "密码",
+        "password": "API密码",
+        "adminPassword": "管理员密码",
         "proxy": "代理（可选）",
         "proxyPlaceholder": "http://proxy:port",
         "rproxy": "反向代理（可选）",

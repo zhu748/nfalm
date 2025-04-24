@@ -86,6 +86,15 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
         />
 
         <FormInput
+          id="admin_password"
+          name="admin_password"
+          type="password"
+          value={config.admin_password}
+          onChange={onChange}
+          label={t("config.sections.network.adminPassword")}
+        />
+
+        <FormInput
           id="proxy"
           name="proxy"
           type="text"

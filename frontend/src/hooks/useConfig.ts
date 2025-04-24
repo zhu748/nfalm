@@ -9,6 +9,8 @@ export const useConfig = () => {
   const { t } = useTranslation();
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [originalPassword, setOriginalPassword] = useState<string>("");
+  const [originalAdminPassword, setOriginalAdminPassword] =
+    useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -20,8 +22,9 @@ export const useConfig = () => {
     try {
       const data = await configService.fetchConfig();
       setConfig(data);
-      // Store the original password for comparison later
+      // Store both original passwords for comparison later
       setOriginalPassword(data.password || "");
+      setOriginalAdminPassword(data.admin_password || "");
     } catch (err) {
       setError(
         t("common.error", {
@@ -44,10 +47,28 @@ export const useConfig = () => {
       await configService.saveConfig(config);
       toast.success(t("config.success"));
 
-      // Check if password was changed
-      if (configService.isPasswordChanged(originalPassword, config.password)) {
-        // Show toast notification
+      // Check if passwords were changed
+      const adminPasswordChanged = configService.isAdminPasswordChanged(
+        originalAdminPassword,
+        config.admin_password,
+      );
+      const passwordChanged = configService.isPasswordChanged(
+        originalPassword,
+        config.password,
+      );
+
+      // Handle regular password change (API password)
+      if (passwordChanged && !adminPasswordChanged) {
         toast.success(t("config.passwordChanged"), {
+          duration: 2000,
+          icon: "🔑",
+        });
+      }
+
+      // Handle admin password change - requires logout
+      if (adminPasswordChanged) {
+        // Show toast notification
+        toast.success(t("config.adminPasswordChanged"), {
           duration: 3000,
           icon: "🔐",
         });
@@ -70,7 +91,7 @@ export const useConfig = () => {
     } finally {
       setSaving(false);
     }
-  }, [config, originalPassword, t]);
+  }, [config, originalPassword, originalAdminPassword, t]);
 
   // Handle form changes
   const handleChange = useCallback(

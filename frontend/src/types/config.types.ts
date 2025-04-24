@@ -10,6 +10,7 @@ export interface ConfigData {
 
   // Network settings
   password: string;
+  admin_password: string;
   proxy: string | null;
   rproxy: string | null;
 
@@ -35,6 +36,7 @@ export interface ConfigData {
 export interface ConfigState {
   config: ConfigData | null;
   originalPassword: string;
+  originalAdminPassword: string;
   loading: boolean;
   saving: boolean;
   error: string;
