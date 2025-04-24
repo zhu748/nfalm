@@ -34,12 +34,18 @@
   "cookieSubmit": {
     "value": "Cookie值",
     "placeholder": "在此粘贴您的cookie...",
+    "placeholderMulti": "在此粘贴您的cookies（每行一个）...",
     "description": "输入完整的cookie字符串，包括所有必需的参数。",
+    "descriptionMulti": "输入多个cookie，每行一个。每个cookie将被单独处理。",
     "submitting": "提交中...",
-    "submitButton": "提交Cookie",
+    "submitButton": "提交Cookies",
     "success": "Cookie提交成功！",
+    "allSuccess": "所有{{count}}个cookie提交成功！",
+    "allFailed": "所有{{count}}个cookie提交失败。",
+    "partialSuccess": "{{total}}个cookie中的{{successCount}}个提交成功（{{errorCount}}个失败）。",
+    "resultDetails": "提交详情",
     "error": {
-      "empty": "请输入cookie值",
+      "empty": "请输入至少一个cookie",
       "format": "无效的cookie格式",
       "auth": "认证失败。请设置有效的认证令牌。",
       "server": "服务器错误。"

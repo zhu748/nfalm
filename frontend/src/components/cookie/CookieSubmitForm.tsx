@@ -5,20 +5,32 @@ import Button from "../common/Button";
 import FormInput from "../common/FormInput";
 import StatusMessage from "../common/StatusMessage";
 
+interface CookieResult {
+  cookie: string;
+  status: "success" | "error";
+  message: string;
+}
+
 const CookieSubmitForm: React.FC = () => {
   const { t } = useTranslation();
-  const [cookie, setCookie] = useState("");
+  const [cookies, setCookies] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState({
-    type: "idle" as "idle" | "success" | "error",
+  const [results, setResults] = useState<CookieResult[]>([]);
+  const [overallStatus, setOverallStatus] = useState({
+    type: "info" as "info" | "success" | "error" | "warning",
     message: "",
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!cookie.trim()) {
-      setStatus({
+    const cookieLines = cookies
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (cookieLines.length === 0) {
+      setOverallStatus({
         type: "error",
         message: t("cookieSubmit.error.empty"),
       });
@@ -26,43 +38,74 @@ const CookieSubmitForm: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    setStatus({ type: "idle", message: "" });
+    setOverallStatus({ type: "info", message: "" });
+    setResults([]);
 
-    try {
-      await postCookie(cookie);
-      setStatus({
-        type: "success",
-        message: t("cookieSubmit.success"),
-      });
-      setCookie(""); // Clear the input field after successful submission
-    } catch (e) {
-      // Try to match specific error messages to translations
-      const errorMessage = e instanceof Error ? e.message : "Unknown error";
+    const newResults: CookieResult[] = [];
+    let successCount = 0;
+    let errorCount = 0;
 
-      if (errorMessage.includes("Invalid cookie format")) {
-        setStatus({
-          type: "error",
-          message: t("cookieSubmit.error.format"),
+    // Process each cookie line
+    for (const cookieStr of cookieLines) {
+      try {
+        await postCookie(cookieStr);
+        newResults.push({
+          cookie: cookieStr,
+          status: "success",
+          message: t("cookieSubmit.success"),
         });
-      } else if (errorMessage.includes("Authentication failed")) {
-        setStatus({
-          type: "error",
-          message: t("cookieSubmit.error.auth"),
+        successCount++;
+      } catch (e) {
+        // Handle error for this specific cookie
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        let translatedError = errorMessage;
+
+        if (errorMessage.includes("Invalid cookie format")) {
+          translatedError = t("cookieSubmit.error.format");
+        } else if (errorMessage.includes("Authentication failed")) {
+          translatedError = t("cookieSubmit.error.auth");
+        } else if (errorMessage.includes("Server error")) {
+          translatedError = t("cookieSubmit.error.server");
+        }
+
+        newResults.push({
+          cookie: cookieStr,
+          status: "error",
+          message: translatedError,
         });
-      } else if (errorMessage.includes("Server error")) {
-        setStatus({
-          type: "error",
-          message: t("cookieSubmit.error.server"),
-        });
-      } else {
-        setStatus({
-          type: "error",
-          message: errorMessage,
-        });
+        errorCount++;
       }
-    } finally {
-      setIsSubmitting(false);
     }
+
+    setResults(newResults);
+
+    // Set overall status message
+    if (errorCount === 0) {
+      setOverallStatus({
+        type: "success",
+        message: t("cookieSubmit.allSuccess", { count: successCount }),
+      });
+      // Don't clear the input field if there were any errors
+      if (errorCount === 0) {
+        setCookies("");
+      }
+    } else if (successCount === 0) {
+      setOverallStatus({
+        type: "error",
+        message: t("cookieSubmit.allFailed", { count: errorCount }),
+      });
+    } else {
+      setOverallStatus({
+        type: "warning",
+        message: t("cookieSubmit.partialSuccess", {
+          successCount,
+          errorCount,
+          total: successCount + errorCount,
+        }),
+      });
+    }
+
+    setIsSubmitting(false);
   };
 
   return (
@@ -71,24 +114,73 @@ const CookieSubmitForm: React.FC = () => {
         <FormInput
           id="cookie"
           name="cookie"
-          value={cookie}
-          onChange={(e) => setCookie(e.target.value)}
-          placeholder={t("cookieSubmit.placeholder")}
+          value={cookies}
+          onChange={(e) => setCookies(e.target.value)}
+          placeholder={t("cookieSubmit.placeholderMulti")}
           label={t("cookieSubmit.value")}
           isTextarea={true}
-          onClear={() => setCookie("")}
+          rows={5}
+          onClear={() => setCookies("")}
           disabled={isSubmitting}
         />
 
         <p className="text-xs text-gray-400 mt-1">
-          {t("cookieSubmit.description")}
+          {t("cookieSubmit.descriptionMulti")}
         </p>
 
-        {status.message && (
+        {overallStatus.message && (
           <StatusMessage
-            type={status.type === "success" ? "success" : "error"}
-            message={status.message}
+            type={overallStatus.type}
+            message={overallStatus.message}
           />
+        )}
+
+        {/* Results listing */}
+        {results.length > 0 && (
+          <div className="mt-4 bg-gray-800 rounded-md p-3 max-h-60 overflow-y-auto">
+            <h4 className="text-sm font-medium text-gray-300 mb-2">
+              {t("cookieSubmit.resultDetails")}:
+            </h4>
+            <div className="space-y-2">
+              {results.map((result, index) => (
+                <div
+                  key={index}
+                  className={`text-xs p-2 rounded ${
+                    result.status === "success"
+                      ? "bg-green-900/30 border border-green-800"
+                      : "bg-red-900/30 border border-red-800"
+                  }`}
+                >
+                  <div className="flex items-start">
+                    <div
+                      className={`mr-2 ${
+                        result.status === "success"
+                          ? "text-green-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {result.status === "success" ? "✓" : "✗"}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-mono text-gray-400 truncate w-full">
+                        {result.cookie.substring(0, 30)}
+                        {result.cookie.length > 30 ? "..." : ""}
+                      </div>
+                      <div
+                        className={`mt-1 ${
+                          result.status === "success"
+                            ? "text-green-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {result.message}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <Button
