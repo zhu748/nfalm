@@ -1,5 +1,6 @@
-# v0.7.2
+# v0.7.3
 
 ## Feature
 
-- Add back `--file` argument load cookies from a file
+- Add Chinese support for frontend
+- Polish the UI
