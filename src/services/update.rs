@@ -40,15 +40,6 @@ impl ClewdrUpdater {
     /// # Returns
     /// * `Result<Self, ClewdrError>` - A new updater instance or an error
     pub fn new() -> Result<Self, ClewdrError> {
-        #[cfg(feature = "no_fs")]
-        {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "File system access is disabled",
-            )
-            .into());
-        }
-
         let authors = option_env!("CARGO_PKG_AUTHORS").unwrap_or_default();
         let repo_owner = authors.split(':').next().unwrap_or("Xerxes-2");
         let repo_name = env!("CARGO_PKG_NAME");
@@ -76,6 +67,11 @@ impl ClewdrUpdater {
     /// # Returns
     /// * `Result<bool, ClewdrError>` - True if update available, false otherwise
     pub async fn check_for_updates(&self) -> Result<bool, ClewdrError> {
+        #[cfg(feature = "no_fs")]
+        {
+            return Ok(false);
+        }
+
         let args: Args = clap::Parser::parse();
         if !args.update && !CLEWDR_CONFIG.load().check_update {
             return Ok(false);

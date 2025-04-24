@@ -75,11 +75,7 @@ fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
 pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), ClewdrError> {
     #[cfg(feature = "no_fs")]
     {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "File system access is disabled",
-        )
-        .into());
+        return Ok(());
     }
     let src = src.as_ref();
     let dst = dst.as_ref();
