@@ -233,8 +233,7 @@ impl ClientState {
         }
         // stream the response
         let input_stream = api_res.bytes_stream().eventsource();
-        let trans = ClewdrTransformer::new();
-        let output = trans.transform_stream(input_stream);
+        let output = ClewdrTransformer::transform_stream(input_stream);
 
         Ok(Sse::new(output).into_response())
     }

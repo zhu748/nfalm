@@ -55,18 +55,13 @@ enum EventContent {
 }
 
 impl ClewdrTransformer {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    fn build_event(&self, content: EventContent) -> Event {
+    fn build_event(content: EventContent) -> Event {
         let event = Event::default();
         let data = StreamEventData::new(content);
         event.json_data(data).unwrap()
     }
 
     async fn parse_event(
-        &mut self,
         event: eventsource_stream::Event,
         y: &mut Yielder<Result<Event, ClewdrError>>,
     ) {
@@ -80,7 +75,7 @@ impl ClewdrTransformer {
         };
 
         if let Some(thinking) = parsed["delta"]["thinking"].as_str() {
-            let event = self.build_event(EventContent::Reasoning {
+            let event = Self::build_event(EventContent::Reasoning {
                 reasoning_content: thinking.to_string(),
             });
             y.yield_ok(event).await;
@@ -96,20 +91,19 @@ impl ClewdrTransformer {
             return;
         };
 
-        let event = self.build_event(EventContent::Content {
+        let event = Self::build_event(EventContent::Content {
             content: completion.to_string(),
         });
         y.yield_ok(event).await;
     }
 
-    async fn flush(&mut self, y: &mut Yielder<Result<Event, ClewdrError>>) {
+    async fn flush(y: &mut Yielder<Result<Event, ClewdrError>>) {
         // Flush logic
         let event = Event::default();
         y.yield_ok(event.data("[DONE]")).await;
     }
 
     pub fn transform_stream<S>(
-        mut self,
         input: S,
     ) -> AsyncTryStream<
         Event,
@@ -127,14 +121,14 @@ impl ClewdrTransformer {
             while let Some(chunk) = input.next().await {
                 match chunk {
                     Ok(event) => {
-                        self.parse_event(event, &mut y).await;
+                        Self::parse_event(event, &mut y).await;
                     }
                     Err(e) => {
                         y.yield_err(e.into()).await;
                     }
                 }
             }
-            self.flush(&mut y).await;
+            Self::flush(&mut y).await;
             Ok(())
         })
     }
