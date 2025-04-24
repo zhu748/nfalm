@@ -92,7 +92,7 @@ impl FromRequestParts<ClientState> for KeyAuth {
             .get("x-api-key")
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default();
-        if !CLEWDR_CONFIG.load().auth(key) {
+        if !CLEWDR_CONFIG.load().v1_auth(key) {
             warn!("Invalid password: {}", key);
             return Err(StatusCode::UNAUTHORIZED);
         }

@@ -32,7 +32,7 @@ pub async fn api_completion(
     State(mut state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Response {
-    if !CLEWDR_CONFIG.load().auth(&token) {
+    if !CLEWDR_CONFIG.load().v1_auth(&token) {
         return (StatusCode::UNAUTHORIZED, Json("Unauthorized".to_string())).into_response();
     }
     // TODO: Check if the request is a test message

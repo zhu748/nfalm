@@ -77,6 +77,8 @@ pub struct ClewdrConfig {
     #[serde(default)]
     password: String,
     #[serde(default)]
+    admin_password: String,
+    #[serde(default)]
     pub proxy: Option<String>,
     #[serde(default)]
     pub rproxy: Option<String>,
@@ -321,10 +323,7 @@ fn generate_password() -> String {
         strict: true,
     };
 
-    println!(
-        "{}",
-        "Generating random password, paste it to your proxy setting in SillyTavern".green()
-    );
+    println!("{}", "Generating random password......".green());
     pg.generate_one().unwrap()
 }
 
@@ -338,6 +337,7 @@ impl Default for ClewdrConfig {
             cookie_array: vec![],
             wasted_cookie: Vec::new(),
             password: String::new(),
+            admin_password: String::new(),
             proxy: None,
             ip: default_ip(),
             port: default_port(),
@@ -362,15 +362,25 @@ impl Default for ClewdrConfig {
 impl Display for ClewdrConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // one line per field
+        let api_addr = format!("http://{}/v1", self.address());
+        let web_addr = format!("http://{}", self.address());
         write!(
             f,
-            "Password: {}\n\
-            Forward Proxy: {}\n\
-            Reverse Proxy: {}\n",
+            "LLM API Endpoint: {}\n\
+            LLM API Password: {}\n\
+            Web Admin Endpoint: {}\n\
+            Web Admin Password: {}\n",
+            api_addr.green().underline(),
             self.password.yellow(),
-            self.proxy.clone().unwrap_or_default().blue(),
-            self.rproxy.clone().unwrap_or_default().blue(),
+            web_addr.green().underline(),
+            self.admin_password.yellow(),
         )?;
+        if let Some(ref proxy) = self.proxy {
+            writeln!(f, "Proxy: {}", proxy.blue())?;
+        }
+        if let Some(ref rproxy) = self.rproxy {
+            writeln!(f, "Reverse Proxy: {}", rproxy.blue())?;
+        }
         if !self.pad_tokens.is_empty() {
             Ok(writeln!(
                 f,
@@ -384,8 +394,12 @@ impl Display for ClewdrConfig {
 }
 
 impl ClewdrConfig {
-    pub fn auth(&self, key: &str) -> bool {
+    pub fn v1_auth(&self, key: &str) -> bool {
         key == self.password
+    }
+
+    pub fn admin_auth(&self, key: &str) -> bool {
+        key == self.admin_password
     }
 
     /// Load the configuration from the file
@@ -487,6 +501,10 @@ impl ClewdrConfig {
     pub fn validate(mut self) -> Self {
         if self.password.trim().is_empty() {
             self.password = generate_password();
+            self.save().expect("Failed to save config");
+        }
+        if self.admin_password.trim().is_empty() {
+            self.admin_password = generate_password();
             self.save().expect("Failed to save config");
         }
         self.cookie_array = self

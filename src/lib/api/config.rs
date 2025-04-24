@@ -9,7 +9,7 @@ use crate::config::{CLEWDR_CONFIG, ClewdrConfig};
 pub async fn api_get_config(
     AuthBearer(t): AuthBearer,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    if !CLEWDR_CONFIG.load().auth(&t) {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -40,7 +40,7 @@ pub async fn api_post_config(
     AuthBearer(t): AuthBearer,
     Json(c): Json<ClewdrConfig>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    if !CLEWDR_CONFIG.load().auth(&t) {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({

@@ -48,15 +48,11 @@ async fn main() -> Result<(), ClewdrError> {
         warn!("Update check failed: {}", e);
     }
 
-    // print the address
-    let addr = format!("http://{}", CLEWDR_CONFIG.load().address());
-    let api_addr = format!("{}/v1", addr);
+    // print info
     println!(
         "Config dir: {}",
         CLEWDR_DIR.join(CONFIG_NAME).display().to_string().blue()
     );
-    println!("API address: {}", api_addr.green());
-    println!("Web address: {}", addr.green());
     println!("{}", *CLEWDR_CONFIG);
 
     // initialize the application state

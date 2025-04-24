@@ -18,7 +18,7 @@ pub async fn api_submit(
     AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {
-    if !CLEWDR_CONFIG.load().auth(&t) {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return StatusCode::UNAUTHORIZED;
     }
     if !c.cookie.validate() {
@@ -43,7 +43,7 @@ pub async fn api_get_cookies(
     State(s): State<ClientState>,
     AuthBearer(t): AuthBearer,
 ) -> Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)> {
-    if !CLEWDR_CONFIG.load().auth(&t) {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -68,7 +68,7 @@ pub async fn api_delete_cookie(
     AuthBearer(t): AuthBearer,
     Path(cookie_string): axum::extract::Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
-    if !CLEWDR_CONFIG.load().auth(&t) {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -102,7 +102,7 @@ pub async fn api_version() -> String {
 }
 
 pub async fn api_auth(AuthBearer(t): AuthBearer) -> StatusCode {
-    if !CLEWDR_CONFIG.load().auth(&t) {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return StatusCode::UNAUTHORIZED;
     }
     info!("Auth token accepted,");
