@@ -5,12 +5,21 @@ use serde_json::Value;
 
 use crate::error::ClewdrError;
 
+/// Represents the data structure for streaming events in OpenAI API format
+/// Contains a choices array with deltas of content
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct StreamEventData {
     choices: Vec<StreamEventDelta>,
 }
 
 impl StreamEventData {
+    /// Creates a new StreamEventData with the given content
+    ///
+    /// # Arguments
+    /// * `content` - The event content to include
+    ///
+    /// # Returns
+    /// A new StreamEventData instance with the content wrapped in choices array
     fn new(content: EventContent) -> Self {
         Self {
             choices: vec![StreamEventDelta { delta: content }],
@@ -18,12 +27,21 @@ impl StreamEventData {
     }
 }
 
+/// Represents the data structure for non-streaming responses in OpenAI API format
+/// Contains a choices array with complete messages
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct NonStreamEventData {
     choices: Vec<NonStreamEventMessage>,
 }
 
 impl NonStreamEventData {
+    /// Creates a new NonStreamEventData with the given content
+    ///
+    /// # Arguments
+    /// * `content` - The complete response text
+    ///
+    /// # Returns
+    /// A new NonStreamEventData instance with the content wrapped in choices array
     pub fn new(content: String) -> Self {
         Self {
             choices: vec![NonStreamEventMessage {
@@ -33,16 +51,22 @@ impl NonStreamEventData {
     }
 }
 
+/// Represents a delta update in a streaming response
+/// Contains the content change for the current chunk
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct StreamEventDelta {
     delta: EventContent,
 }
 
+/// Represents a complete message in a non-streaming response
+/// Contains the full message content
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct NonStreamEventMessage {
     message: EventContent,
 }
 
+/// Content of an event, either regular content or reasoning (thinking mode)
+/// Uses untagged enum to handle different response formats
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 #[serde(untagged)]
 enum EventContent {
@@ -50,12 +74,27 @@ enum EventContent {
     Reasoning { reasoning_content: String },
 }
 
+/// Creates an SSE event with the given content in OpenAI format
+///
+/// # Arguments
+/// * `content` - The event content to include
+///
+/// # Returns
+/// A formatted SSE Event ready to be sent to the client
 fn build_event(content: EventContent) -> Event {
     let event = Event::default();
     let data = StreamEventData::new(content);
     event.json_data(data).unwrap()
 }
 
+/// Transforms a Claude.ai event stream into an OpenAI-compatible event stream
+/// Extracts content from Claude events and reformats them to match OpenAI's streaming format
+///
+/// # Arguments
+/// * `s` - The input stream of Claude.ai events
+///
+/// # Returns
+/// A stream of OpenAI-compatible SSE events
 pub fn transform<I>(s: I) -> impl Stream<Item = Result<Event, ClewdrError>> + Send + 'static
 where
     I: Stream<Item = Result<eventsource_stream::Event, EventStreamError<rquest::Error>>>

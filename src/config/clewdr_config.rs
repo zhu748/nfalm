@@ -25,7 +25,11 @@ use crate::{
     utils::ARG_COOKIE_FILE,
 };
 
-/// Generate a random password of given length
+/// Generates a random password for authentication
+/// Creates a secure 64-character password with mixed character types
+///
+/// # Returns
+/// A random password string
 fn generate_password() -> String {
     let pg = PasswordGenerator {
         length: 64,
@@ -187,7 +191,12 @@ impl ClewdrConfig {
         key == self.admin_password
     }
 
-    /// Load the configuration from the file
+    /// Loads configuration from files and environment variables
+    /// Combines settings from config.toml, clewdr.toml, and environment variables
+    /// Also loads cookies from a file if specified
+    ///
+    /// # Returns
+    /// * `Result<Self, ClewdrError>` - Config instance or error
     pub fn new() -> Result<Self, ClewdrError> {
         let mut config: ClewdrConfig = Figment::new()
             .adjoin(Toml::file("config.toml"))
@@ -226,6 +235,11 @@ impl ClewdrConfig {
         Ok(config)
     }
 
+    /// Loads padding text from a file
+    /// Used to pad prompts with tokens to reach minimum token requirements
+    ///
+    /// # Effects
+    /// Updates the pad_tokens field with tokenized content from the file
     fn load_padtxt(&mut self) {
         let Some(padtxt) = &self.padtxt_file else {
             self.pad_tokens = Arc::new(vec![]);
@@ -264,7 +278,11 @@ impl ClewdrConfig {
         self.pad_tokens = Arc::new(tokens);
     }
 
-    /// API endpoint of server
+    /// Gets the API endpoint for the Claude service
+    /// Returns the reverse proxy URL if configured, otherwise the default endpoint
+    ///
+    /// # Returns
+    /// The URL string for the API endpoint
     pub fn endpoint(&self) -> String {
         if let Some(ref proxy) = self.rproxy {
             return proxy.clone();

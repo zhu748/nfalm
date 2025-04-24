@@ -25,7 +25,14 @@ pub static CLEWDR_DIR: LazyLock<PathBuf> =
 pub const LOG_DIR: &str = "log";
 pub const STATIC_DIR: &str = "static";
 
-/// Get directory of the config file
+/// Gets and sets up the configuration directory for the application
+///
+/// In debug mode, uses the current working directory
+/// In release mode, uses the directory of the executable
+/// Also creates the log directory if it doesn't exist
+///
+/// # Returns
+/// * `Result<PathBuf, ClewdrError>` - The path to the configuration directory on success, or an error
 fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
     let dir = {
         #[cfg(debug_assertions)]
@@ -58,6 +65,13 @@ fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
 }
 
 /// Recursively copies all files and subdirectories from `src` to `dst`
+///
+/// # Arguments
+/// * `src` - Source directory path
+/// * `dst` - Destination directory path
+///
+/// # Returns
+/// * `Result<(), ClewdrError>` - Success or an error with details
 pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), ClewdrError> {
     let src = src.as_ref();
     let dst = dst.as_ref();
@@ -98,13 +112,21 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), 
     Ok(())
 }
 
-/// Helper function to print out json
+/// Helper function to print out JSON to a file in the log directory
+///
+/// # Arguments
+/// * `json` - The JSON object to serialize and output
+/// * `file_name` - The name of the file to write in the log directory
 pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
     let text = serde_json::to_string_pretty(json).unwrap_or_default();
     print_out_text(&text, file_name);
 }
 
-/// Helper function to print out text
+/// Helper function to print out text to a file in the log directory
+///
+/// # Arguments
+/// * `text` - The text content to write
+/// * `file_name` - The name of the file to write in the log directory
 pub fn print_out_text(text: &str, file_name: &str) {
     let Ok(log_dir) = PathBuf::from_str(LOG_DIR);
     let file_name = log_dir.join(file_name);

@@ -11,9 +11,17 @@ use crate::{
 };
 
 impl ClientState {
-    /// Bootstrap the app state
-    /// This function will send a request to the server to get the bootstrap data
-    /// It will also check if the cookie is valid
+    /// Bootstraps the application state by initializing connections to Claude.ai
+    ///
+    /// This function performs the following operations:
+    /// 1. Sends a request to get the bootstrap data from Claude.ai
+    /// 2. Validates the cookie and account information
+    /// 3. Collects capabilities and checks if the account is pro
+    /// 4. Retrieves organization information
+    /// 5. Checks for account flags (restrictions, warnings, bans)
+    ///
+    /// # Returns
+    /// * `Result<(), ClewdrError>` - Success or an error with details about cookie validity
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
         let end_point = format!("{}/api/bootstrap", self.endpoint);
         let res = SUPER_CLIENT
@@ -100,10 +108,18 @@ impl ClientState {
         Ok(())
     }
 
-    /// Check if the account is restricted or banned.
-    /// If the account is restricted, check if the restriction is expired.
-    /// If the account is banned, return an error.
-    /// If the account is not restricted or banned, return Ok.
+    /// Checks if the account has any restrictions, warnings or bans
+    ///
+    /// Examines the account flags to determine if the account can be used:
+    /// - For banned accounts, returns an error immediately
+    /// - For restricted accounts, checks expiration time and may return error based on config
+    /// - For warned accounts, may skip based on configuration settings
+    ///
+    /// # Arguments
+    /// * `acc_info` - Account information JSON containing active flags
+    ///
+    /// # Returns
+    /// * `Result<(), ClewdrError>` - Ok if the account can be used, or error with reason
     fn check_flags(&self, acc_info: &Value) -> Result<(), ClewdrError> {
         let Some(active_flags) = acc_info.get("active_flags").and_then(|a| a.as_array()) else {
             return Ok(());

@@ -38,6 +38,16 @@ pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
 });
 
 /// Axum handler for the API messages
+/// Main API endpoint for handling message requests to Claude
+/// Processes messages, handles retries, and returns responses in stream or non-stream mode
+///
+/// # Arguments
+/// * `KeyAuth(_)` - API key authentication
+/// * `state` - Application state containing client information
+/// * `p` - Request body containing messages and configuration
+///
+/// # Returns
+/// * `Response` - Stream or JSON response from Claude
 pub async fn api_messages(
     KeyAuth(_): KeyAuth,
     State(state): State<ClientState>,
@@ -129,7 +139,14 @@ pub async fn api_messages(
 }
 
 impl ClientState {
-    /// Try to send a message to the Claude API
+    /// Tries to send a message to the Claude API
+    /// Creates a new conversation, processes the request, and returns the response
+    ///
+    /// # Arguments
+    /// * `p` - The client request body containing messages and configuration
+    ///
+    /// # Returns
+    /// * `Result<Response, ClewdrError>` - Response from Claude or error
     async fn try_message(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;

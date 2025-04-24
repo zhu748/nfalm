@@ -14,8 +14,8 @@ use crate::client::SetupRequest;
 use crate::config::CLEWDR_CONFIG;
 use crate::config::CookieStatus;
 use crate::config::Reason;
-use crate::services::cookie_manager::CookieEventSender;
 use crate::error::ClewdrError;
+use crate::services::cookie_manager::CookieEventSender;
 
 /// State of current connection
 #[derive(Clone)]
@@ -45,6 +45,8 @@ impl ClientState {
         }
     }
 
+    /// Checks if the current user has pro capabilities
+    /// Returns true if any capability contains "pro", "enterprise", "raven", or "max"
     pub fn is_pro(&self) -> bool {
         self.capabilities.iter().any(|c| {
             c.contains("pro")
@@ -97,7 +99,8 @@ impl ClientState {
             .to_string()
     }
 
-    /// request a new cookie from cookie manager
+    /// Requests a new cookie from the cookie manager
+    /// Updates the internal state with the new cookie and proxy configuration
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
         let res = self.event_sender.request().await?;
         self.cookie = Some(res.clone());
@@ -109,7 +112,8 @@ impl ClientState {
         Ok(())
     }
 
-    /// return the cookie to the cookie manager
+    /// Returns the current cookie to the cookie manager
+    /// Optionally provides a reason for returning the cookie (e.g., invalid, banned)
     pub async fn return_cookie(&mut self, reason: Option<Reason>) {
         // return the cookie to the cookie manager
         if let Some(cookie) = self.cookie.take() {
@@ -122,7 +126,8 @@ impl ClientState {
         }
     }
 
-    /// Delete current chat conversation
+    /// Deletes or renames the current chat conversation based on configuration
+    /// If preserve_chats is true, the chat is renamed rather than deleted
     pub async fn clean_chat(&self) -> Result<(), ClewdrError> {
         let Some(ref org_uuid) = self.org_uuid else {
             return Ok(());

@@ -25,6 +25,8 @@ struct GitHubAsset {
     browser_download_url: String,
 }
 
+/// Updater for the ClewdR application
+/// Handles checking for updates and updating the application
 pub struct ClewdrUpdater {
     client: Client,
     user_agent: String,
@@ -33,6 +35,10 @@ pub struct ClewdrUpdater {
 }
 
 impl ClewdrUpdater {
+    /// Creates a new ClewdrUpdater instance
+    ///
+    /// # Returns
+    /// * `Result<Self, ClewdrError>` - A new updater instance or an error
     pub fn new() -> Result<Self, ClewdrError> {
         let authors = option_env!("CARGO_PKG_AUTHORS").unwrap_or_default();
         let repo_owner = authors.split(':').next().unwrap_or("Xerxes-2");
@@ -55,6 +61,11 @@ impl ClewdrUpdater {
         })
     }
 
+    /// Checks for updates by comparing the current version to the latest release on GitHub
+    /// Performs automatic update if enabled in config or explicitly requested
+    ///
+    /// # Returns
+    /// * `Result<bool, ClewdrError>` - True if update available, false otherwise
     pub async fn check_for_updates(&self) -> Result<bool, ClewdrError> {
         let args: Args = clap::Parser::parse();
         if !args.update && !CLEWDR_CONFIG.load().check_update {
@@ -100,6 +111,14 @@ impl ClewdrUpdater {
         Ok(true)
     }
 
+    /// Performs the update process
+    /// Downloads the appropriate release asset, extracts it, and replaces the current binary
+    ///
+    /// # Arguments
+    /// * `release` - GitHub release information containing assets to download
+    ///
+    /// # Returns
+    /// * `Result<(), ClewdrError>` - Success or error during update process
     async fn perform_update(&self, release: &GitHubRelease) -> Result<(), ClewdrError> {
         let latest_version = release.tag_name.trim_start_matches('v');
 
@@ -203,6 +222,13 @@ impl ClewdrUpdater {
         std::process::exit(0);
     }
 
+    /// Finds the appropriate asset for the current platform and architecture
+    ///
+    /// # Arguments
+    /// * `release` - GitHub release information containing available assets
+    ///
+    /// # Returns
+    /// * `Result<&'a GitHubAsset, ClewdrError>` - Appropriate asset or error if none found
     fn find_appropriate_asset<'a>(
         &self,
         release: &'a GitHubRelease,
@@ -248,6 +274,15 @@ impl ClewdrUpdater {
             )))
     }
 
+    /// Compares two version strings to determine if an update is needed
+    /// Parses versions in the format major.minor.patch
+    ///
+    /// # Arguments
+    /// * `current` - Current version string
+    /// * `latest` - Latest version string from GitHub
+    ///
+    /// # Returns
+    /// * `Result<bool, ClewdrError>` - True if latest is newer than current, false otherwise
     fn compare_versions(&self, current: &str, latest: &str) -> Result<bool, ClewdrError> {
         let parse_version = |v: &str| -> Result<(u32, u32, u32), ClewdrError> {
             let parts: Vec<&str> = v.split('.').collect();

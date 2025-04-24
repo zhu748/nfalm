@@ -21,7 +21,8 @@ pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
         .expect("Failed to create client")
 });
 
-/// Helper function to add headers to a request
+/// Helper trait to add standard headers to a request
+/// This trait is implemented by RequestBuilder to simplify adding common headers
 pub trait SetupRequest {
     fn setup_request(
         self,
@@ -50,7 +51,9 @@ impl SetupRequest for RequestBuilder {
     }
 }
 
-/// Helper function to get the header reference
+/// Helper function to get the header reference URL
+/// Constructs a full URL for the Referer header based on the provided path
+/// If an empty path is provided, returns just the endpoint
 fn header_ref<S: AsRef<str>>(ref_path: S) -> String {
     if ref_path.as_ref().is_empty() {
         ENDPOINT.to_string()

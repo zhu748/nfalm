@@ -41,7 +41,8 @@ impl Display for Reason {
     }
 }
 
-/// A struct representing a useless cookie
+/// A struct representing a cookie that can't be used
+/// Contains the cookie and the reason why it's considered unusable
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UselessCookie {
     pub cookie: ClewdrCookie,
@@ -63,6 +64,14 @@ impl Hash for UselessCookie {
 }
 
 impl UselessCookie {
+    /// Creates a new UselessCookie instance
+    ///
+    /// # Arguments
+    /// * `cookie` - The cookie that is unusable
+    /// * `reason` - The reason why the cookie is unusable
+    ///
+    /// # Returns
+    /// A new UselessCookie instance
     pub fn new(cookie: ClewdrCookie, reason: Reason) -> Self {
         Self { cookie, reason }
     }

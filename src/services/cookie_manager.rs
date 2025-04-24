@@ -27,24 +27,24 @@ pub struct CookieStatusInfo {
     pub invalid: Vec<UselessCookie>,
 }
 
-// 定义统一的事件枚举，内置优先级顺序
+/// Unified event enum for cookie management with built-in priority ordering
 #[derive(Debug)]
 pub enum CookieEvent {
-    // 返回Cookie
+    /// Return a Cookie
     Return(CookieStatus, Option<Reason>),
-    // 提交新的Cookie
+    /// Submit a new Cookie
     Submit(CookieStatus),
-    // 检查超时的Cookie
+    /// Check for timed out Cookies
     CheckTimeout,
-    // 请求获取Cookie
+    /// Request to get a Cookie
     Request(oneshot::Sender<Result<CookieStatus, ClewdrError>>),
-    // 获取全部Cookie
+    /// Get all Cookie status information
     GetStatus(oneshot::Sender<CookieStatusInfo>),
-    // 删除Cookie
+    /// Delete a Cookie
     Delete(CookieStatus, oneshot::Sender<Result<(), ClewdrError>>),
 }
 
-// 为CookieEvent实现比较特性，用于优先级排序
+/// Implements comparison trait for CookieEvent, used for priority ordering
 impl PartialEq for CookieEvent {
     fn eq(&self, other: &Self) -> bool {
         self.priority_value() == other.priority_value()
@@ -61,50 +61,63 @@ impl PartialOrd for CookieEvent {
 
 impl Ord for CookieEvent {
     fn cmp(&self, other: &Self) -> Ordering {
-        // 注意：我们返回 Reverse 排序，这样数字越小的优先级越高
+        // Note: We return reverse ordering, so smaller numbers have higher priority
         other.priority_value().cmp(&self.priority_value())
     }
 }
 
 impl CookieEvent {
-    // 获取事件的优先级值
+    /// Gets the priority value of the event
+    ///
+    /// # Returns
+    /// * `u8` - The priority value (lower is higher priority)
     fn priority_value(&self) -> u8 {
         match self {
-            CookieEvent::Return(_, _) => 0, // 最高优先级
+            CookieEvent::Return(_, _) => 0, // Highest priority
             CookieEvent::Submit(_) => 1,
             CookieEvent::Delete(_, _) => 2,
             CookieEvent::GetStatus(_) => 3,
             CookieEvent::CheckTimeout => 4,
-            CookieEvent::Request(_) => 5, // 最低优先级
+            CookieEvent::Request(_) => 5, // Lowest priority
         }
     }
 }
 
-// Cookie管理器
+/// Cookie manager that handles cookie distribution, collection, and status tracking
 pub struct CookieManager {
     valid: VecDeque<CookieStatus>,
     dispatched: HashMap<CookieStatus, Instant>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
     event_queue: Arc<Mutex<BinaryHeap<CookieEvent>>>,
-    event_notify: Arc<Notify>, // 添加一个通知器
+    event_notify: Arc<Notify>, // Notification mechanism
 }
 
-// 提供给外部的发送者接口
+/// Event sender interface provided for external components to interact with the cookie manager
 #[derive(Clone)]
 pub struct CookieEventSender {
     sender: mpsc::Sender<CookieEvent>,
 }
 
 impl CookieEventSender {
-    // 请求获取Cookie
+    /// Request a cookie from the cookie manager
+    ///
+    /// # Returns
+    /// * `Result<CookieStatus, ClewdrError>` - Cookie if available, error otherwise
     pub async fn request(&self) -> Result<CookieStatus, ClewdrError> {
         let (tx, rx) = oneshot::channel();
         self.sender.send(CookieEvent::Request(tx)).await?;
         rx.await?
     }
 
-    // 返回Cookie
+    /// Return a cookie to the cookie manager with optional reason
+    ///
+    /// # Arguments
+    /// * `cookie` - The cookie to return
+    /// * `reason` - Optional reason for returning the cookie (e.g., invalid, restricted)
+    ///
+    /// # Returns
+    /// Result indicating success or send error
     pub async fn return_cookie(
         &self,
         cookie: CookieStatus,
@@ -113,7 +126,13 @@ impl CookieEventSender {
         self.sender.send(CookieEvent::Return(cookie, reason)).await
     }
 
-    // 提交新Cookie
+    /// Submit a new cookie to the cookie manager
+    ///
+    /// # Arguments
+    /// * `cookie` - The new cookie to add
+    ///
+    /// # Returns
+    /// Result indicating success or send error
     pub async fn submit(
         &self,
         cookie: CookieStatus,
@@ -121,25 +140,47 @@ impl CookieEventSender {
         self.sender.send(CookieEvent::Submit(cookie)).await
     }
 
+    /// Get status information about all cookies
+    ///
+    /// # Returns
+    /// * `Result<CookieStatusInfo, ClewdrError>` - Status information about all cookies
     pub async fn get_status(&self) -> Result<CookieStatusInfo, ClewdrError> {
         let (tx, rx) = oneshot::channel();
         self.sender.send(CookieEvent::GetStatus(tx)).await?;
         Ok(rx.await?)
     }
 
+    /// Delete a cookie from the cookie manager
+    ///
+    /// # Arguments
+    /// * `cookie` - The cookie to delete
+    ///
+    /// # Returns
+    /// * `Result<(), ClewdrError>` - Success or error
     pub async fn delete_cookie(&self, cookie: CookieStatus) -> Result<(), ClewdrError> {
         let (tx, rx) = oneshot::channel();
         self.sender.send(CookieEvent::Delete(cookie, tx)).await?;
         rx.await?
     }
 
-    // 用于内部超时检查
+    /// Used for internal timeout checking
+    /// Sends a timeout check event to the cookie manager
+    ///
+    /// # Returns
+    /// Result indicating success or send error
     pub(crate) async fn check_timeout(&self) -> Result<(), mpsc::error::SendError<CookieEvent>> {
         self.sender.send(CookieEvent::CheckTimeout).await
     }
 }
 
 impl CookieManager {
+    /// Starts the cookie manager and returns an event sender
+    ///
+    /// Initializes cookie collections, creates event channels and queues,
+    /// and spawns the event processing task
+    ///
+    /// # Returns
+    /// * `CookieEventSender` - Event sender for interacting with the cookie manager
     pub fn start() -> CookieEventSender {
         let valid = VecDeque::from_iter(
             CLEWDR_CONFIG
@@ -184,7 +225,8 @@ impl CookieManager {
         sender
     }
 
-    // 其他方法保持不变...
+    /// Logs the current state of cookie collections
+    /// Displays counts of valid, dispatched, exhausted, and invalid cookies
     fn log(&self) {
         info!(
             "Valid: {}, Dispatched: {}, Exhausted: {}, Invalid: {}",
@@ -195,6 +237,8 @@ impl CookieManager {
         );
     }
 
+    /// Saves the current state of cookies to the configuration
+    /// Updates the cookie arrays in the config and writes to disk
     fn save(&mut self) {
         CLEWDR_CONFIG.rcu(|config| {
             let mut config = ClewdrConfig::clone(config);
@@ -212,6 +256,8 @@ impl CookieManager {
         });
     }
 
+    /// Checks and resets cookies that have passed their reset time
+    /// Moves reset cookies from exhausted to valid collection
     fn reset(&mut self) {
         let mut reset_cookies = Vec::new();
         self.exhausted.retain(|cookie| {
@@ -227,6 +273,11 @@ impl CookieManager {
         self.save();
     }
 
+    /// Dispatches a cookie for use
+    /// Gets a cookie from the valid collection and moves it to dispatched
+    ///
+    /// # Returns
+    /// * `Result<CookieStatus, ClewdrError>` - A cookie if available, error otherwise
     fn dispatch(&mut self) -> Result<CookieStatus, ClewdrError> {
         self.reset();
         let cookie = self
@@ -238,6 +289,11 @@ impl CookieManager {
         Ok(cookie)
     }
 
+    /// Collects a returned cookie and processes it based on the return reason
+    ///
+    /// # Arguments
+    /// * `cookie` - The cookie being returned
+    /// * `reason` - Optional reason for the return that determines how the cookie is processed
     fn collect(&mut self, mut cookie: CookieStatus, reason: Option<Reason>) {
         let Some(_) = self.dispatched.remove(&cookie) else {
             return;
@@ -267,6 +323,11 @@ impl CookieManager {
         self.save();
     }
 
+    /// Accepts a new cookie into the valid collection
+    /// Checks for duplicates before adding
+    ///
+    /// # Arguments
+    /// * `cookie` - The new cookie to accept
     fn accept(&mut self, cookie: CookieStatus) {
         if CLEWDR_CONFIG.load().cookie_array.contains(&cookie)
             || CLEWDR_CONFIG
@@ -282,6 +343,10 @@ impl CookieManager {
         self.save();
     }
 
+    /// Creates a report of all cookie statuses
+    ///
+    /// # Returns
+    /// * `CookieStatusInfo` - Information about all cookie collections
     fn report(&self) -> CookieStatusInfo {
         CookieStatusInfo {
             valid: self.valid.iter().cloned().collect(),
@@ -295,8 +360,10 @@ impl CookieManager {
         }
     }
 
+    /// Checks for timed out cookies in the dispatched collection
+    /// Moves expired cookies back to the valid collection
     fn check_timeout(&mut self) {
-        // 处理超时的cookie
+        // Handle timed out cookies
         let now = Instant::now();
         let expired: Vec<CookieStatus> = self
             .dispatched
@@ -313,6 +380,13 @@ impl CookieManager {
         self.reset();
     }
 
+    /// Deletes a cookie from all collections
+    ///
+    /// # Arguments
+    /// * `cookie` - The cookie to delete
+    ///
+    /// # Returns
+    /// * `Result<(), ClewdrError>` - Success if found and deleted, error otherwise
     fn delete(&mut self, cookie: CookieStatus) -> Result<(), ClewdrError> {
         let mut found = false;
         self.valid.retain(|c| {
@@ -352,7 +426,11 @@ impl CookieManager {
         }
     }
 
-    // 启动协程监听定时器并发送超时检查事件
+    /// Spawns a task to listen for timer events and send timeout check events
+    ///
+    /// # Arguments
+    /// * `interval` - The time interval for periodic checks
+    /// * `event_tx` - Event sender to send timeout check events
     fn spawn_timeout_checker(mut interval: Interval, event_tx: CookieEventSender) {
         tokio::spawn(async move {
             loop {
@@ -364,6 +442,10 @@ impl CookieManager {
         });
     }
 
+    /// Spawns a task to receive events and add them to the priority queue
+    ///
+    /// # Arguments
+    /// * `event_rx` - Event receiver to get incoming events
     fn spawn_event_enqueuer(&self, mut event_rx: mpsc::Receiver<CookieEvent>) {
         let event_queue = self.event_queue.clone();
         let event_notify = self.event_notify.clone();
@@ -380,6 +462,12 @@ impl CookieManager {
         });
     }
 
+    /// Main event processing loop
+    /// Starts event receivers and processes events based on priority
+    ///
+    /// # Arguments
+    /// * `event_rx` - Event receiver for incoming events
+    /// * `event_sender` - Event sender for timeout checking
     async fn run(mut self, event_rx: mpsc::Receiver<CookieEvent>, event_sender: CookieEventSender) {
         // 启动事件接收器
         self.spawn_event_enqueuer(event_rx);

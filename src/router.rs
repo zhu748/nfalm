@@ -24,7 +24,11 @@ pub struct RouterBuilder {
 }
 
 impl RouterBuilder {
-    /// Create a new RouterBuilder instance
+    /// Creates a new RouterBuilder instance
+    /// Sets up routes for API endpoints and static file serving
+    ///
+    /// # Arguments
+    /// * `state` - The application state containing client information
     pub fn new(state: ClientState) -> Self {
         // Serve static files from "static" directory
         let static_service = ServeDir::new(STATIC_DIR);
@@ -47,13 +51,16 @@ impl RouterBuilder {
         Self { inner: r }
     }
 
-    /// return the inner router
+    /// Returns the configured router
+    /// Finalizes the router configuration for use with axum
     pub fn build(self) -> Router {
         self.inner
     }
 }
 
-/// Handle the CORS preflight request
+/// Handles CORS preflight requests
+/// Sets appropriate CORS headers to allow cross-origin requests
+/// Returns a HeaderMap containing the necessary CORS headers
 async fn api_options() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());

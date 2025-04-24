@@ -12,26 +12,50 @@ pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
 });
 
 // Default functions
+/// Default number of maximum retries for API requests
+///
+/// # Returns
+/// * `usize` - The default value of 5
 pub const fn default_max_retries() -> usize {
     5
 }
 
+/// Default IP address for the server to bind to
+///
+/// # Returns
+/// * `String` - The default localhost IP "127.0.0.1"
 pub fn default_ip() -> String {
     "127.0.0.1".to_string()
 }
 
+/// Default port for the server to listen on
+///
+/// # Returns
+/// * `u16` - The default port number 8484
 pub fn default_port() -> u16 {
     8484
 }
 
+/// Default setting for using real roles in conversations
+///
+/// # Returns
+/// * `bool` - The default value of true
 pub const fn default_use_real_roles() -> bool {
     true
 }
 
+/// Default length of padding text
+///
+/// # Returns
+/// * `usize` - The default value of 4000 tokens
 pub const fn default_padtxt_len() -> usize {
     4000
 }
 
+/// Default setting for checking updates on startup
+///
+/// # Returns
+/// * `bool` - The default value of true
 pub const fn default_check_update() -> bool {
     true
 }

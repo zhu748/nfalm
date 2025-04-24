@@ -14,7 +14,12 @@ use tracing_subscriber::{
     layer::SubscriberExt,
 };
 
-/// Async main function using tokio runtime
+/// Application entry point
+/// Sets up logging, checks for updates, initializes the application state,
+/// creates the router, and starts the server
+///
+/// # Returns
+/// Result indicating success or failure of the application execution
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {
     let _ = enable_ansi_support::enable_ansi_support();

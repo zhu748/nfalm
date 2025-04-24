@@ -25,7 +25,16 @@ use crate::{
 
 use super::stream::NonStreamEventData;
 
-/// Axum handler for the API messages
+/// OpenAI-compatible API endpoint for chat completions
+/// Handles authentication, processes messages, and supports both streaming and non-streaming responses
+///
+/// # Arguments
+/// * `token` - Bearer token for API authentication
+/// * `state` - Application state containing client information
+/// * `p` - Request body containing messages and configuration
+///
+/// # Returns
+/// * `Response` - JSON or stream response in OpenAI format
 pub async fn api_completion(
     AuthBearer(token): AuthBearer,
     State(mut state): State<ClientState>,
@@ -137,7 +146,14 @@ pub async fn api_completion(
 }
 
 impl ClientState {
-    /// Try to send a message to the Claude API
+    /// Sends a completion request to the Claude API in OpenAI-compatible format
+    /// Creates a new conversation, processes the request, and returns formatted response
+    ///
+    /// # Arguments
+    /// * `p` - The client request body containing messages and configuration
+    ///
+    /// # Returns
+    /// * `Result<Response, ClewdrError>` - OpenAI-formatted response or error
     async fn try_completion(&mut self, mut p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;

@@ -20,6 +20,13 @@ pub struct Attachment {
 }
 
 impl Attachment {
+    /// Creates a new Attachment with the given content
+    ///
+    /// # Arguments
+    /// * `content` - The text content for the attachment
+    ///
+    /// # Returns
+    /// A new Attachment instance configured as a text file
     pub fn new(content: String) -> Self {
         Attachment {
             file_size: content.len() as u64,
@@ -45,6 +52,10 @@ pub struct RequestBody {
     pub images: Vec<ImageSource>,
 }
 
+/// Default function for maximum tokens
+///
+/// # Returns
+/// * `u64` - The default value of 4096 tokens
 fn max_tokens() -> u64 {
     4096
 }
@@ -100,7 +111,14 @@ impl FromRequestParts<ClientState> for KeyAuth {
     }
 }
 
-/// Transform a string to a message
+/// Transforms a string to a message with assistant role
+/// Used to create response messages for non-streaming API calls
+///
+/// # Arguments
+/// * `str` - The text content for the message
+///
+/// # Returns
+/// * `Message` - A message with assistant role and text content
 pub fn non_stream_message(str: String) -> Message {
     Message::new_blocks(Role::Assistant, vec![ContentBlock::Text { text: str }])
 }

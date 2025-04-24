@@ -1,11 +1,17 @@
-use std::sync::Arc;
-
 use axum::Json;
 use axum_auth::AuthBearer;
 use rquest::StatusCode;
 
 use crate::config::{CLEWDR_CONFIG, ClewdrConfig};
 
+/// API endpoint to retrieve the application configuration
+/// Returns the config as JSON with sensitive fields removed
+///
+/// # Arguments
+/// * `t` - Auth bearer token for admin authentication
+///
+/// # Returns
+/// * `Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>` - Config on success, error response on failure
 pub async fn api_get_config(
     AuthBearer(t): AuthBearer,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
@@ -36,6 +42,15 @@ pub async fn api_get_config(
     Ok(Json(config_json))
 }
 
+/// API endpoint to update the application configuration
+/// Validates and stores the provided configuration
+///
+/// # Arguments
+/// * `t` - Auth bearer token for admin authentication
+/// * `c` - New configuration data as JSON
+///
+/// # Returns
+/// * `Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>` - Success message on success, error response on failure
 pub async fn api_post_config(
     AuthBearer(t): AuthBearer,
     Json(c): Json<ClewdrConfig>,
@@ -49,12 +64,14 @@ pub async fn api_post_config(
         ));
     }
     let c = c.validate();
-    let mut new_c = c.clone();
-    // add cookie_array and wasted_cookie
-    new_c.cookie_array = CLEWDR_CONFIG.load().cookie_array.clone();
-    new_c.wasted_cookie = CLEWDR_CONFIG.load().wasted_cookie.clone();
     // update config
-    CLEWDR_CONFIG.store(Arc::new(new_c));
+    CLEWDR_CONFIG.rcu(|old_c| {
+        let mut new_c = ClewdrConfig::clone(&c);
+        // add cookie_array and wasted_cookie
+        new_c.cookie_array = old_c.cookie_array.clone();
+        new_c.wasted_cookie = old_c.wasted_cookie.clone();
+        new_c
+    });
     if let Err(e) = CLEWDR_CONFIG.load().save() {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,

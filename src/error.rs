@@ -125,7 +125,15 @@ impl Display for InnerHttpError {
     }
 }
 
-/// Check response from Claude Web
+/// Checks response from Claude Web API for errors
+/// Validates HTTP status codes and parses error messages from responses
+///
+/// # Arguments
+/// * `res` - The HTTP response to check
+///
+/// # Returns
+/// * `Ok(Response)` if the request was successful
+/// * `Err(ClewdrError)` if the request failed, with details about the failure
 pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     let status = res.status();
     if status.is_success() {
@@ -190,7 +198,11 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
 }
 
 impl ClewdrError {
-    /// Convert a ClewdrError to a Stream of Claude API events
+    /// Converts a ClewdrError to a Stream of Claude API events
+    /// Formats the error as a sequence of SSE events that can be consumed by clients
+    ///
+    /// # Returns
+    /// A stream of events representing the error in the Claude API format
     pub fn error_stream(
         &self,
     ) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> + Send + use<> {
@@ -236,6 +248,11 @@ impl ClewdrError {
         stream::iter(vec)
     }
 
+    /// Converts the error to a message body
+    /// Creates a non-streaming message containing the error text
+    ///
+    /// # Returns
+    /// A `Message` object containing the error information
     pub fn error_body(&self) -> Message {
         non_stream_message(self.to_string())
     }

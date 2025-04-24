@@ -27,7 +27,13 @@ pub struct Merged {
 }
 
 impl ClientState {
-    /// Transform the request body from Claude API to Claude web
+    /// Transforms the request body from Claude API format to Claude web format
+    ///
+    /// # Arguments
+    /// * `value` - The client request body in Claude API format
+    ///
+    /// # Returns
+    /// * `Option<RequestBody>` - The transformed request body for Claude web, or None if transformation fails
     pub fn transform_anthropic(&self, value: ClientRequestBody) -> Option<RequestBody> {
         let system = merge_system(value.system);
         let merged = self.merge_messages(value.messages, system)?;
@@ -51,7 +57,13 @@ impl ClientState {
         })
     }
 
-    /// Transform the request body from Claude web to OAI API
+    /// Transforms the request body from Claude web format to OpenAI API format
+    ///
+    /// # Arguments
+    /// * `value` - The client request body to transform
+    ///
+    /// # Returns
+    /// * `Option<RequestBody>` - The transformed request body for OpenAI API, or None if transformation fails
     pub fn transform_oai(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
         let mut role = value.messages.first().map(|m| m.role)?;
         for msg in value.messages.iter_mut() {
@@ -78,7 +90,15 @@ impl ClientState {
         })
     }
 
-    /// Merge messages into strings and extract images
+    /// Merges multiple messages into a single text prompt, handling system instructions
+    /// and extracting any images from the messages
+    ///
+    /// # Arguments
+    /// * `msgs` - Vector of messages to merge
+    /// * `system` - System instructions to prepend
+    ///
+    /// # Returns
+    /// * `Option<Merged>` - Merged prompt text, images, and additional metadata, or None if merging fails
     fn merge_messages(&self, msgs: Vec<Message>, system: String) -> Option<Merged> {
         if msgs.is_empty() {
             return None;
@@ -180,7 +200,14 @@ impl ClientState {
         })
     }
 
-    /// Generate padding text
+    /// Generates random padding text of specified length
+    /// Used to pad prompts with tokens to meet minimum length requirements
+    ///
+    /// # Arguments
+    /// * `length` - The target length of padding in tokens
+    ///
+    /// # Returns
+    /// A string containing the padding text
     fn generate_padding(&self, length: usize) -> String {
         if length == 0 {
             return String::new();
@@ -216,7 +243,14 @@ impl ClientState {
     }
 }
 
-/// Merge system message into a string
+/// Merges system message content into a single string
+/// Handles both string and array formats for system messages
+///
+/// # Arguments
+/// * `sys` - System message content as a JSON Value
+///
+/// # Returns
+/// Merged system message as a string
 fn merge_system(sys: Value) -> String {
     if let Some(str) = sys.as_str() {
         return str.to_string();
@@ -232,6 +266,14 @@ fn merge_system(sys: Value) -> String {
         .join("\n")
 }
 
+/// Merges server-sent events (SSE) from a stream into a single string
+/// Extracts and concatenates completion data from events
+///
+/// # Arguments
+/// * `stream` - Event stream to process
+///
+/// # Returns
+/// Combined completion text from all events
 pub async fn merge_sse(
     stream: EventStream<impl Stream<Item = Result<Bytes, rquest::Error>>>,
 ) -> String {

@@ -43,6 +43,14 @@ impl PartialOrd for CookieStatus {
 }
 
 impl CookieStatus {
+    /// Creates a new CookieStatus instance
+    ///
+    /// # Arguments
+    /// * `cookie` - Cookie string
+    /// * `reset_time` - Optional timestamp when the cookie can be reused
+    ///
+    /// # Returns
+    /// A new CookieStatus instance
     pub fn new(cookie: &str, reset_time: Option<i64>) -> Self {
         Self {
             cookie: ClewdrCookie::from(cookie),
@@ -50,8 +58,11 @@ impl CookieStatus {
         }
     }
 
-    /// check if the cookie is expired
-    /// if expired, set the reset time to None
+    /// Checks if the cookie's reset time has expired
+    /// If the reset time has passed, sets it to None so the cookie becomes valid again
+    ///
+    /// # Returns
+    /// The same CookieStatus with potentially updated reset_time
     pub fn reset(self) -> Self {
         if let Some(t) = self.reset_time {
             if t < chrono::Utc::now().timestamp() {
@@ -81,7 +92,11 @@ impl Default for ClewdrCookie {
 }
 
 impl ClewdrCookie {
-    /// Check if the cookie is valid format
+    /// Checks if the cookie has a valid format
+    /// Validates the cookie string against the expected pattern
+    ///
+    /// # Returns
+    /// * `bool` - True if the cookie has a valid format, false otherwise
     pub fn validate(&self) -> bool {
         // Check if the cookie is valid
         let re = regex::Regex::new(r"^sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();

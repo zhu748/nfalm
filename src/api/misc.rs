@@ -13,6 +13,16 @@ use crate::{
     state::ClientState,
 };
 
+/// API endpoint to submit a new cookie
+/// Validates and adds the cookie to the cookie manager
+///
+/// # Arguments
+/// * `s` - Application state containing event sender
+/// * `t` - Auth bearer token for admin authentication
+/// * `c` - Cookie status to be submitted
+///
+/// # Returns
+/// * `StatusCode` - HTTP status code indicating success or failure
 pub async fn api_submit(
     State(s): State<ClientState>,
     AuthBearer(t): AuthBearer,
@@ -39,6 +49,15 @@ pub async fn api_submit(
     }
 }
 
+/// API endpoint to retrieve all cookies and their status
+/// Gets information about valid, dispatched, exhausted, and invalid cookies
+///
+/// # Arguments
+/// * `s` - Application state containing event sender
+/// * `t` - Auth bearer token for admin authentication
+///
+/// # Returns
+/// * `Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)>` - Cookie status info or error
 pub async fn api_get_cookies(
     State(s): State<ClientState>,
     AuthBearer(t): AuthBearer,
@@ -63,6 +82,16 @@ pub async fn api_get_cookies(
     }
 }
 
+/// API endpoint to delete a specific cookie
+/// Removes the cookie from all collections in the cookie manager
+///
+/// # Arguments
+/// * `s` - Application state containing event sender
+/// * `t` - Auth bearer token for admin authentication
+/// * `cookie_string` - String representation of the cookie to delete
+///
+/// # Returns
+/// * `Result<StatusCode, (StatusCode, Json<serde_json::Value>)>` - Success status or error
 pub async fn api_delete_cookie(
     State(s): State<ClientState>,
     AuthBearer(t): AuthBearer,
@@ -97,10 +126,22 @@ pub async fn api_delete_cookie(
     }
 }
 
+/// API endpoint to get the application version information
+///
+/// # Returns
+/// * `String` - Version information string
 pub async fn api_version() -> String {
     VERSION_INFO.to_string()
 }
 
+/// API endpoint to verify authentication
+/// Checks if the provided token is valid for admin access
+///
+/// # Arguments
+/// * `t` - Auth bearer token to verify
+///
+/// # Returns
+/// * `StatusCode` - OK if authorized, UNAUTHORIZED otherwise
 pub async fn api_auth(AuthBearer(t): AuthBearer) -> StatusCode {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return StatusCode::UNAUTHORIZED;
