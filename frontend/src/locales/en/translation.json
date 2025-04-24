@@ -17,7 +17,7 @@
     "invalid": "Invalid token. Please try again.",
     "error": "Authentication failed: {{message}}",
     "enterToken": "Please enter an auth token",
-    "logoutTitle": "Log Out",
+    "authTitle": "Auth Status",
     "loggedInMessage": "You are currently logged in and have access to all features.",
     "logout": "Logout",
     "passwordChanged": "Note: You have been logged out because your password was changed. Please log in with your new credentials."
@@ -71,7 +71,7 @@
         "unknown": "Unknown"
       }
     },
-    "noCookies": "No {{type}} cookies",
+    "noCookies": "No {{type}}",
     "deleteConfirm": "Are you sure you want to delete this cookie?",
     "copy": "Copy to clipboard"
   },

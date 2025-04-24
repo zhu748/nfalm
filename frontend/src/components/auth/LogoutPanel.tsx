@@ -13,7 +13,7 @@ const LogoutPanel: React.FC<LogoutPanelProps> = ({ onLogout }) => {
     <div className="bg-gray-700 p-6 rounded-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-white">
-          {t("auth.logoutTitle")}
+          {t("auth.authTitle")}
         </h3>
         <Button
           onClick={onLogout}

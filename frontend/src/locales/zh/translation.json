@@ -17,7 +17,7 @@
     "invalid": "无效的令牌。请重试。",
     "error": "认证失败：{{message}}",
     "enterToken": "请输入认证令牌",
-    "logoutTitle": "登出",
+    "authTitle": "认证状态",
     "loggedInMessage": "您当前已登录，可以访问所有功能。",
     "logout": "登出",
     "passwordChanged": "注意：由于您的密码已更改，您已被登出。请使用新的凭据登录。"
@@ -53,7 +53,7 @@
     "sections": {
       "valid": "有效Cookie",
       "inUse": "使用中Cookie",
-      "exhausted": "已用尽Cookie",
+      "exhausted": "冷却中Cookie",
       "invalid": "无效Cookie"
     },
     "status": {
@@ -71,7 +71,7 @@
         "unknown": "未知"
       }
     },
-    "noCookies": "没有{{type}}cookie",
+    "noCookies": "没有{{type}}",
     "deleteConfirm": "您确定要删除此cookie吗？",
     "copy": "复制到剪贴板"
   },
@@ -113,18 +113,18 @@
       },
       "cookie": {
         "title": "Cookie设置",
-        "skipWarning": "跳过警告",
-        "skipRestricted": "跳过受限制的",
-        "skipNonPro": "跳过非专业版"
+        "skipWarning": "跳过警告（小黄）",
+        "skipRestricted": "跳过受限（大黄）",
+        "skipNonPro": "跳过普号"
       },
       "prompt": {
         "title": "提示配置",
         "realRoles": "使用真实角色",
-        "customH": "自定义人类（可选）",
-        "customA": "自定义助手（可选）",
-        "customPrompt": "自定义提示",
+        "customH": "自定义 Human（可选）",
+        "customA": "自定义 Assistant（可选）",
+        "customPrompt": "自定义提示词",
         "padtxtFile": "填充文本文件（可选）",
-        "padtxtLen": "填充文本长度"
+        "padtxtLen": "填充文本长度（以词符计）"
       }
     }
   },
