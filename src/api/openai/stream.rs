@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use axum::response::sse::Event;
 use eventsource_stream::EventStreamError;
 use futures::{Stream, StreamExt, pin_mut};
@@ -9,9 +7,7 @@ use transform_stream::{AsyncTryStream, Yielder};
 use crate::error::ClewdrError;
 
 #[derive(Debug)]
-pub struct ClewdrTransformer {
-    in_thinking: AtomicBool,
-}
+pub struct ClewdrTransformer {}
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct StreamEventData {
@@ -19,11 +15,9 @@ struct StreamEventData {
 }
 
 impl StreamEventData {
-    fn new(content: String) -> Self {
+    fn new(content: EventContent) -> Self {
         Self {
-            choices: vec![StreamEventDelta {
-                delta: EventContent { content },
-            }],
+            choices: vec![StreamEventDelta { delta: content }],
         }
     }
 }
@@ -37,7 +31,7 @@ impl NonStreamEventData {
     pub fn new(content: String) -> Self {
         Self {
             choices: vec![NonStreamEventMessage {
-                message: EventContent { content },
+                message: EventContent::Content { content },
             }],
         }
     }
@@ -54,42 +48,43 @@ struct NonStreamEventMessage {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-struct EventContent {
-    content: String,
+#[serde(untagged)]
+enum EventContent {
+    Content { content: String },
+    Reasoning { reasoning_content: String },
 }
 
 impl ClewdrTransformer {
     pub fn new() -> Self {
-        Self {
-            in_thinking: AtomicBool::new(false),
-        }
+        Self {}
     }
 
-    fn build(&self, selection: &str) -> Event {
+    fn build_event(&self, content: EventContent) -> Event {
         let event = Event::default();
-        let data = StreamEventData::new(selection.to_string());
+        let data = StreamEventData::new(content);
         event.json_data(data).unwrap()
     }
 
-    async fn parse_buf(&mut self, buf: &str, y: &mut Yielder<Result<Event, ClewdrError>>) {
+    async fn parse_event(
+        &mut self,
+        event: eventsource_stream::Event,
+        y: &mut Yielder<Result<Event, ClewdrError>>,
+    ) {
+        let buf = &event.data;
         if buf.is_empty() {
             return;
         }
+
         let Ok(parsed) = serde_json::from_str::<Value>(buf) else {
             return;
         };
-        if let Some("thinking") = parsed["content_block"]["type"].as_str() {
-            self.in_thinking.store(true, Ordering::SeqCst);
-            let event = self.build("<think>");
+
+        if let Some(thinking) = parsed["delta"]["thinking"].as_str() {
+            let event = self.build_event(EventContent::Reasoning {
+                reasoning_content: thinking.to_string(),
+            });
             y.yield_ok(event).await;
             return;
-        }
-        if self.in_thinking.load(Ordering::SeqCst) {
-            if let Some(thinking) = parsed["delta"]["thinking"].as_str() {
-                let event = self.build(thinking);
-                y.yield_ok(event).await;
-                return;
-            }
         }
 
         let Some(completion) = parsed
@@ -100,22 +95,11 @@ impl ClewdrTransformer {
         else {
             return;
         };
-        if self.in_thinking.load(Ordering::SeqCst) {
-            self.in_thinking.store(false, Ordering::SeqCst);
-            let event = self.build("</think>");
-            y.yield_ok(event).await;
-        }
-        let event = self.build(completion);
-        y.yield_ok(event).await;
-    }
 
-    async fn transform(
-        &mut self,
-        event: eventsource_stream::Event,
-        y: &mut Yielder<Result<Event, ClewdrError>>,
-    ) {
-        let data = event.data;
-        self.parse_buf(&data, y).await;
+        let event = self.build_event(EventContent::Content {
+            content: completion.to_string(),
+        });
+        y.yield_ok(event).await;
     }
 
     async fn flush(&mut self, y: &mut Yielder<Result<Event, ClewdrError>>) {
@@ -143,7 +127,7 @@ impl ClewdrTransformer {
             while let Some(chunk) = input.next().await {
                 match chunk {
                     Ok(event) => {
-                        self.transform(event, &mut y).await;
+                        self.parse_event(event, &mut y).await;
                     }
                     Err(e) => {
                         y.yield_err(e.into()).await;
