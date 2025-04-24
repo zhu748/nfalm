@@ -15,16 +15,15 @@ use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    api::body::ClientRequestBody,
+    api::{body::ClientRequestBody, openai::stream::transform},
     client::{SUPER_CLIENT, SetupRequest},
     config::CLEWDR_CONFIG,
     error::{ClewdrError, check_res_err},
     state::ClientState,
-    utils::text::merge_sse,
-    utils::{print_out_json, print_out_text},
+    utils::{print_out_json, print_out_text, text::merge_sse},
 };
 
-use super::stream::{ClewdrTransformer, NonStreamEventData};
+use super::stream::NonStreamEventData;
 
 /// Axum handler for the API messages
 pub async fn api_completion(
@@ -233,7 +232,7 @@ impl ClientState {
         }
         // stream the response
         let input_stream = api_res.bytes_stream().eventsource();
-        let output = ClewdrTransformer::transform_stream(input_stream);
+        let output = transform(input_stream);
 
         Ok(Sse::new(output).into_response())
     }

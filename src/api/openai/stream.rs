@@ -1,13 +1,9 @@
 use axum::response::sse::Event;
 use eventsource_stream::EventStreamError;
-use futures::{Stream, StreamExt, pin_mut};
+use futures::{Stream, StreamExt};
 use serde_json::Value;
-use transform_stream::{AsyncTryStream, Yielder};
 
 use crate::error::ClewdrError;
-
-#[derive(Debug)]
-pub struct ClewdrTransformer {}
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct StreamEventData {
@@ -54,82 +50,42 @@ enum EventContent {
     Reasoning { reasoning_content: String },
 }
 
-impl ClewdrTransformer {
-    fn build_event(content: EventContent) -> Event {
-        let event = Event::default();
-        let data = StreamEventData::new(content);
-        event.json_data(data).unwrap()
-    }
+fn build_event(content: EventContent) -> Event {
+    let event = Event::default();
+    let data = StreamEventData::new(content);
+    event.json_data(data).unwrap()
+}
 
-    async fn parse_event(
-        event: eventsource_stream::Event,
-        y: &mut Yielder<Result<Event, ClewdrError>>,
-    ) {
-        let buf = &event.data;
-        if buf.is_empty() {
-            return;
-        }
-
-        let Ok(parsed) = serde_json::from_str::<Value>(buf) else {
-            return;
-        };
-
-        if let Some(thinking) = parsed["delta"]["thinking"].as_str() {
-            let event = Self::build_event(EventContent::Reasoning {
-                reasoning_content: thinking.to_string(),
-            });
-            y.yield_ok(event).await;
-            return;
-        }
-
-        let Some(completion) = parsed
-            .get("completion")
-            .or(parsed.pointer("/delta/text"))
-            .or(parsed.pointer("/choices/0/delta/content"))
-            .and_then(|c| c.as_str())
-        else {
-            return;
-        };
-
-        let event = Self::build_event(EventContent::Content {
-            content: completion.to_string(),
-        });
-        y.yield_ok(event).await;
-    }
-
-    async fn flush(y: &mut Yielder<Result<Event, ClewdrError>>) {
-        // Flush logic
-        let event = Event::default();
-        y.yield_ok(event.data("[DONE]")).await;
-    }
-
-    pub fn transform_stream<S>(
-        input: S,
-    ) -> AsyncTryStream<
-        Event,
-        ClewdrError,
-        impl std::future::Future<Output = Result<(), ClewdrError>> + Send,
-    >
-    where
-        S: Stream<Item = Result<eventsource_stream::Event, EventStreamError<rquest::Error>>>
-            + Send
-            + 'static,
-    {
-        AsyncTryStream::new(move |mut y| async move {
-            pin_mut!(input);
-
-            while let Some(chunk) = input.next().await {
-                match chunk {
-                    Ok(event) => {
-                        Self::parse_event(event, &mut y).await;
+pub fn transform<I>(s: I) -> impl Stream<Item = Result<Event, ClewdrError>> + Send + 'static
+where
+    I: Stream<Item = Result<eventsource_stream::Event, EventStreamError<rquest::Error>>>
+        + Send
+        + 'static,
+{
+    s.filter_map(|event| {
+        let event = event.map(|e| e.data);
+        async move {
+            match event {
+                Ok(data) => {
+                    let parsed = serde_json::from_str::<Value>(&data).ok()?;
+                    if let Some(thinking) = parsed["delta"]["thinking"].as_str() {
+                        return Some(Ok::<Event, ClewdrError>(build_event(
+                            EventContent::Reasoning {
+                                reasoning_content: thinking.to_string(),
+                            },
+                        )));
                     }
-                    Err(e) => {
-                        y.yield_err(e.into()).await;
-                    }
+                    let completion = parsed
+                        .get("completion")
+                        .or(parsed.pointer("/delta/text"))
+                        .or(parsed.pointer("/choices/0/delta/content"))
+                        .and_then(|c| c.as_str())?;
+                    Some(Ok(build_event(EventContent::Content {
+                        content: completion.to_string(),
+                    })))
                 }
+                Err(e) => Some(Err(e.into())),
             }
-            Self::flush(&mut y).await;
-            Ok(())
-        })
-    }
+        }
+    })
 }
