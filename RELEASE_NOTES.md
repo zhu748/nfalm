@@ -1,6 +1,5 @@
-# v0.7.4
+# v0.7.5
 
 ## Feature
 
-- Use a separate admin password for web UI and API
-- Old password only has access to chat completion API
+- Batch submission of multiple cookies on frontend
