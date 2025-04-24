@@ -9,8 +9,8 @@ COPY frontend/ .
 RUN pnpm install && pnpm run build
 # 注意：前端构建结果会输出到 ../static 目录中
 
-# 使用 Rust nightly 镜像作为后端构建环境
-FROM rustlang/rust:nightly AS backend-builder
+# 使用 rust:1 镜像作为后端构建环境
+FROM rust:1 AS backend-builder
 # 安装构建依赖
 RUN apt-get update && apt-get install -y \
     cmake \
@@ -49,10 +49,6 @@ VOLUME ["/app/log"]
 # 配置环境变量
 ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484
-# 可以添加其他环境变量配置，如
-# ENV CLEWDR_PASSWORD=your_password
-# ENV CLEWDR_PROXY=your_proxy
-# ENV CLEWDR_COOKIE=your_cookie
 
 # 暴露端口
 EXPOSE 8484
