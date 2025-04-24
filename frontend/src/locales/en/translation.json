@@ -34,12 +34,18 @@
   "cookieSubmit": {
     "value": "Cookie Value",
     "placeholder": "Paste your cookie here...",
+    "placeholderMulti": "Paste your cookies here (one per line)...",
     "description": "Enter the complete cookie string including all required parameters.",
+    "descriptionMulti": "Enter multiple cookies, one per line. Each cookie will be processed individually.",
     "submitting": "Submitting...",
-    "submitButton": "Submit Cookie",
+    "submitButton": "Submit Cookies",
     "success": "Cookie submitted successfully!",
+    "allSuccess": "All {{count}} cookies submitted successfully!",
+    "allFailed": "All {{count}} cookies failed to submit.",
+    "partialSuccess": "{{successCount}} out of {{total}} cookies submitted successfully ({{errorCount}} failed).",
+    "resultDetails": "Submission details",
     "error": {
-      "empty": "Please enter a cookie value",
+      "empty": "Please enter at least one cookie",
       "format": "Invalid cookie format",
       "auth": "Authentication failed. Please set a valid auth token.",
       "server": "Server error."

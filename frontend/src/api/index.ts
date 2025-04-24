@@ -151,3 +151,68 @@ export async function saveConfig(configData: any) {
 
   return response;
 }
+
+// Add this new function to frontend/src/api/index.ts
+
+/**
+ * Sends multiple cookies to the server as a batch.
+ * @param cookies Array of cookie strings to send
+ * @returns An array of results with status for each cookie
+ */
+export async function postMultipleCookies(cookies: string[]) {
+  const token = localStorage.getItem("authToken") || "";
+  const results = [];
+
+  for (const cookie of cookies) {
+    try {
+      const response = await fetch("/api/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ cookie }),
+      });
+
+      if (response.status === 400) {
+        results.push({
+          cookie,
+          success: false,
+          message: "Invalid cookie format",
+        });
+      } else if (response.status === 401) {
+        results.push({
+          cookie,
+          success: false,
+          message: "Authentication failed. Please set a valid auth token.",
+        });
+      } else if (response.status === 500) {
+        results.push({
+          cookie,
+          success: false,
+          message: "Server error.",
+        });
+      } else if (!response.ok) {
+        results.push({
+          cookie,
+          success: false,
+          message: `Error ${response.status}: ${response.statusText}`,
+        });
+      } else {
+        results.push({
+          cookie,
+          success: true,
+          message: "Cookie submitted successfully",
+        });
+      }
+    } catch (error) {
+      results.push({
+        cookie,
+        success: false,
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
+  return results;
+}
