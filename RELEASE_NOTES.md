@@ -1,11 +1,9 @@
-# v0.7.6
+# v0.7.7
 
 ## Feature
 
-- Add Dockerfile for building the image
-- Support DeepSeek reasoning format for OpenAI compatible mode
+- Add `no_fs` feature for running on read-only filesystems such as some containers.
 
 ## Improvement
 
-- Hand written stream transformer instead of using `transform_stream` library,
-  massively improved performance and simplified code
+- Update Dockerfile
