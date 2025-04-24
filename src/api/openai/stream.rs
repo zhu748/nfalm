@@ -1,13 +1,14 @@
 use axum::response::sse::Event;
 use eventsource_stream::EventStreamError;
 use futures::{Stream, StreamExt};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::error::ClewdrError;
 
 /// Represents the data structure for streaming events in OpenAI API format
 /// Contains a choices array with deltas of content
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Serialize)]
 struct StreamEventData {
     choices: Vec<StreamEventDelta>,
 }
@@ -29,7 +30,7 @@ impl StreamEventData {
 
 /// Represents the data structure for non-streaming responses in OpenAI API format
 /// Contains a choices array with complete messages
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Serialize)]
 pub struct NonStreamEventData {
     choices: Vec<NonStreamEventMessage>,
 }
@@ -53,21 +54,21 @@ impl NonStreamEventData {
 
 /// Represents a delta update in a streaming response
 /// Contains the content change for the current chunk
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Serialize)]
 struct StreamEventDelta {
     delta: EventContent,
 }
 
 /// Represents a complete message in a non-streaming response
 /// Contains the full message content
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Serialize)]
 struct NonStreamEventMessage {
     message: EventContent,
 }
 
 /// Content of an event, either regular content or reasoning (thinking mode)
 /// Uses untagged enum to handle different response formats
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(untagged)]
 enum EventContent {
     Content { content: String },
