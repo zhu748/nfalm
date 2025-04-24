@@ -1,6 +1,6 @@
-# v0.7.3
+# v0.7.4
 
 ## Feature
 
-- Add Chinese support for frontend
-- Polish the UI
+- Use a separate admin password for web UI and API
+- Old password only has access to chat completion API
