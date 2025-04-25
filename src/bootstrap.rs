@@ -1,7 +1,7 @@
 use colored::Colorize;
 use rquest::Method;
 use serde_json::Value;
-use tracing::warn;
+use tracing::error;
 
 use crate::{
     config::{CLEWDR_CONFIG, Reason},
@@ -117,47 +117,38 @@ impl ClientState {
             return Ok(());
         };
         let now = chrono::Utc::now();
-        let mut restrict_until = 0;
-        let formatted_flags = active_flags
+        let flag_time = active_flags
             .iter()
             .map_while(|f| {
+                let r#type = f["type"].as_str()?;
                 let expire = f["expires_at"].as_str()?;
                 let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;
-                let timestamp = expire.timestamp();
-                let diff = expire.to_utc() - now;
-                if diff < chrono::Duration::zero() {
+                if now > expire {
                     return None;
                 }
-                restrict_until = timestamp.max(restrict_until);
-                let r#type = f["type"].as_str()?;
-                Some(format!(
-                    "{}: expires in {} hours",
-                    r#type.red(),
-                    diff.num_hours().to_string().red()
-                ))
+                Some((r#type, expire))
             })
             .collect::<Vec<_>>();
 
-        if formatted_flags.is_empty() {
-            return Ok(());
-        }
-
-        let banned = active_flags
+        let banned = flag_time.iter().any(|(f, _)| f.ends_with("banned"));
+        let restricted = flag_time
             .iter()
-            .any(|f| f["type"].as_str() == Some("consumer_banned"));
-        let banned_str = if banned {
-            "[BANNED] ".red().to_string()
-        } else {
-            "".to_string()
-        };
+            .filter(|(f, _)| f.ends_with("restricted"))
+            .max_by_key(|(_, expire)| expire.timestamp())
+            .cloned();
+        let warned = flag_time
+            .iter()
+            .filter(|(f, _)| f.ends_with("warning"))
+            .max_by_key(|(_, expire)| expire.timestamp())
+            .cloned();
 
-        warn!(
-            "Cookie {} is restricted, warning, or banned.",
-            self.cookie.clone().unwrap_or_default().cookie,
-        );
-        println!("{}{}", banned_str, "This account has warnings:".red());
-        for flag in formatted_flags {
-            println!("{}", flag);
+        for (f, t) in flag_time {
+            let hours = t.to_utc() - now;
+            println!(
+                "{}: expire in {} hours",
+                f.blue(),
+                hours.num_hours().to_string()
+            );
         }
         if banned {
             println!(
@@ -166,34 +157,22 @@ impl ClientState {
             );
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
         }
-        // Check if we should skip based on flag types
-        let should_skip = active_flags
-            .iter()
-            .filter_map(|f| f["type"].as_str())
-            .any(|flag_type| {
-                // skip flags ending with warning
-                let warning_match =
-                    CLEWDR_CONFIG.load().skip_warning && flag_type.ends_with("warning");
-
-                //  skip flags containing restricted
-                let restricted_match =
-                    CLEWDR_CONFIG.load().skip_restricted && flag_type.contains("restricted");
-
-                warning_match || restricted_match
-            });
-
-        println!("{}", "Your account is restricted.".red());
-
-        if should_skip && restrict_until > 0 {
-            if CLEWDR_CONFIG.load().skip_warning {
-                warn!("skip_warning is enabled, skipping...");
-            }
+        println!("{}", "Your account is restricted or warned.".yellow());
+        if let Some((_, expire)) = restricted {
             if CLEWDR_CONFIG.load().skip_restricted {
-                warn!("skip_restricted is enabled, skipping...");
+                error!("Skipping restricted account");
+                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
+                    expire.timestamp(),
+                )));
             }
-            return Err(ClewdrError::InvalidCookie(Reason::Restricted(
-                restrict_until,
-            )));
+        }
+        if let Some((_, expire)) = warned {
+            if CLEWDR_CONFIG.load().skip_warning {
+                error!("Skipping warned account");
+                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
+                    expire.timestamp(),
+                )));
+            }
         }
         Ok(())
     }
