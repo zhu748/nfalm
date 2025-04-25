@@ -47,21 +47,17 @@ Web Admin Password 为前端管理密码
 
 ---
 
-### 前端地址
+### API 地址
 
-复制你的项目名
+![](https://i.imgur.com/bueGIOK.png)
+![](https://i.imgur.com/fOhHg0k.png)
 
-![image.png](https://i.imgur.com/dtwRXYk.png)
-
-它应该是这样的:`3v4pyve7/clewdr2`
-现在将`/`改成`-`后面加上
+复制后加上`/v1`后缀即可在酒馆使用,为 claude 加反向代理
+举例 API 地址
 
 ```
-.hf.space
+https://3v4pyve7-clewdr.hf.space/v1
 ```
-
-拼接后就可以直接访问了
-https://3v4pyve7-clewdr2.hf.space
 
 认证令牌为上文的 Web Admin Password
 
