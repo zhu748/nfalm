@@ -6,7 +6,6 @@ use figlet_rs::FIGfont;
 
 pub mod api;
 pub mod bootstrap;
-pub mod client;
 pub mod config;
 pub mod error;
 pub mod router;

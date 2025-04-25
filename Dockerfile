@@ -39,9 +39,6 @@ COPY --from=backend-builder /app/target/release/clewdr .
 # 从后端构建阶段复制静态文件
 COPY --from=frontend-builder /usr/src/app/static ./static
 
-# 设置卷挂载
-VOLUME ["/app/log"]
-
 # 配置环境变量
 ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484

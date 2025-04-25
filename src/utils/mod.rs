@@ -1,8 +1,10 @@
 use clap::Parser;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::sync::LazyLock;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::LazyLock,
+};
 use tracing::error;
 use walkdir::WalkDir;
 

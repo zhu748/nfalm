@@ -1,9 +1,9 @@
 use colored::Colorize;
+use rquest::Method;
 use serde_json::Value;
 use tracing::warn;
 
 use crate::{
-    client::{SUPER_CLIENT, SetupRequest},
     config::{CLEWDR_CONFIG, Reason},
     error::{ClewdrError, check_res_err},
     state::ClientState,
@@ -24,11 +24,7 @@ impl ClientState {
     /// * `Result<(), ClewdrError>` - Success or an error with details about cookie validity
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
         let end_point = format!("{}/api/bootstrap", self.endpoint);
-        let res = SUPER_CLIENT
-            .get(end_point)
-            .setup_request("", self.header_cookie(), self.proxy.clone())
-            .send()
-            .await?;
+        let res = self.request(Method::GET, end_point).send().await?;
         self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
@@ -71,11 +67,7 @@ impl ClientState {
 
         // Bootstrap complete
         let end_point = format!("{}/api/organizations", self.endpoint);
-        let res = SUPER_CLIENT
-            .get(end_point)
-            .setup_request("", self.header_cookie(), self.proxy.clone())
-            .send()
-            .await?;
+        let res = self.request(Method::GET, end_point).send().await?;
         self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let ret_json = res.json::<Value>().await?;

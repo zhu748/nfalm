@@ -1,19 +1,20 @@
 use colored::Colorize;
 use serde::Serialize;
-use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
-use std::sync::Arc;
-use tokio::spawn;
-use tokio::sync::{Mutex, Notify};
+use std::{
+    cmp::Ordering,
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    sync::Arc,
+};
 use tokio::{
+    spawn,
+    sync::{Mutex, Notify},
     sync::{mpsc, oneshot},
     time::{Instant, Interval},
 };
 use tracing::{error, info, warn};
 
-use crate::config::CLEWDR_CONFIG;
 use crate::{
-    config::{ClewdrConfig, CookieStatus, Reason, UselessCookie},
+    config::{CLEWDR_CONFIG, ClewdrConfig, CookieStatus, Reason, UselessCookie},
     error::ClewdrError,
 };
 

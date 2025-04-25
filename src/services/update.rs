@@ -1,17 +1,19 @@
 use colored::Colorize;
 use rquest::Client;
 use serde::Deserialize;
-use std::env;
-use std::fs::File;
-use std::io::{BufReader, copy};
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{
+    env,
+    fs::File,
+    io::{BufReader, copy},
+    path::PathBuf,
+    str::FromStr,
+};
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::config::CLEWDR_CONFIG;
-use crate::utils::STATIC_DIR;
-use crate::{Args, error::ClewdrError, utils::copy_dir_all};
+use crate::{
+    Args, config::CLEWDR_CONFIG, error::ClewdrError, utils::STATIC_DIR, utils::copy_dir_all,
+};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {

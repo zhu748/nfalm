@@ -35,8 +35,6 @@ pub enum ClewdrError {
     InvalidVersion(String),
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
-    #[error(transparent)]
-    UrlParseError(#[from] url::ParseError),
     #[error("Cookie receive error: {0}")]
     CookieDispatchError(#[from] oneshot::error::RecvError),
     #[error("No cookie available")]
