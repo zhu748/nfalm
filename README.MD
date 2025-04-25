@@ -1,6 +1,12 @@
 # Clewd<span style="color:#CE422B">R</span>
 
+English | [简体中文](./README-ZH.MD)
+
 Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in Rust.
+
+## Community Tutorial
+
+[Deploy Clewdr to HuggingFace Space(Chinese)](./wiki/hf-space.md)
 
 ## Advantages
 
