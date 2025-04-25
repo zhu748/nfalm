@@ -146,7 +146,7 @@ impl ClientState {
             let hours = t.to_utc() - now;
             println!(
                 "{}: expire in {} hours",
-                f.blue(),
+                f.red(),
                 hours.num_hours().to_string()
             );
         }
