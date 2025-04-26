@@ -10,16 +10,17 @@ Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in R
 
 ## Advantages
 
-- **React Frontend**: ClewdR uses a tiny React frontend for simple configuration. Clewd uses a HTML frontend, which is not very user-friendly.
-- **Concurrent**: ClewdR implies a event-driven architecture, which means it can handle multiple requests at the same time. Clewd only handles one request at a time. This is a huge advantage when you are using it as a reverse proxy for SillyTavern.
-- **Configurable Proxy**: You can use your own HTTP/HTTPS/SOCKS5 proxy. ClewdR will use the proxy you set in `config.toml` to send requests to Claude. Clewd doesn't support this feature and needs TUN to work with proxy.
+- **High Performance**: ClewdR uses Rust for high-performance processing, with stream processing speed several times that of the original Clewd.
+- **Concurrent**: ClewdR uses an event-driven architecture that can handle multiple requests simultaneously. The original version only supports single request processing.
+- **React Frontend**: ClewdR uses a lightweight React frontend for simple configuration. The original Clewd only supports configuration via config files, environment variables, or API query parameters.
+- **Configurable Proxy**: Supports custom HTTP/HTTPS/SOCKS5 proxies. The original version doesn't support this feature and requires TUN.
 - **No Node.js**: ~~Although I'm sure all of you playing SillyTavern have it installed~~
-- **No external binaries**: Clewd spawns a `superfetch` command for every request to mimic browser behavior. ClewdR uses native Rust `rquest` library.
-- **Support macOS**: Clewd doesn't provide `superfetch` for macOS, so it doesn't work on macOS.
-- **Support Android**: Same as above, ClewdR is a native Rust program, so it works on Android.
-- **Robust Backend**: Clewd uses home-made backend on top of Node's `Server` Object. ClewdR is built on top of `Axum` and `Tokio`, which are battle-tested libraries for building web servers in Rust.
-- **Support Thinking**: Support newest `thinking` feature in SillyTavern for 3.7 Sonnet.
-- **Support Image Attachment**: Support image attachment, you can send images to the bot.
+- **No External Dependencies**: The original version requires calling `superfetch` to simulate browser behavior for each request. This version uses Rust's native `rquest` library.
+  - **Support macOS**: The original version cannot run on macOS due to lack of macOS version of `superfetch`.
+  - **Support Android**: Built with native Rust compilation, perfectly compatible with Android systems.
+- **Robust Backend**: The original version uses a self-developed Node.js backend. This version is built on well-tested Rust ecosystem components `Axum` and `Tokio`.
+- **Thinking Support**: Supports the newest `thinking` feature in SillyTavern for Claude 3.7 Sonnet.
+- **Image Attachments**: Supports image attachments, allowing you to send images directly to AI.
 
 ## How to start
 

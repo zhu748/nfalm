@@ -7,25 +7,12 @@
 
 ### 创建空间
 
-1. 前往 https://hf.space 点击右侧的 **New space** 创建一个空间
+1. 前往 [HF Space](https://hf.space) 点击右侧的 **New space** 创建一个空间
+   ![image.png](https://i.imgur.com/Tfijg4d.png)
 
----
-
-2. ![](https://i.imgur.com/Tfijg4d.png)
-
----
-
-3. 填写详情页
-
----
-
-4. ![](https://i.imgur.com/To9YA6H.png)
-
----
-
-5. ![](https://i.imgur.com/c3QqkhQ.png)
-
----
+2. 填写详情页
+   ![image.png](https://i.imgur.com/To9YA6H.png)
+   ![image.png](https://i.imgur.com/c3QqkhQ.png)
 
 ### 上传 Dockerfile
 
@@ -42,24 +29,22 @@
 ![image.png](https://i.imgur.com/DJIsBy1.png)
 ![image.png](https://i.imgur.com/bPNc8PU.png)
 
-LLM API Password 为请求 API 的密码
-Web Admin Password 为前端管理密码
+`LLM API Password` 为请求 API 的密码
+`Web Admin Password` 为前端管理密码
 
 ---
 
 ### API 地址
 
-![](https://i.imgur.com/bueGIOK.png)
-![](https://i.imgur.com/fOhHg0k.png)
+![image.png](https://i.imgur.com/bueGIOK.png)
+![image.png](https://i.imgur.com/fOhHg0k.png)
 
 复制后加上`/v1`后缀即可在酒馆使用,为 claude 加反向代理
 举例 API 地址
 
-```
-https://3v4pyve7-clewdr.hf.space/v1
-```
+`https://3v4pyve7-clewdr.hf.space/v1`
 
-认证令牌为上文的 Web Admin Password
+认证令牌为上文的 `LLM API Password`
 
 如果你不想每次重启都要手动加 cookie,请继续看下面的**自定义变量**
 
@@ -75,7 +60,7 @@ https://3v4pyve7-clewdr.hf.space/v1
 
 简单配置
 
-```
+```env
 CLEWDR_COOKIE_ARRAY=[[sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA,sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA]]
 CLEWDR_PASSWORD=your_secure_password
 CLEWDR_ADMIN_PASSWORD=your_admin_password
@@ -83,7 +68,7 @@ CLEWDR_ADMIN_PASSWORD=your_admin_password
 
 完整默认配置文件
 
-```
+```env
 clewdr_cookie_array = [[]]
 clewdr_wasted_cookie = [] #这个可以不用管
 clewdr_ip = "127.0.0.1" #此项禁止加入变量
@@ -102,5 +87,4 @@ clewdr_skip_non_pro = false
 clewdr_use_real_roles = true
 clewdr_custom_prompt = ""
 clewdr_padtxt_len = 4000
-
 ```
