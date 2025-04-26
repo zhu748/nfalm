@@ -7,3 +7,4 @@ cookie.txt
 *.txt
 static/
 /clewdr.toml
+/cline_docs
