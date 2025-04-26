@@ -57,7 +57,7 @@ tempfile = "3"
 axum-auth = "0.8"
 tiktoken-rs = "0.6"
 passwords = "3"
-tower-http = { version = "0.6", features = ["fs", "trace"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
 walkdir = "2"
 figment = { version = "0.10", features = ["env", "json", "toml"] }
 arc-swap = "1"

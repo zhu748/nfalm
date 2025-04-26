@@ -1,12 +1,9 @@
 use axum::{
     Router,
-    http::HeaderMap,
-    routing::{delete, get, options, post},
+    http::Method,
+    routing::{delete, get, post},
 };
-use rquest::header::{
-    ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
-};
-use tower_http::services::ServeDir;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::{
     api::{
@@ -18,9 +15,9 @@ use crate::{
 };
 
 /// RouterBuilder for the application
-pub struct RouterBuilder {
-    state: ClientState,
-    inner: Router<ClientState>,
+pub struct RouterBuilder<S = ClientState> {
+    state: S,
+    inner: Router<S>,
 }
 
 impl RouterBuilder {
@@ -43,14 +40,12 @@ impl RouterBuilder {
             .route_api_endpoints()
             .route_openai_endpoints()
             .setup_static_serving()
+            .with_cors()
     }
 
     /// Sets up routes for v1 endpoints
     fn route_v1_endpoints(mut self) -> Self {
-        self.inner = self
-            .inner
-            .route("/v1", options(api_options))
-            .route("/v1/messages", post(api_messages));
+        self.inner = self.inner.route("/v1/messages", post(api_messages));
         self
     }
 
@@ -91,26 +86,23 @@ impl RouterBuilder {
         self
     }
 
+    /// Adds CORS support to the router
+    fn with_cors(mut self) -> Self {
+        let cors = CorsLayer::new()
+            .allow_origin(tower_http::cors::Any)
+            .allow_methods([Method::GET, Method::POST, Method::DELETE])
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+            ]);
+
+        self.inner = self.inner.layer(cors);
+        self
+    }
+
     /// Returns the configured router
     /// Finalizes the router configuration for use with axum
     pub fn build(self) -> Router {
         self.inner.with_state(self.state)
     }
-}
-
-/// Handles CORS preflight requests
-/// Sets appropriate CORS headers to allow cross-origin requests
-/// Returns a HeaderMap containing the necessary CORS headers
-async fn api_options() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
-    headers.insert(
-        ACCESS_CONTROL_ALLOW_HEADERS,
-        "Authorization, Content-Type".parse().unwrap(),
-    );
-    headers.insert(
-        ACCESS_CONTROL_ALLOW_METHODS,
-        "POST, GET, OPTIONS".parse().unwrap(),
-    );
-    headers
 }
