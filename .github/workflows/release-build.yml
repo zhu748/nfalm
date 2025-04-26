@@ -97,7 +97,7 @@ jobs:
         run: |
           mv target/${{ matrix.target_triple }}/release/clewdr .
           mkdir -p release-package
-          cp -r static release-package/
+          mv clewdr release-package/
           cd release-package
           zip -r ../clewdr-linux-${{ matrix.target }} .
 
