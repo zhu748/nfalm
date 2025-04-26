@@ -8,7 +8,7 @@ use std::{
 use tracing::error;
 use walkdir::WalkDir;
 
-use crate::{IS_DEV, error::ClewdrError};
+use crate::{IS_DEV, config::CONFIG_NAME, error::ClewdrError};
 
 pub mod text;
 
@@ -16,9 +16,31 @@ pub static ARG_COOKIE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
     let args = crate::Args::parse();
     if let Some(cookie_file) = args.file {
         // canonicalize the path
+        if !cookie_file.exists() {
+            error!("No cookie file found at: {}", cookie_file.display());
+            return None;
+        }
         cookie_file.canonicalize().ok()
     } else {
         None
+    }
+});
+
+pub static ARG_CONFIG_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    let args = crate::Args::parse();
+    if let Some(config_file) = args.config {
+        // canonicalize the path
+        config_file.canonicalize().ok()
+    } else {
+        None
+    }
+});
+
+pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    if let Some(path) = ARG_CONFIG_FILE.as_ref() {
+        path.to_owned()
+    } else {
+        CLEWDR_DIR.join(CONFIG_NAME)
     }
 });
 

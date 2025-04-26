@@ -11,7 +11,6 @@ use std::{
     fmt::{Debug, Display},
     net::IpAddr,
     path::PathBuf,
-    str::FromStr,
     sync::Arc,
 };
 use tiktoken_rs::o200k_base;
@@ -23,7 +22,7 @@ use crate::{
         default_max_retries, default_padtxt_len, default_port, default_use_real_roles,
     },
     error::ClewdrError,
-    utils::ARG_COOKIE_FILE,
+    utils::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH},
 };
 
 /// Generates a random password for authentication
@@ -216,14 +215,19 @@ impl ClewdrConfig {
     /// # Returns
     /// * `Result<Self, ClewdrError>` - Config instance or error
     pub fn new() -> Result<Self, ClewdrError> {
-        let mut config: ClewdrConfig = Figment::new()
+        let config = Figment::new()
             .adjoin(Toml::file("config.toml"))
-            .adjoin(Toml::file(CONFIG_NAME))
-            .admerge(Env::prefixed("CLEWDR_"))
-            .extract_lossy()
-            .inspect_err(|e| {
-                error!("Failed to load config: {}", e);
-            })?;
+            .adjoin(Toml::file(CONFIG_NAME));
+        let mut config: ClewdrConfig = if let Some(arg_config) = ARG_CONFIG_FILE.as_ref() {
+            config.merge(Toml::file(arg_config))
+        } else {
+            config
+        }
+        .admerge(Env::prefixed("CLEWDR_"))
+        .extract_lossy()
+        .inspect_err(|e| {
+            error!("Failed to load config: {}", e);
+        })?;
         if let Some(ref f) = *ARG_COOKIE_FILE {
             // load cookies from file
             if f.exists() {
@@ -304,9 +308,10 @@ impl ClewdrConfig {
         {
             return Ok(());
         }
-        let Ok(config_path) = PathBuf::from_str(CONFIG_NAME);
-        std::fs::write(config_path, toml::ser::to_string_pretty(self)?)?;
-        Ok(())
+        Ok(std::fs::write(
+            CONFIG_PATH.as_path(),
+            toml::ser::to_string_pretty(self)?,
+        )?)
     }
 
     /// Validate the configuration

@@ -49,4 +49,7 @@ pub struct Args {
     #[arg(short, long)]
     /// load cookie from file
     pub file: Option<PathBuf>,
+    /// Alternative config file
+    #[arg(short, long)]
+    pub config: Option<PathBuf>,
 }
