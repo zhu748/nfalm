@@ -1,8 +1,8 @@
-# Clewdr 部署到 huggingface space
+# ClewdR 部署到 huggingface space
 
 简介
 
-[Clewdr](https://github.com/Xerxes-2) 是一个 claude 的逆向 api 项目。拥有前端可以直接添加 cookie 和修改设置
+[ClewdR](https://github.com/Xerxes-2) 是一个 claude 的逆向 api 项目。拥有前端可以直接添加 cookie 和修改设置
 
 ## 开始
 
