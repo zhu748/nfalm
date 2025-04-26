@@ -130,15 +130,15 @@ impl ClientState {
             })
             .collect::<Vec<_>>();
 
-        let banned = flag_time.iter().any(|(f, _)| f.ends_with("banned"));
+        let banned = flag_time.iter().any(|(f, _)| f.contains("banned"));
         let restricted = flag_time
             .iter()
-            .filter(|(f, _)| f.ends_with("restricted"))
+            .filter(|(f, _)| f.contains("restricted"))
             .max_by_key(|(_, expire)| expire.timestamp())
             .cloned();
         let warned = flag_time
             .iter()
-            .filter(|(f, _)| f.ends_with("warning"))
+            .filter(|(f, _)| f.contains("warning"))
             .max_by_key(|(_, expire)| expire.timestamp())
             .cloned();
 
