@@ -26,10 +26,10 @@ pub struct RouterBuilder {
 impl RouterBuilder {
     /// Creates a blank RouterBuilder instance
     /// Initializes the router with the provided application state
-    /// 
+    ///
     /// # Arguments
     /// * `state` - The application state containing client information
-    fn new(state: ClientState) -> Self {
+    pub fn new(state: ClientState) -> Self {
         RouterBuilder {
             state,
             inner: Router::new(),
@@ -38,12 +38,8 @@ impl RouterBuilder {
 
     /// Creates a new RouterBuilder instance
     /// Sets up routes for API endpoints and static file serving
-    ///
-    /// # Arguments
-    /// * `state` - The application state containing client information
-    pub fn new_default(state: ClientState) -> Self {
-        Self::new(state)
-            .route_v1_endpoints()
+    pub fn with_default_setup(self) -> Self {
+        self.route_v1_endpoints()
             .route_api_endpoints()
             .route_openai_endpoints()
             .setup_static_serving()
