@@ -19,46 +19,86 @@ use crate::{
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
-    inner: Router,
+    state: ClientState,
+    inner: Router<ClientState>,
 }
 
 impl RouterBuilder {
+    /// Creates a blank RouterBuilder instance
+    /// Initializes the router with the provided application state
+    /// 
+    /// # Arguments
+    /// * `state` - The application state containing client information
+    fn new(state: ClientState) -> Self {
+        RouterBuilder {
+            state,
+            inner: Router::new(),
+        }
+    }
+
     /// Creates a new RouterBuilder instance
     /// Sets up routes for API endpoints and static file serving
     ///
     /// # Arguments
     /// * `state` - The application state containing client information
-    pub fn new(state: ClientState) -> Self {
-        let r = Router::new()
+    pub fn new_default(state: ClientState) -> Self {
+        Self::new(state)
+            .route_v1_endpoints()
+            .route_api_endpoints()
+            .route_openai_endpoints()
+            .setup_static_serving()
+    }
+
+    /// Sets up routes for v1 endpoints
+    fn route_v1_endpoints(mut self) -> Self {
+        self.inner = self
+            .inner
             .route("/v1", options(api_options))
-            .route("/v1/messages", post(api_messages))
+            .route("/v1/messages", post(api_messages));
+        self
+    }
+
+    /// Sets up routes for API endpoints
+    fn route_api_endpoints(mut self) -> Self {
+        self.inner = self
+            .inner
             .route("/api/submit", post(api_submit))
             .route("/api/delete_cookie/{cookie}", delete(api_delete_cookie))
             .route("/api/version", get(api_version))
             .route("/api/get_cookies", get(api_get_cookies))
             .route("/api/auth", get(api_auth))
             .route("/api/config", get(api_get_config).post(api_post_config));
-        let r = if CLEWDR_CONFIG.load().enable_oai {
-            r.route("/v1/chat/completions", post(api_completion))
-        } else {
-            r
-        };
-        let r = if cfg!(debug_assertions) {
-            r.fallback_service(ServeDir::new("static"))
-                .with_state(state)
+        self
+    }
+
+    /// Optionally sets up routes for OpenAI compatible endpoints
+    fn route_openai_endpoints(mut self) -> Self {
+        if CLEWDR_CONFIG.load().enable_oai {
+            self.inner = self
+                .inner
+                .route("/v1/chat/completions", post(api_completion));
+        }
+        self
+    }
+
+    /// Sets up static file serving
+    fn setup_static_serving(mut self) -> Self {
+        if cfg!(debug_assertions) {
+            self.inner = self.inner.fallback_service(ServeDir::new("static"));
         } else {
             use include_dir::{Dir, include_dir};
             const INCLUDE_STATIC: Dir = include_dir!("$CARGO_MANIFEST_DIR/static");
-            r.fallback_service(tower_serve_static::ServeDir::new(&INCLUDE_STATIC))
-                .with_state(state)
-        };
-        Self { inner: r }
+            self.inner = self
+                .inner
+                .fallback_service(tower_serve_static::ServeDir::new(&INCLUDE_STATIC));
+        }
+        self
     }
 
     /// Returns the configured router
     /// Finalizes the router configuration for use with axum
     pub fn build(self) -> Router {
-        self.inner
+        self.inner.with_state(self.state)
     }
 }
 

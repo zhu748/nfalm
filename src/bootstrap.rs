@@ -153,18 +153,19 @@ impl ClientState {
             );
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
         }
-        println!("{}", "Your account is restricted or warned.".yellow());
-        if let Some((_, expire)) = restricted {
-            if CLEWDR_CONFIG.load().skip_restricted {
-                error!("Skipping restricted account");
+        if let Some((_, expire)) = warned {
+            println!("{}", "Your account is warned.".yellow());
+            if CLEWDR_CONFIG.load().skip_warning {
+                error!("Skipping warned account");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     expire.timestamp(),
                 )));
             }
         }
-        if let Some((_, expire)) = warned {
-            if CLEWDR_CONFIG.load().skip_warning {
-                error!("Skipping warned account");
+        if let Some((_, expire)) = restricted {
+            println!("{}", "Your account is restricted.".red());
+            if CLEWDR_CONFIG.load().skip_restricted {
+                error!("Skipping restricted account");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     expire.timestamp(),
                 )));

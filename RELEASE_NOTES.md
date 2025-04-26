@@ -1,6 +1,9 @@
-# v0.7.9
+# v0.7.10
+
+## Bug Fixes
+
+- Fix logging mistake
 
 ## Improvement
 
-- Improve logging readability.
-- Back to single binary for most platforms.
+- Print more useful information when starting

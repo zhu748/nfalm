@@ -155,7 +155,7 @@ impl Display for ClewdrConfig {
         let web_addr = format!("http://{}", self.address());
         write!(
             f,
-            "LLM API Endpoint: {}\n\
+            "\nLLM API Endpoint: {}\n\
             LLM API Password: {}\n\
             Web Admin Endpoint: {}\n\
             Web Admin Password: {}\n",
@@ -164,6 +164,9 @@ impl Display for ClewdrConfig {
             web_addr.green().underline(),
             self.admin_password.yellow(),
         )?;
+        if self.enable_oai {
+            writeln!(f, "OpenAI Compatible: {}", "Enabled".green())?;
+        }
         if let Some(ref proxy) = self.proxy {
             writeln!(f, "Proxy: {}", proxy.blue())?;
         }
@@ -171,14 +174,28 @@ impl Display for ClewdrConfig {
             writeln!(f, "Reverse Proxy: {}", rproxy.blue())?;
         }
         if !self.pad_tokens.is_empty() {
-            Ok(writeln!(
+            writeln!(
                 f,
                 "Pad txt token count: {}",
                 self.pad_tokens.len().to_string().blue()
-            )?)
-        } else {
-            Ok(())
+            )?
         }
+        if self.skip_non_pro {
+            writeln!(f, "Skip non pro: {}", "Enabled".green())?;
+        } else {
+            writeln!(f, "Skip non pro: {}", "Disabled".red())?;
+        }
+        if self.skip_restricted {
+            writeln!(f, "Skip restricted: {}", "Enabled".green())?;
+        } else {
+            writeln!(f, "Skip restricted: {}", "Disabled".red())?;
+        }
+        if self.skip_warning {
+            writeln!(f, "Skip warning: {}", "Enabled".green())?;
+        } else {
+            writeln!(f, "Skip warning: {}", "Disabled".red())?;
+        }
+        Ok(())
     }
 }
 
