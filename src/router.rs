@@ -3,9 +3,11 @@ use axum::{
     http::Method,
     routing::{delete, get, post},
 };
+use const_format::formatc;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::{
+    IS_DEBUG,
     api::{
         api_auth, api_completion, api_delete_cookie, api_get_config, api_get_cookies, api_messages,
         api_post_config, api_submit, api_version,
@@ -74,8 +76,11 @@ impl RouterBuilder {
 
     /// Sets up static file serving
     fn setup_static_serving(mut self) -> Self {
-        if cfg!(debug_assertions) {
-            self.inner = self.inner.fallback_service(ServeDir::new("static"));
+        if IS_DEBUG {
+            self.inner = self.inner.fallback_service(ServeDir::new(formatc!(
+                "{}/static",
+                env!("CARGO_MANIFEST_DIR")
+            )));
         } else {
             use include_dir::{Dir, include_dir};
             const INCLUDE_STATIC: Dir = include_dir!("$CARGO_MANIFEST_DIR/static");

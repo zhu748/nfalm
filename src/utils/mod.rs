@@ -8,7 +8,7 @@ use std::{
 use tracing::error;
 use walkdir::WalkDir;
 
-use crate::error::ClewdrError;
+use crate::{IS_DEV, error::ClewdrError};
 
 pub mod text;
 
@@ -28,35 +28,26 @@ pub const LOG_DIR: &str = "log";
 
 /// Gets and sets up the configuration directory for the application
 ///
-/// In debug mode, uses the current working directory
-/// In release mode, uses the directory of the executable
+/// In dev, uses the current working directory
+/// In production, uses the directory of the executable
 /// Also creates the log directory if it doesn't exist
 ///
 /// # Returns
 /// * `Result<PathBuf, ClewdrError>` - The path to the configuration directory on success, or an error
 fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
-    let dir = {
-        #[cfg(debug_assertions)]
-        {
-            // In debug mode, use the current working directory
-            // to find the config file
-            std::env::current_dir()?
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            // In release mode, use the directory of the executable
-            // to find the config file
-            let exec_path = std::env::current_exe()?;
-            let exec_dir = exec_path
-                .parent()
-                .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
-                .canonicalize()?
-                .to_path_buf();
-            // cd to the exec dir
-            std::env::set_current_dir(&exec_dir)?;
-            exec_dir
-        }
+    let dir = if *IS_DEV {
+        // In development use cargo dir
+        let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        cargo_dir.canonicalize()?
+    } else {
+        // In production use the directory of the executable
+        std::env::current_exe()?
+            .parent()
+            .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
+            .canonicalize()?
+            .to_path_buf()
     };
+    std::env::set_current_dir(&dir)?;
     // create log dir
     #[cfg(feature = "no_fs")]
     {
