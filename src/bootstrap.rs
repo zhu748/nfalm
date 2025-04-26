@@ -144,11 +144,7 @@ impl ClientState {
 
         for (f, t) in flag_time {
             let hours = t.to_utc() - now;
-            println!(
-                "{}: expire in {} hours",
-                f.red(),
-                hours.num_hours().to_string()
-            );
+            println!("{}: expire in {} hours", f.red(), hours.num_hours());
         }
         if banned {
             println!(
