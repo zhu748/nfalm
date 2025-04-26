@@ -1,9 +1,6 @@
-# v0.7.7
-
-## Feature
-
-- Add `no_fs` feature for running on read-only filesystems such as some containers.
+# v0.7.8
 
 ## Improvement
 
-- Update Dockerfile
+- Improve logging readability.
+- Back to single binary for most platforms.
