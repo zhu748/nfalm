@@ -1,5 +1,6 @@
 # v0.7.9
 
-## Bug Fixes
+## Improvement
 
-- Github Actions: fix linux package mistake
+- Improve logging readability.
+- Back to single binary for most platforms.
