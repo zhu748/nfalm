@@ -1,8 +1,6 @@
 # ClewdR 部署到 huggingface space
 
-简介
-
-[ClewdR](https://github.com/Xerxes-2) 是一个 claude 的逆向 api 项目。拥有前端可以直接添加 cookie 和修改设置
+ClewdR 是一个高性能、功能丰富的 Claude 逆向代理实现，使用 Rust 语言完全重写，旨在克服原版 Clewd 修改版 的局限性。ClewdR 设计注重速度、可靠性和易用性，为用户提供与 Claude AI 模型交互的无缝体验，同时显著改善用户体验。
 
 ## 开始
 
