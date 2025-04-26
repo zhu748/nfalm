@@ -14,10 +14,25 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   className = "",
 }) => {
   const getTabStyle = (tab: Tab) => {
-    const color = tab.color || "cyan";
-    return activeTab === tab.id
-      ? `text-${color}-400 border-b-2 border-${color}-400`
-      : "text-gray-400 hover:text-gray-300";
+    // Use explicit classes for each color instead of dynamic string interpolation
+    // This ensures the classes are preserved by TailwindCSS purge process
+    if (activeTab === tab.id) {
+      switch (tab.color) {
+        case "cyan":
+          return "text-cyan-400 border-b-2 border-cyan-400";
+        case "green":
+          return "text-green-400 border-b-2 border-green-400";
+        case "purple":
+          return "text-purple-400 border-b-2 border-purple-400";
+        case "blue":
+          return "text-blue-400 border-b-2 border-blue-400";
+        case "amber":
+          return "text-amber-400 border-b-2 border-amber-400";
+        default:
+          return "text-cyan-400 border-b-2 border-cyan-400";
+      }
+    }
+    return "text-gray-400 hover:text-gray-300";
   };
 
   return (

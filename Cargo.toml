@@ -1,6 +1,6 @@
 [package]
 name = "clewdr"
-version = "0.7.7"
+version = "0.7.11"
 edition = "2024"
 authors = ["Xerxes-2"]
 
@@ -49,7 +49,6 @@ itertools = "0.14"
 scopeguard = "1"
 toml = "0.8"
 eventsource-stream = "0.2"
-url = "2"
 enable-ansi-support = "0.2"
 tracing-appender = "0.2"
 self-replace = "1"
@@ -58,10 +57,12 @@ tempfile = "3"
 axum-auth = "0.8"
 tiktoken-rs = "0.6"
 passwords = "3"
-tower-http = { version = "0.6", features = ["fs", "trace"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
 walkdir = "2"
 figment = { version = "0.10", features = ["env", "json", "toml"] }
 arc-swap = "1"
+include_dir = "0.7"
+tower-serve-static = "0.1"
 
 [features]
 no_fs = []

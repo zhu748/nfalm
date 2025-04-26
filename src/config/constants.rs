@@ -1,5 +1,8 @@
 use arc_swap::ArcSwap;
-use std::sync::LazyLock;
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    sync::LazyLock,
+};
 
 use crate::config::ClewdrConfig;
 
@@ -24,8 +27,8 @@ pub const fn default_max_retries() -> usize {
 ///
 /// # Returns
 /// * `String` - The default localhost IP "127.0.0.1"
-pub fn default_ip() -> String {
-    "127.0.0.1".to_string()
+pub fn default_ip() -> IpAddr {
+    Ipv4Addr::new(127, 0, 0, 1).into()
 }
 
 /// Default port for the server to listen on

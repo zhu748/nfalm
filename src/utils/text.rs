@@ -1,18 +1,15 @@
 use axum::body::Bytes;
 use eventsource_stream::EventStream;
-use futures::Stream;
-use futures::StreamExt;
-use futures::pin_mut;
+use futures::{Stream, StreamExt, pin_mut};
 use itertools::Itertools;
 use rand::{Rng, rng};
 use serde_json::Value;
 use std::fmt::Write;
-use tracing::error;
-use tracing::warn;
+use tracing::{error, warn};
 
-use crate::config::CLEWDR_CONFIG;
 use crate::{
     api::body::{Attachment, ClientRequestBody, RequestBody},
+    config::CLEWDR_CONFIG,
     state::ClientState,
     types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
     utils::{TIME_ZONE, print_out_text},

@@ -19,6 +19,8 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Pad text too short")]
+    PadtxtTooShort,
     #[error(transparent)]
     FigmentError(#[from] figment::Error),
     #[error("Cookie request error: {0}")]
@@ -35,8 +37,6 @@ pub enum ClewdrError {
     InvalidVersion(String),
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
-    #[error(transparent)]
-    UrlParseError(#[from] url::ParseError),
     #[error("Cookie receive error: {0}")]
     CookieDispatchError(#[from] oneshot::error::RecvError),
     #[error("No cookie available")]

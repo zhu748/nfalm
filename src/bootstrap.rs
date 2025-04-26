@@ -1,9 +1,9 @@
 use colored::Colorize;
+use rquest::Method;
 use serde_json::Value;
-use tracing::warn;
+use tracing::error;
 
 use crate::{
-    client::{SUPER_CLIENT, SetupRequest},
     config::{CLEWDR_CONFIG, Reason},
     error::{ClewdrError, check_res_err},
     state::ClientState,
@@ -24,11 +24,7 @@ impl ClientState {
     /// * `Result<(), ClewdrError>` - Success or an error with details about cookie validity
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
         let end_point = format!("{}/api/bootstrap", self.endpoint);
-        let res = SUPER_CLIENT
-            .get(end_point)
-            .setup_request("", self.header_cookie(), self.proxy.clone())
-            .send()
-            .await?;
+        let res = self.request(Method::GET, end_point).send().await?;
         self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
@@ -71,11 +67,7 @@ impl ClientState {
 
         // Bootstrap complete
         let end_point = format!("{}/api/organizations", self.endpoint);
-        let res = SUPER_CLIENT
-            .get(end_point)
-            .setup_request("", self.header_cookie(), self.proxy.clone())
-            .send()
-            .await?;
+        let res = self.request(Method::GET, end_point).send().await?;
         self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let ret_json = res.json::<Value>().await?;
@@ -125,47 +117,34 @@ impl ClientState {
             return Ok(());
         };
         let now = chrono::Utc::now();
-        let mut restrict_until = 0;
-        let formatted_flags = active_flags
+        let flag_time = active_flags
             .iter()
             .map_while(|f| {
+                let r#type = f["type"].as_str()?;
                 let expire = f["expires_at"].as_str()?;
                 let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;
-                let timestamp = expire.timestamp();
-                let diff = expire.to_utc() - now;
-                if diff < chrono::Duration::zero() {
+                if now > expire {
                     return None;
                 }
-                restrict_until = timestamp.max(restrict_until);
-                let r#type = f["type"].as_str()?;
-                Some(format!(
-                    "{}: expires in {} hours",
-                    r#type.red(),
-                    diff.num_hours().to_string().red()
-                ))
+                Some((r#type, expire))
             })
             .collect::<Vec<_>>();
 
-        if formatted_flags.is_empty() {
-            return Ok(());
-        }
-
-        let banned = active_flags
+        let banned = flag_time.iter().any(|(f, _)| f.contains("banned"));
+        let restricted = flag_time
             .iter()
-            .any(|f| f["type"].as_str() == Some("consumer_banned"));
-        let banned_str = if banned {
-            "[BANNED] ".red().to_string()
-        } else {
-            "".to_string()
-        };
+            .filter(|(f, _)| f.contains("restricted"))
+            .max_by_key(|(_, expire)| expire.timestamp())
+            .cloned();
+        let warned = flag_time
+            .iter()
+            .filter(|(f, _)| f.contains("warning"))
+            .max_by_key(|(_, expire)| expire.timestamp())
+            .cloned();
 
-        warn!(
-            "Cookie {} is restricted, warning, or banned.",
-            self.cookie.clone().unwrap_or_default().cookie,
-        );
-        println!("{}{}", banned_str, "This account has warnings:".red());
-        for flag in formatted_flags {
-            println!("{}", flag);
+        for (f, t) in flag_time {
+            let hours = t.to_utc() - now;
+            println!("{}: expire in {} hours", f.red(), hours.num_hours());
         }
         if banned {
             println!(
@@ -174,34 +153,23 @@ impl ClientState {
             );
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
         }
-        // Check if we should skip based on flag types
-        let should_skip = active_flags
-            .iter()
-            .filter_map(|f| f["type"].as_str())
-            .any(|flag_type| {
-                // skip flags ending with warning
-                let warning_match =
-                    CLEWDR_CONFIG.load().skip_warning && flag_type.ends_with("warning");
-
-                //  skip flags containing restricted
-                let restricted_match =
-                    CLEWDR_CONFIG.load().skip_restricted && flag_type.contains("restricted");
-
-                warning_match || restricted_match
-            });
-
-        println!("{}", "Your account is restricted.".red());
-
-        if should_skip && restrict_until > 0 {
+        if let Some((_, expire)) = warned {
+            println!("{}", "Your account is warned.".yellow());
             if CLEWDR_CONFIG.load().skip_warning {
-                warn!("skip_warning is enabled, skipping...");
+                error!("Skipping warned account");
+                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
+                    expire.timestamp(),
+                )));
             }
+        }
+        if let Some((_, expire)) = restricted {
+            println!("{}", "Your account is restricted.".red());
             if CLEWDR_CONFIG.load().skip_restricted {
-                warn!("skip_restricted is enabled, skipping...");
+                error!("Skipping restricted account");
+                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
+                    expire.timestamp(),
+                )));
             }
-            return Err(ClewdrError::InvalidCookie(Reason::Restricted(
-                restrict_until,
-            )));
         }
         Ok(())
     }

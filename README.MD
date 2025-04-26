@@ -2,28 +2,59 @@
 
 English | [简体中文](./README-ZH.MD)
 
-Complete rewrite of [Clewd修改版](https://github.com/teralomaniac/clewd) in Rust.
+**ClewdR** is a high-performance, feature-rich Rust implementation of Claude reverse proxy, completely rewritten from the ground up to overcome the limitations of the original [Clewd修改版](https://github.com/teralomaniac/clewd). Designed for speed, reliability, and ease of use, ClewdR offers a seamless way to interact with Claude AI models while bringing significant improvements to the user experience.
 
-## Community Tutorial
+## Key Features
 
-[Deploy Clewdr to HuggingFace Space(Chinese)](./wiki/hf-space.md)
+| Feature | ClewdR | Original Clewd |
+|---------|--------|----------------|
+| **Performance** | 3x Faster stream | Slow |
+| **Memory Usage** | < 10MB | High |
+| **Concurrency** | Concurrent requests | Single request |
+| **Deployment** | Docker / Single Binary | Complex setup |
+| **Configuration** | React UI / File / Env | File / Env |
+| **Hot Reload** | Supported | N/A |
+| **Cookie Management** | Automatic | Limited |
+| **Proxy Support** | HTTP/HTTPS/SOCKS5 | N/A (needs TUN) |
+| **Dependencies** | N/A | Requires Node.js |
+| **HTTP Client** | Internal Rust `rquest` | External `superfetch` binary |
+| **Platform Support** | macOS and Android native | Not native, lack of `superfetch` |
+| **Backend** | `Axum` and `Tokio` | Custom Node.js backend |
+| **Extend Thinking** | Supported | N/A |
+| **Images** | Supported | N/A |
 
-## Advantages
+## How to Start
 
-- **React Frontend**: ClewdR uses a tiny React frontend for simple configuration. Clewd uses a HTML frontend, which is not very user-friendly.
-- **Concurrent**: ClewdR implies a event-driven architecture, which means it can handle multiple requests at the same time. Clewd only handles one request at a time. This is a huge advantage when you are using it as a reverse proxy for SillyTavern.
-- **Configurable Proxy**: You can use your own HTTP/HTTPS/SOCKS5 proxy. ClewdR will use the proxy you set in `config.toml` to send requests to Claude. Clewd doesn't support this feature and needs TUN to work with proxy.
-- **No Node.js**: ~~Although I'm sure all of you playing SillyTavern have it installed~~
-- **No external binaries**: Clewd spawns a `superfetch` command for every request to mimic browser behavior. ClewdR uses native Rust `rquest` library.
-- **Support macOS**: Clewd doesn't provide `superfetch` for macOS, so it doesn't work on macOS.
-- **Support Android**: Same as above, ClewdR is a native Rust program, so it works on Android.
-- **Robust Backend**: Clewd uses home-made backend on top of Node's `Server` Object. ClewdR is built on top of `Axum` and `Tokio`, which are battle-tested libraries for building web servers in Rust.
-- **Support Thinking**: Support newest `thinking` feature in SillyTavern for 3.7 Sonnet.
-- **Support Image Attachment**: Support image attachment, you can send images to the bot.
-
-## How to start
-
-1. Download binary of your platform from GitHub release page.
+1. Download binary for your platform from [GitHub releases](https://github.com/xerxes-2/clewdr/releases).
 2. Run `clewdr` / `clewdr.exe`.
-3. Open `http://127.0.1:8484` in your browser to configure the proxy.
-4. Fill proxy setting in SillyTavern as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill the password.
+3. Open `http://127.0.0.1:8484` in your browser to configure the proxy.
+4. In SillyTavern: Set as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill password.
+
+## System Requirements
+
+- Windows 8+, macOS 10.12+, Linux, Android
+- Prebuilt Linux binaries require glibc 2.38 or later
+  - You can use `musl`-based binaries for older systems
+- No additional runtime dependencies required
+
+## Configuration Options
+
+Access the web UI at `http://127.0.0.1:8484` to configure:
+
+- Proxy settings
+- Authentication options
+- Claude API parameters
+- Request handling preferences
+
+## Troubleshooting
+
+- **Connection Issues**: Verify network connectivity and proxy settings
+- **Authentication Errors**: Ensure correct password is configured
+
+## Community Resources
+
+- [Deploy ClewdR to HuggingFace Space (Chinese)](./wiki/hf-space.md)
+
+## Contributing
+
+Contributions welcome! Feel free to submit issues or pull requests on GitHub.

@@ -1,9 +1,15 @@
-# v0.7.7
+# v0.7.11
 
-## Feature
+## Bug Fixes
 
-- Add `no_fs` feature for running on read-only filesystems such as some containers.
+- Fix warning detection
+- Fix color on tabs
 
 ## Improvement
 
-- Update Dockerfile
+- Simplify router building
+- Improve config validation
+
+## Feature
+
+- Pass `-c` or `--config` to specify alternative config file

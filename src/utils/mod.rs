@@ -1,12 +1,14 @@
 use clap::Parser;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::sync::LazyLock;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::LazyLock,
+};
 use tracing::error;
 use walkdir::WalkDir;
 
-use crate::error::ClewdrError;
+use crate::{IS_DEV, config::CONFIG_NAME, error::ClewdrError};
 
 pub mod text;
 
@@ -14,49 +16,66 @@ pub static ARG_COOKIE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
     let args = crate::Args::parse();
     if let Some(cookie_file) = args.file {
         // canonicalize the path
+        if !cookie_file.exists() {
+            error!("No cookie file found at: {}", cookie_file.display());
+            return None;
+        }
         cookie_file.canonicalize().ok()
     } else {
         None
     }
 });
 
+pub static ARG_CONFIG_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    let args = crate::Args::parse();
+    if let Some(config_file) = args.config {
+        // canonicalize the path
+        config_file.canonicalize().ok()
+    } else {
+        None
+    }
+});
+
+pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    if let Some(path) = ARG_CONFIG_FILE.as_ref() {
+        path.to_owned()
+    } else {
+        CLEWDR_DIR.join(CONFIG_NAME)
+    }
+});
+
 pub static CLEWDR_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| set_clewdr_dir().expect("Failed to get dir"));
 pub const LOG_DIR: &str = "log";
-pub const STATIC_DIR: &str = "static";
 
 /// Gets and sets up the configuration directory for the application
 ///
-/// In debug mode, uses the current working directory
-/// In release mode, uses the directory of the executable
+/// In dev, uses the current working directory
+/// In production, uses the directory of the executable
 /// Also creates the log directory if it doesn't exist
 ///
 /// # Returns
 /// * `Result<PathBuf, ClewdrError>` - The path to the configuration directory on success, or an error
 fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
-    let dir = {
-        #[cfg(debug_assertions)]
-        {
-            // In debug mode, use the current working directory
-            // to find the config file
-            std::env::current_dir()?
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            // In release mode, use the directory of the executable
-            // to find the config file
-            let exec_path = std::env::current_exe()?;
-            let exec_dir = exec_path
-                .parent()
-                .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
-                .canonicalize()?
-                .to_path_buf();
-            // cd to the exec dir
-            std::env::set_current_dir(&exec_dir)?;
-            exec_dir
-        }
+    let dir = if *IS_DEV {
+        // In development use cargo dir
+        let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        cargo_dir.canonicalize()?
+    } else {
+        // In production use the directory of the executable
+        std::env::current_exe()?
+            .parent()
+            .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
+            .canonicalize()?
+            .to_path_buf()
     };
+    std::env::set_current_dir(&dir)?;
     // create log dir
+    #[cfg(feature = "no_fs")]
+    {
+        return Ok(dir);
+    }
+
     let log_dir = dir.join(LOG_DIR);
     if !log_dir.exists() {
         fs::create_dir_all(&log_dir)?;

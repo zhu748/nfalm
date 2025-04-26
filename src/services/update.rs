@@ -1,17 +1,15 @@
 use colored::Colorize;
 use rquest::Client;
 use serde::Deserialize;
-use std::env;
-use std::fs::File;
-use std::io::{BufReader, copy};
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{
+    env,
+    fs::File,
+    io::{BufReader, copy},
+};
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::config::CLEWDR_CONFIG;
-use crate::utils::STATIC_DIR;
-use crate::{Args, error::ClewdrError, utils::copy_dir_all};
+use crate::{Args, config::CLEWDR_CONFIG, error::ClewdrError};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -174,22 +172,6 @@ impl ClewdrUpdater {
                 binary_name
             )));
         }
-
-        let extract_static_path = extract_dir.join(STATIC_DIR);
-        if !extract_static_path.exists() {
-            return Err(ClewdrError::AssetError(
-                "Static assets not found in the update package".to_string(),
-            ));
-        }
-
-        // delete old static assets
-        let Ok(static_path) = PathBuf::from_str(STATIC_DIR);
-        if static_path.exists() {
-            std::fs::remove_dir_all(&static_path)?;
-        }
-        // copy new static assets
-        copy_dir_all(&extract_static_path, &static_path)?;
-        info!("Replace new static assets to {}", static_path.display());
 
         // Make the binary executable on Unix systems
         #[cfg(unix)]

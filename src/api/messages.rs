@@ -8,7 +8,7 @@ use axum::{
 };
 use colored::Colorize;
 use eventsource_stream::Eventsource;
-use rquest::{StatusCode, header::ACCEPT};
+use rquest::{Method, StatusCode, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
 use tokio::spawn;
@@ -16,7 +16,6 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     api::body::non_stream_message,
-    client::{SUPER_CLIENT, SetupRequest},
     config::CLEWDR_CONFIG,
     error::{ClewdrError, check_res_err},
     state::ClientState,
@@ -159,7 +158,6 @@ impl ClientState {
 
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
-        self.conv_uuid = Some(new_uuid.to_string());
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations",
             self.endpoint, org_uuid
@@ -174,16 +172,16 @@ impl ClientState {
             body["paprika_mode"] = "extended".into();
             body["model"] = p.model.clone().into();
         }
-        let api_res = SUPER_CLIENT
-            .post(endpoint)
+        let api_res = self
+            .request(Method::POST, endpoint)
             .json(&body)
-            .setup_request("", self.header_cookie(), self.proxy.clone())
             .send()
             .await?;
         self.update_cookie_from_res(&api_res);
-        debug!("New conversation created: {}", new_uuid);
 
         check_res_err(api_res).await?;
+        self.conv_uuid = Some(new_uuid.to_string());
+        debug!("New conversation created: {}", new_uuid);
 
         // generate the request body
         // check if the request is empty
@@ -208,10 +206,9 @@ impl ClientState {
             self.endpoint, org_uuid, new_uuid
         );
 
-        let api_res = SUPER_CLIENT
-            .post(endpoint)
+        let api_res = self
+            .request(Method::POST, endpoint)
             .json(&body)
-            .setup_request(new_uuid, self.header_cookie(), self.proxy.clone())
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;

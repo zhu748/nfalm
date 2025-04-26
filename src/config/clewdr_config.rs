@@ -9,8 +9,8 @@ use rquest::Proxy;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
+    net::IpAddr,
     path::PathBuf,
-    str::FromStr,
     sync::Arc,
 };
 use tiktoken_rs::o200k_base;
@@ -22,7 +22,7 @@ use crate::{
         default_max_retries, default_padtxt_len, default_port, default_use_real_roles,
     },
     error::ClewdrError,
-    utils::ARG_COOKIE_FILE,
+    utils::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH},
 };
 
 /// Generates a random password for authentication
@@ -57,7 +57,7 @@ pub struct ClewdrConfig {
 
     // Server settings, cannot hot reload
     #[serde(default = "default_ip")]
-    ip: String,
+    ip: IpAddr,
     #[serde(default = "default_port")]
     port: u16,
     #[serde(default)]
@@ -105,7 +105,7 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub custom_prompt: String,
     #[serde(default)]
-    pub padtxt_file: Option<String>,
+    pub padtxt_file: Option<PathBuf>,
     #[serde(default = "default_padtxt_len")]
     pub padtxt_len: usize,
 
@@ -155,7 +155,7 @@ impl Display for ClewdrConfig {
         let web_addr = format!("http://{}", self.address());
         write!(
             f,
-            "LLM API Endpoint: {}\n\
+            "\nLLM API Endpoint: {}\n\
             LLM API Password: {}\n\
             Web Admin Endpoint: {}\n\
             Web Admin Password: {}\n",
@@ -164,6 +164,9 @@ impl Display for ClewdrConfig {
             web_addr.green().underline(),
             self.admin_password.yellow(),
         )?;
+        if self.enable_oai {
+            writeln!(f, "OpenAI Compatible: {}", "Enabled".green())?;
+        }
         if let Some(ref proxy) = self.proxy {
             writeln!(f, "Proxy: {}", proxy.blue())?;
         }
@@ -171,14 +174,28 @@ impl Display for ClewdrConfig {
             writeln!(f, "Reverse Proxy: {}", rproxy.blue())?;
         }
         if !self.pad_tokens.is_empty() {
-            Ok(writeln!(
+            writeln!(
                 f,
                 "Pad txt token count: {}",
                 self.pad_tokens.len().to_string().blue()
-            )?)
-        } else {
-            Ok(())
+            )?
         }
+        if self.skip_non_pro {
+            writeln!(f, "Skip non pro: {}", "Enabled".green())?;
+        } else {
+            writeln!(f, "Skip non pro: {}", "Disabled".red())?;
+        }
+        if self.skip_restricted {
+            writeln!(f, "Skip restricted: {}", "Enabled".green())?;
+        } else {
+            writeln!(f, "Skip restricted: {}", "Disabled".red())?;
+        }
+        if self.skip_warning {
+            writeln!(f, "Skip warning: {}", "Enabled".green())?;
+        } else {
+            writeln!(f, "Skip warning: {}", "Disabled".red())?;
+        }
+        Ok(())
     }
 }
 
@@ -198,14 +215,19 @@ impl ClewdrConfig {
     /// # Returns
     /// * `Result<Self, ClewdrError>` - Config instance or error
     pub fn new() -> Result<Self, ClewdrError> {
-        let mut config: ClewdrConfig = Figment::new()
+        let config = Figment::new()
             .adjoin(Toml::file("config.toml"))
-            .adjoin(Toml::file(CONFIG_NAME))
-            .admerge(Env::prefixed("CLEWDR_"))
-            .extract_lossy()
-            .inspect_err(|e| {
-                error!("Failed to load config: {}", e);
-            })?;
+            .adjoin(Toml::file(CONFIG_NAME));
+        let mut config: ClewdrConfig = if let Some(arg_config) = ARG_CONFIG_FILE.as_ref() {
+            config.merge(Toml::file(arg_config))
+        } else {
+            config
+        }
+        .admerge(Env::prefixed("CLEWDR_"))
+        .extract_lossy()
+        .inspect_err(|e| {
+            error!("Failed to load config: {}", e);
+        })?;
         if let Some(ref f) = *ARG_COOKIE_FILE {
             // load cookies from file
             if f.exists() {
@@ -240,42 +262,27 @@ impl ClewdrConfig {
     ///
     /// # Effects
     /// Updates the pad_tokens field with tokenized content from the file
-    fn load_padtxt(&mut self) {
+    fn load_padtxt(&mut self) -> Result<(), ClewdrError> {
         let Some(padtxt) = &self.padtxt_file else {
-            self.pad_tokens = Arc::new(vec![]);
-            return;
+            self.pad_tokens = Default::default();
+            return Ok(());
         };
-        let padtxt = padtxt.trim();
-        if padtxt.is_empty() {
-            self.pad_tokens = Arc::new(vec![]);
-            return;
+        if !padtxt.exists() {
+            return Err(ClewdrError::PathNotFound(padtxt.display().to_string()));
         }
-        let Ok(padtxt_path) = PathBuf::from_str(padtxt);
-        if !padtxt_path.exists() {
-            error!("Pad txt file not found: {}", padtxt_path.display());
-            self.pad_tokens = Arc::new(vec![]);
-            return;
-        }
-        let Ok(padtxt_string) = std::fs::read_to_string(padtxt_path.as_path()) else {
-            error!("Failed to read pad txt file: {}", padtxt_path.display());
-            self.pad_tokens = Arc::new(vec![]);
-            return;
-        };
-        // remove tokenizer special characters
+        let padtxt_string = std::fs::read_to_string(padtxt.as_path())?;
 
         let bpe = o200k_base().unwrap();
         let ranks = bpe.encode_with_special_tokens(&padtxt_string);
-        let mut tokens = Vec::with_capacity(4096);
-        for token in ranks {
-            let Ok(token) = bpe.decode(vec![token]) else {
-                continue;
-            };
-            tokens.push(token);
-        }
+        let tokens = ranks
+            .into_iter()
+            .map_while(|token| bpe.decode(vec![token]).ok())
+            .collect::<Vec<_>>();
         if tokens.len() < 4096 {
-            panic!("Pad txt file is too short: {}", padtxt_path.display());
+            return Err(ClewdrError::PadtxtTooShort);
         }
         self.pad_tokens = Arc::new(tokens);
+        Ok(())
     }
 
     /// Gets the API endpoint for the Claude service
@@ -301,9 +308,10 @@ impl ClewdrConfig {
         {
             return Ok(());
         }
-        let Ok(config_path) = PathBuf::from_str(CONFIG_NAME);
-        std::fs::write(config_path, toml::ser::to_string_pretty(self)?)?;
-        Ok(())
+        Ok(std::fs::write(
+            CONFIG_PATH.as_path(),
+            toml::ser::to_string_pretty(self)?,
+        )?)
     }
 
     /// Validate the configuration
@@ -323,25 +331,25 @@ impl ClewdrConfig {
             .sorted()
             .collect();
         self.cookie_array.dedup();
-        self.ip = self.ip.trim().to_string();
-        if self.rproxy == Some("".to_string()) {
+        if self.rproxy.as_ref().map(|p| p.trim()) == Some("") {
             self.rproxy = None;
         }
-        if self.proxy == Some("".to_string()) {
+        if self.proxy.as_ref().map(|p| p.trim()) == Some("") {
             self.proxy = None;
         }
-        if self.padtxt_file == Some("".to_string()) {
-            self.padtxt_file = None;
-        }
-        let proxy = self.proxy.as_ref().and_then(|p| {
+        self.rquest_proxy = self.proxy.clone().and_then(|p| {
             Proxy::all(p)
                 .inspect_err(|e| {
+                    self.proxy = None;
                     error!("Failed to parse proxy: {}", e);
                 })
                 .ok()
         });
-        self.rquest_proxy = proxy;
-        self.load_padtxt();
+        self.load_padtxt().unwrap_or_else(|e| {
+            error!("Failed to load padtxt: {}", e);
+            self.pad_tokens = Default::default();
+            self.padtxt_file = None;
+        });
         self
     }
 }

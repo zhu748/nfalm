@@ -1,10 +1,10 @@
 use clewdr::{
     self, BANNER,
-    config::{CLEWDR_CONFIG, CONFIG_NAME},
+    config::CLEWDR_CONFIG,
     error::ClewdrError,
     services::cookie_manager::CookieManager,
     state::ClientState,
-    utils::{ARG_COOKIE_FILE, CLEWDR_DIR, LOG_DIR},
+    utils::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
 };
 use colored::Colorize;
 use tracing::warn;
@@ -25,6 +25,7 @@ async fn main() -> Result<(), ClewdrError> {
     let _ = enable_ansi_support::enable_ansi_support();
     // setup dir
     let _ = *ARG_COOKIE_FILE;
+    let _ = *ARG_CONFIG_FILE;
     let _ = *CLEWDR_DIR;
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
@@ -58,10 +59,7 @@ async fn main() -> Result<(), ClewdrError> {
     }
 
     // print info
-    println!(
-        "Config dir: {}",
-        CLEWDR_DIR.join(CONFIG_NAME).display().to_string().blue()
-    );
+    println!("Config dir: {}", CONFIG_PATH.display().to_string().blue());
     println!("{}", *CLEWDR_CONFIG);
 
     // initialize the application state
@@ -71,7 +69,9 @@ async fn main() -> Result<(), ClewdrError> {
     // create a TCP listener
     let addr = CLEWDR_CONFIG.load().address().to_string();
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    let router = clewdr::router::RouterBuilder::new(state).build();
+    let router = clewdr::router::RouterBuilder::new(state)
+        .with_default_setup()
+        .build();
     // serve the application
     axum::serve(listener, router).await?;
     Ok(())
