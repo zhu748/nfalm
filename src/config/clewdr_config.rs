@@ -9,6 +9,7 @@ use rquest::Proxy;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
+    net::IpAddr,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
@@ -57,7 +58,7 @@ pub struct ClewdrConfig {
 
     // Server settings, cannot hot reload
     #[serde(default = "default_ip")]
-    ip: String,
+    ip: IpAddr,
     #[serde(default = "default_port")]
     port: u16,
     #[serde(default)]
@@ -105,7 +106,7 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub custom_prompt: String,
     #[serde(default)]
-    pub padtxt_file: Option<String>,
+    pub padtxt_file: Option<PathBuf>,
     #[serde(default = "default_padtxt_len")]
     pub padtxt_len: usize,
 
@@ -257,42 +258,27 @@ impl ClewdrConfig {
     ///
     /// # Effects
     /// Updates the pad_tokens field with tokenized content from the file
-    fn load_padtxt(&mut self) {
+    fn load_padtxt(&mut self) -> Result<(), ClewdrError> {
         let Some(padtxt) = &self.padtxt_file else {
-            self.pad_tokens = Arc::new(vec![]);
-            return;
+            self.pad_tokens = Default::default();
+            return Ok(());
         };
-        let padtxt = padtxt.trim();
-        if padtxt.is_empty() {
-            self.pad_tokens = Arc::new(vec![]);
-            return;
+        if !padtxt.exists() {
+            return Err(ClewdrError::PathNotFound(padtxt.display().to_string()));
         }
-        let Ok(padtxt_path) = PathBuf::from_str(padtxt);
-        if !padtxt_path.exists() {
-            error!("Pad txt file not found: {}", padtxt_path.display());
-            self.pad_tokens = Arc::new(vec![]);
-            return;
-        }
-        let Ok(padtxt_string) = std::fs::read_to_string(padtxt_path.as_path()) else {
-            error!("Failed to read pad txt file: {}", padtxt_path.display());
-            self.pad_tokens = Arc::new(vec![]);
-            return;
-        };
-        // remove tokenizer special characters
+        let padtxt_string = std::fs::read_to_string(padtxt.as_path())?;
 
         let bpe = o200k_base().unwrap();
         let ranks = bpe.encode_with_special_tokens(&padtxt_string);
-        let mut tokens = Vec::with_capacity(4096);
-        for token in ranks {
-            let Ok(token) = bpe.decode(vec![token]) else {
-                continue;
-            };
-            tokens.push(token);
-        }
+        let tokens = ranks
+            .into_iter()
+            .map_while(|token| bpe.decode(vec![token]).ok())
+            .collect::<Vec<_>>();
         if tokens.len() < 4096 {
-            panic!("Pad txt file is too short: {}", padtxt_path.display());
+            return Err(ClewdrError::PadtxtTooShort);
         }
         self.pad_tokens = Arc::new(tokens);
+        Ok(())
     }
 
     /// Gets the API endpoint for the Claude service
@@ -340,25 +326,25 @@ impl ClewdrConfig {
             .sorted()
             .collect();
         self.cookie_array.dedup();
-        self.ip = self.ip.trim().to_string();
-        if self.rproxy == Some("".to_string()) {
+        if self.rproxy.as_ref().map(|p| p.trim()) == Some("") {
             self.rproxy = None;
         }
-        if self.proxy == Some("".to_string()) {
+        if self.proxy.as_ref().map(|p| p.trim()) == Some("") {
             self.proxy = None;
         }
-        if self.padtxt_file == Some("".to_string()) {
-            self.padtxt_file = None;
-        }
-        let proxy = self.proxy.as_ref().and_then(|p| {
+        self.rquest_proxy = self.proxy.clone().and_then(|p| {
             Proxy::all(p)
                 .inspect_err(|e| {
+                    self.proxy = None;
                     error!("Failed to parse proxy: {}", e);
                 })
                 .ok()
         });
-        self.rquest_proxy = proxy;
-        self.load_padtxt();
+        self.load_padtxt().unwrap_or_else(|e| {
+            error!("Failed to load padtxt: {}", e);
+            self.pad_tokens = Default::default();
+            self.padtxt_file = None;
+        });
         self
     }
 }

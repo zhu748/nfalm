@@ -19,6 +19,8 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClewdrError {
+    #[error("Pad text too short")]
+    PadtxtTooShort,
     #[error(transparent)]
     FigmentError(#[from] figment::Error),
     #[error("Cookie request error: {0}")]
