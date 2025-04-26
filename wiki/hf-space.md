@@ -50,18 +50,11 @@ Web Admin Password 为前端管理密码
 
 ### API 地址
 
-<<<<<<< HEAD
 ![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-58_660.avif)
 ![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-15-02_846.avif)
 
 复制后加上`/v1`后缀即可在酒馆使用,为 claude 加反向代理
 
-=======
-![](https://i.imgur.com/bueGIOK.png)
-![](https://i.imgur.com/fOhHg0k.png)
-
-复制后加上`/v1`后缀即可在酒馆使用,为 claude 加反向代理
->>>>>>> 8e915d3f0ab7cc28dd861868b12af901759c5543
 举例 API 地址
 
 ```
