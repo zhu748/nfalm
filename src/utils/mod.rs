@@ -25,7 +25,6 @@ pub static ARG_COOKIE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
 pub static CLEWDR_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| set_clewdr_dir().expect("Failed to get dir"));
 pub const LOG_DIR: &str = "log";
-pub const STATIC_DIR: &str = "static";
 
 /// Gets and sets up the configuration directory for the application
 ///

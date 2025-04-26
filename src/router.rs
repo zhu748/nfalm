@@ -15,7 +15,6 @@ use crate::{
     },
     config::CLEWDR_CONFIG,
     state::ClientState,
-    utils::STATIC_DIR,
 };
 
 /// RouterBuilder for the application
@@ -30,9 +29,6 @@ impl RouterBuilder {
     /// # Arguments
     /// * `state` - The application state containing client information
     pub fn new(state: ClientState) -> Self {
-        // Serve static files from "static" directory
-        let static_service = ServeDir::new(STATIC_DIR);
-
         let r = Router::new()
             .route("/v1", options(api_options))
             .route("/v1/messages", post(api_messages))
@@ -47,7 +43,15 @@ impl RouterBuilder {
         } else {
             r
         };
-        let r = r.fallback_service(static_service).with_state(state);
+        let r = if cfg!(debug_assertions) {
+            r.fallback_service(ServeDir::new("static"))
+                .with_state(state)
+        } else {
+            use include_dir::{Dir, include_dir};
+            const INCLUDE_STATIC: Dir = include_dir!("$CARGO_MANIFEST_DIR/static");
+            r.fallback_service(tower_serve_static::ServeDir::new(&INCLUDE_STATIC))
+                .with_state(state)
+        };
         Self { inner: r }
     }
 

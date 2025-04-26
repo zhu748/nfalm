@@ -5,15 +5,11 @@ use std::{
     env,
     fs::File,
     io::{BufReader, copy},
-    path::PathBuf,
-    str::FromStr,
 };
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::{
-    Args, config::CLEWDR_CONFIG, error::ClewdrError, utils::STATIC_DIR, utils::copy_dir_all,
-};
+use crate::{Args, config::CLEWDR_CONFIG, error::ClewdrError};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -176,22 +172,6 @@ impl ClewdrUpdater {
                 binary_name
             )));
         }
-
-        let extract_static_path = extract_dir.join(STATIC_DIR);
-        if !extract_static_path.exists() {
-            return Err(ClewdrError::AssetError(
-                "Static assets not found in the update package".to_string(),
-            ));
-        }
-
-        // delete old static assets
-        let Ok(static_path) = PathBuf::from_str(STATIC_DIR);
-        if static_path.exists() {
-            std::fs::remove_dir_all(&static_path)?;
-        }
-        // copy new static assets
-        copy_dir_all(&extract_static_path, &static_path)?;
-        info!("Replace new static assets to {}", static_path.display());
 
         // Make the binary executable on Unix systems
         #[cfg(unix)]
