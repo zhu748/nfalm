@@ -9,8 +9,8 @@ const CookieTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"submit" | "status">("submit");
 
   const tabs = [
-    { id: "submit", label: t("cookieTab.submit") },
-    { id: "status", label: t("cookieTab.status") },
+    { id: "submit", label: t("cookieTab.submit"), color: "blue" },
+    { id: "status", label: t("cookieTab.status"), color: "amber" },
   ];
 
   return (
