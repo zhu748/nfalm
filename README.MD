@@ -8,16 +8,20 @@ English | [简体中文](./README-ZH.MD)
 
 | Feature | ClewdR | Original Clewd |
 |---------|--------|----------------|
-| **Performance** | Fast Rust processing | Slower processing |
-| **Concurrent** | Multiple concurrent requests | Single request only |
-| **Configuration** | React UI with hot-reload | Config files/env vars only |
-| **Proxy Support** | HTTP/HTTPS/SOCKS5 proxies | No proxy support (needs TUN) |
-| **Dependencies** | No Node.js required | Requires Node.js |
-| **HTTP Client** | Native Rust `rquest` | Requires `superfetch` |
-| **Platform Support** | macOS and Android compatible | Not compatible because of lack `superfetch` |
+| **Performance** | 3x Faster stream | Slow |
+| **Memory Usage** | < 10MB | High |
+| **Concurrency** | Concurrent requests | Single request |
+| **Deployment** | Docker / Single Binary | Complex setup |
+| **Configuration** | React UI / File / Env | File / Env |
+| **Hot Reload** | Supported | N/A |
+| **Cookie Management** | Automatic | Limited |
+| **Proxy Support** | HTTP/HTTPS/SOCKS5 | N/A (needs TUN) |
+| **Dependencies** | N/A | Requires Node.js |
+| **HTTP Client** | Internal Rust `rquest` | External `superfetch` binary |
+| **Platform Support** | macOS and Android native | Not native, lack of `superfetch` |
 | **Backend** | `Axum` and `Tokio` | Custom Node.js backend |
-| **Claude 3.7** | Supports `thinking` feature | No support |
-| **Images** | Supports image attachments | No support |
+| **Extend Thinking** | Supported | N/A |
+| **Images** | Supported | N/A |
 
 ## How to Start
 
