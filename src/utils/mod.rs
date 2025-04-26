@@ -58,6 +58,11 @@ fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
         }
     };
     // create log dir
+    #[cfg(feature = "no_fs")]
+    {
+        return Ok(dir);
+    }
+
     let log_dir = dir.join(LOG_DIR);
     if !log_dir.exists() {
         fs::create_dir_all(&log_dir)?;
