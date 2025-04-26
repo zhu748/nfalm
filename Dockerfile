@@ -27,17 +27,14 @@ RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
 COPY . .
 ENV RUSTFLAGS=-Awarnings
+COPY --from=frontend-builder /usr/src/app/static ./static
 RUN cargo build --release --bin clewdr --features no_fs
 
 # 使用更小的基础镜像
 FROM debian:bookworm-slim
-# 创建应用目录结构
-RUN mkdir -p /app/log /app/static
 WORKDIR /app
 # 从后端构建阶段复制编译好的二进制文件
 COPY --from=backend-builder /app/target/release/clewdr .
-# 从后端构建阶段复制静态文件
-COPY --from=frontend-builder /usr/src/app/static ./static
 
 # 配置环境变量
 ENV CLEWDR_IP=0.0.0.0
