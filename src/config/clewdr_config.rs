@@ -199,10 +199,10 @@ impl Display for ClewdrConfig {
         };
         writeln!(f, "Skip non Pro: {}", flag(self.skip_non_pro))?;
         writeln!(f, "Skip restricted: {}", flag(self.skip_restricted))?;
-        writeln!(f, "Skip first warning: {}", flag(self.skip_first_warning))?;
         writeln!(f, "Skip second warning: {}", flag(self.skip_second_warning))?;
-        writeln!(f, "Skip rate limit: {}", flag(self.skip_rate_limit))?;
+        writeln!(f, "Skip first warning: {}", flag(self.skip_first_warning))?;
         writeln!(f, "Skip normal Pro: {}", flag(self.skip_normal_pro))?;
+        writeln!(f, "Skip rate limit: {}", flag(self.skip_rate_limit))?;
         Ok(())
     }
 }

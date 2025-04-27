@@ -147,12 +147,19 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
 
       {/* Cookie Settings Section */}
       <ConfigSection title={t("config.sections.cookie.title")}>
+        <ConfigCheckbox
+          name="skip_non_pro"
+          checked={config.skip_non_pro}
+          onChange={onChange}
+          label={t("config.sections.cookie.skipNonPro")}
+        />
+
         <div className="space-y-3">
           <ConfigCheckbox
-            name="skip_first_warning"
-            checked={config.skip_first_warning}
+            name="skip_restricted"
+            checked={config.skip_restricted}
             onChange={onChange}
-            label={t("config.sections.cookie.skipFirstWarning")}
+            label={t("config.sections.cookie.skipRestricted")}
           />
 
           <ConfigCheckbox
@@ -163,24 +170,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           />
 
           <ConfigCheckbox
-            name="skip_restricted"
-            checked={config.skip_restricted}
+            name="skip_first_warning"
+            checked={config.skip_first_warning}
             onChange={onChange}
-            label={t("config.sections.cookie.skipRestricted")}
-          />
-
-          <ConfigCheckbox
-            name="skip_non_pro"
-            checked={config.skip_non_pro}
-            onChange={onChange}
-            label={t("config.sections.cookie.skipNonPro")}
-          />
-
-          <ConfigCheckbox
-            name="skip_rate_limit"
-            checked={config.skip_rate_limit}
-            onChange={onChange}
-            label={t("config.sections.cookie.skipRateLimit")}
+            label={t("config.sections.cookie.skipFirstWarning")}
           />
 
           <ConfigCheckbox
@@ -188,6 +181,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
             checked={config.skip_normal_pro}
             onChange={onChange}
             label={t("config.sections.cookie.skipNormalPro")}
+          />
+
+          <ConfigCheckbox
+            name="skip_rate_limit"
+            checked={config.skip_rate_limit}
+            onChange={onChange}
+            label={t("config.sections.cookie.skipRateLimit")}
           />
         </div>
       </ConfigSection>
