@@ -123,7 +123,8 @@
         "title": "Cookie设置",
         "skipWarning": "跳过警告（小黄）",
         "skipRestricted": "跳过受限（大黄）",
-        "skipNonPro": "跳过普号"
+        "skipNonPro": "跳过普号",
+        "skipCoolDown": "跳过冷却"
       },
       "prompt": {
         "title": "提示配置",

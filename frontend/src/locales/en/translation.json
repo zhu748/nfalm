@@ -123,7 +123,8 @@
         "title": "Cookie Settings",
         "skipWarning": "Skip Warning",
         "skipRestricted": "Skip Restricted",
-        "skipNonPro": "Skip Non-Pro"
+        "skipNonPro": "Skip Non-Pro",
+        "skipCoolDown": "Skip Cool down"
       },
       "prompt": {
         "title": "Prompt Configurations",

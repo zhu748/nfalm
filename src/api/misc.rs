@@ -1,7 +1,4 @@
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::{Json, extract::State};
 use axum_auth::AuthBearer;
 use rquest::StatusCode;
 use tracing::{error, info, warn};
@@ -23,7 +20,7 @@ use crate::{
 ///
 /// # Returns
 /// * `StatusCode` - HTTP status code indicating success or failure
-pub async fn api_submit(
+pub async fn api_post_cookie(
     State(s): State<ClientState>,
     AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
@@ -88,14 +85,14 @@ pub async fn api_get_cookies(
 /// # Arguments
 /// * `s` - Application state containing event sender
 /// * `t` - Auth bearer token for admin authentication
-/// * `cookie_string` - String representation of the cookie to delete
+/// * `c` - Cookie status to be deleted
 ///
 /// # Returns
 /// * `Result<StatusCode, (StatusCode, Json<serde_json::Value>)>` - Success status or error
 pub async fn api_delete_cookie(
     State(s): State<ClientState>,
     AuthBearer(t): AuthBearer,
-    Path(cookie_string): axum::extract::Path<String>,
+    Json(c): Json<CookieStatus>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return Err((
@@ -107,11 +104,19 @@ pub async fn api_delete_cookie(
     }
 
     // Convert string to CookieStatus
-    let cookie = CookieStatus::new(&cookie_string, None);
+    if !c.cookie.validate() {
+        warn!("Invalid cookie: {}", c.cookie);
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Invalid cookie"
+            })),
+        ));
+    }
 
-    match s.event_sender.delete_cookie(cookie).await {
+    match s.event_sender.delete_cookie(c.to_owned()).await {
         Ok(_) => {
-            info!("Cookie deleted successfully: {}", cookie_string);
+            info!("Cookie deleted successfully: {}", c.cookie);
             Ok(StatusCode::NO_CONTENT)
         }
         Err(e) => {

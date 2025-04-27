@@ -62,6 +62,13 @@ pub const fn default_padtxt_len() -> usize {
 pub const fn default_check_update() -> bool {
     true
 }
+/// Default setting for skipping cool down cookies
+///
+/// # Returns
+/// * `bool` - The default value of true
+pub const fn default_skip_cool_down() -> bool {
+    true
+}
 
 /// Default cookie value for testing purposes
 pub const PLACEHOLDER_COOKIE: &str = "sk-ant-sid01----------------------------SET_YOUR_COOKIE_HERE----------------------------------------AAAAAAAA";

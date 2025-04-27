@@ -305,12 +305,20 @@ impl CookieManager {
         };
         match reason {
             Reason::TooManyRequest(i) => {
-                cookie.reset_time = Some(i);
-                self.exhausted.insert(cookie);
+                if CLEWDR_CONFIG.load().skip_cool_down {
+                    cookie.reset_time = Some(i);
+                    self.exhausted.insert(cookie);
+                } else {
+                    self.valid.push_back(cookie);
+                }
             }
             Reason::Restricted(i) => {
-                cookie.reset_time = Some(i);
-                self.exhausted.insert(cookie);
+                if CLEWDR_CONFIG.load().skip_cool_down {
+                    cookie.reset_time = Some(i);
+                    self.exhausted.insert(cookie);
+                } else {
+                    self.valid.push_back(cookie);
+                }
             }
             Reason::NonPro => {
                 warn!("疑似爆米了, cookie: {}", cookie.cookie.to_string().red());

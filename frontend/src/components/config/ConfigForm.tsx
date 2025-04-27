@@ -11,7 +11,7 @@ interface ConfigFormProps {
   onChange: (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    >
   ) => void;
 }
 
@@ -167,6 +167,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
             checked={config.skip_non_pro}
             onChange={onChange}
             label={t("config.sections.cookie.skipNonPro")}
+          />
+
+          <ConfigCheckbox
+            name="skip_cool_down"
+            checked={config.skip_cool_down}
+            onChange={onChange}
+            label={t("config.sections.cookie.skipCoolDown")}
           />
         </div>
       </ConfigSection>

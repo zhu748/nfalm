@@ -73,6 +73,5 @@ async fn main() -> Result<(), ClewdrError> {
         .with_default_setup()
         .build();
     // serve the application
-    axum::serve(listener, router).await?;
-    Ok(())
+    Ok(axum::serve(listener, router).await?)
 }
