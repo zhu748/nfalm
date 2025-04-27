@@ -53,7 +53,7 @@
 
 ## 社区资源
 
-- [Clewdr 部署到 HuggingFace Space](./wiki/hf-space.md)
+- [ClewdR 部署到 HuggingFace Space](./wiki/hf-space.md)
 
 ## 贡献
 
