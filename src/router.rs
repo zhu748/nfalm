@@ -10,7 +10,7 @@ use crate::{
     IS_DEBUG,
     api::{
         api_auth, api_completion, api_delete_cookie, api_get_config, api_get_cookies, api_messages,
-        api_post_config, api_submit, api_version,
+        api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
     state::ClientState,
@@ -55,12 +55,14 @@ impl RouterBuilder {
     fn route_api_endpoints(mut self) -> Self {
         self.inner = self
             .inner
-            .route("/api/submit", post(api_submit))
-            .route("/api/delete_cookie/{cookie}", delete(api_delete_cookie))
+            .route(
+                "/api/cookie",
+                delete(api_delete_cookie).post(api_post_cookie),
+            )
+            .route("/api/cookies", get(api_get_cookies))
             .route("/api/version", get(api_version))
-            .route("/api/get_cookies", get(api_get_cookies))
             .route("/api/auth", get(api_auth))
-            .route("/api/config", get(api_get_config).post(api_post_config));
+            .route("/api/config", get(api_get_config).put(api_post_config));
         self
     }
 

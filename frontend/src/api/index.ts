@@ -36,7 +36,7 @@ export async function validateAuthToken(token: string) {
  */
 export async function postCookie(cookie: string) {
   const token = localStorage.getItem("authToken") || "";
-  const response = await fetch("/api/submit", {
+  const response = await fetch("/api/cookie", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -71,7 +71,7 @@ export async function postCookie(cookie: string) {
  */
 export async function getCookieStatus() {
   const token = localStorage.getItem("authToken") || "";
-  const response = await fetch("/api/get_cookies", {
+  const response = await fetch("/api/cookies", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -98,13 +98,13 @@ export async function getCookieStatus() {
  */
 export async function deleteCookie(cookie: string) {
   const token = localStorage.getItem("authToken") || "";
-  // URL encode the cookie to handle special characters in the URL path
-  const encodedCookie = encodeURIComponent(cookie);
-  const response = await fetch(`/api/delete_cookie/${encodedCookie}`, {
+  const response = await fetch(`/api/cookie`, {
     method: "DELETE",
     headers: {
+      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify({ cookie }),
   });
 
   return response;
@@ -137,7 +137,7 @@ export async function getConfig() {
 export async function saveConfig(configData: any) {
   const token = localStorage.getItem("authToken") || "";
   const response = await fetch("/api/config", {
-    method: "POST",
+    method: "PUT",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -165,7 +165,7 @@ export async function postMultipleCookies(cookies: string[]) {
 
   for (const cookie of cookies) {
     try {
-      const response = await fetch("/api/submit", {
+      const response = await fetch("/api/cookie", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
