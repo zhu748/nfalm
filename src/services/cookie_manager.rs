@@ -304,21 +304,16 @@ impl CookieManager {
             return;
         };
         match reason {
+            Reason::NormalPro => {
+                self.valid.push_back(cookie);
+            }
             Reason::TooManyRequest(i) => {
-                if CLEWDR_CONFIG.load().skip_cool_down {
-                    cookie.reset_time = Some(i);
-                    self.exhausted.insert(cookie);
-                } else {
-                    self.valid.push_back(cookie);
-                }
+                cookie.reset_time = Some(i);
+                self.exhausted.insert(cookie);
             }
             Reason::Restricted(i) => {
-                if CLEWDR_CONFIG.load().skip_cool_down {
-                    cookie.reset_time = Some(i);
-                    self.exhausted.insert(cookie);
-                } else {
-                    self.valid.push_back(cookie);
-                }
+                cookie.reset_time = Some(i);
+                self.exhausted.insert(cookie);
             }
             Reason::NonPro => {
                 warn!("疑似爆米了, cookie: {}", cookie.cookie.to_string().red());

@@ -10,6 +10,7 @@ use crate::config::ClewdrCookie;
 /// Reason why a cookie is considered useless
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Reason {
+    NormalPro,
     NonPro,
     Disabled,
     Banned,
@@ -21,6 +22,7 @@ pub enum Reason {
 impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Reason::NormalPro => write!(f, "Normal Pro account"),
             Reason::Disabled => write!(f, "Organization Disabled"),
             Reason::NonPro => write!(f, "Free account"),
             Reason::Banned => write!(f, "Banned"),

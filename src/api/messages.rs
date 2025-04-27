@@ -112,12 +112,9 @@ pub async fn api_messages(
                         continue;
                     }
                     ClewdrError::OtherHttpError(c, e) => {
-                        state.return_cookie(None).await;
                         return (c, Json(e)).into_response();
                     }
-                    _ => {
-                        state.return_cookie(None).await;
-                    }
+                    _ => {}
                 }
                 if stream {
                     // stream the error as a response

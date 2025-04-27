@@ -149,10 +149,17 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
       <ConfigSection title={t("config.sections.cookie.title")}>
         <div className="space-y-3">
           <ConfigCheckbox
-            name="skip_warning"
-            checked={config.skip_warning}
+            name="skip_first_warning"
+            checked={config.skip_first_warning}
             onChange={onChange}
-            label={t("config.sections.cookie.skipWarning")}
+            label={t("config.sections.cookie.skipFirstWarning")}
+          />
+
+          <ConfigCheckbox
+            name="skip_second_warning"
+            checked={config.skip_second_warning}
+            onChange={onChange}
+            label={t("config.sections.cookie.skipSecondWarning")}
           />
 
           <ConfigCheckbox
@@ -170,10 +177,17 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           />
 
           <ConfigCheckbox
-            name="skip_cool_down"
-            checked={config.skip_cool_down}
+            name="skip_rate_limit"
+            checked={config.skip_rate_limit}
             onChange={onChange}
-            label={t("config.sections.cookie.skipCoolDown")}
+            label={t("config.sections.cookie.skipRateLimit")}
+          />
+
+          <ConfigCheckbox
+            name="skip_normal_pro"
+            checked={config.skip_normal_pro}
+            onChange={onChange}
+            label={t("config.sections.cookie.skipNormalPro")}
           />
         </div>
       </ConfigSection>

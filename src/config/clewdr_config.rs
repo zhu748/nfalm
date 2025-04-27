@@ -90,13 +90,17 @@ pub struct ClewdrConfig {
 
     // Cookie settings, can hot reload
     #[serde(default)]
-    pub skip_warning: bool,
+    pub skip_first_warning: bool,
+    #[serde(default)]
+    pub skip_second_warning: bool,
     #[serde(default)]
     pub skip_restricted: bool,
     #[serde(default)]
     pub skip_non_pro: bool,
     #[serde(default = "default_skip_cool_down")]
-    pub skip_cool_down: bool,
+    pub skip_rate_limit: bool,
+    #[serde(default)]
+    pub skip_normal_pro: bool,
 
     // Prompt configurations, can hot reload
     #[serde(default = "default_use_real_roles")]
@@ -144,10 +148,12 @@ impl Default for ClewdrConfig {
             pad_tokens: Arc::new(vec![]),
             pass_params: false,
             preserve_chats: false,
-            skip_warning: false,
+            skip_first_warning: false,
+            skip_second_warning: false,
             skip_restricted: false,
             skip_non_pro: false,
-            skip_cool_down: default_skip_cool_down(),
+            skip_rate_limit: default_skip_cool_down(),
+            skip_normal_pro: false,
         }
     }
 }
@@ -159,7 +165,7 @@ impl Display for ClewdrConfig {
         let web_addr = format!("http://{}", self.address());
         write!(
             f,
-            "\nLLM API Endpoint: {}\n\
+            "LLM API Endpoint: {}\n\
             LLM API Password: {}\n\
             Web Admin Endpoint: {}\n\
             Web Admin Password: {}\n",
@@ -184,26 +190,20 @@ impl Display for ClewdrConfig {
                 self.pad_tokens.len().to_string().blue()
             )?
         }
-        if self.skip_non_pro {
-            writeln!(f, "Skip non pro: {}", "Enabled".green())?;
-        } else {
-            writeln!(f, "Skip non pro: {}", "Disabled".red())?;
-        }
-        if self.skip_restricted {
-            writeln!(f, "Skip restricted: {}", "Enabled".green())?;
-        } else {
-            writeln!(f, "Skip restricted: {}", "Disabled".red())?;
-        }
-        if self.skip_warning {
-            writeln!(f, "Skip warning: {}", "Enabled".green())?;
-        } else {
-            writeln!(f, "Skip warning: {}", "Disabled".red())?;
-        }
-        if self.skip_cool_down {
-            writeln!(f, "Skip cool down: {}", "Enabled".green())
-        } else {
-            writeln!(f, "Skip cool down: {}", "Disabled".red())
-        }
+        let flag = |flag| {
+            if flag {
+                "Enabled".green()
+            } else {
+                "Disabled".red()
+            }
+        };
+        writeln!(f, "Skip non Pro: {}", flag(self.skip_non_pro))?;
+        writeln!(f, "Skip restricted: {}", flag(self.skip_restricted))?;
+        writeln!(f, "Skip first warning: {}", flag(self.skip_first_warning))?;
+        writeln!(f, "Skip second warning: {}", flag(self.skip_second_warning))?;
+        writeln!(f, "Skip rate limit: {}", flag(self.skip_rate_limit))?;
+        writeln!(f, "Skip normal Pro: {}", flag(self.skip_normal_pro))?;
+        Ok(())
     }
 }
 

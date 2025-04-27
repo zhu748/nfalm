@@ -20,10 +20,12 @@ export interface ConfigData {
   preserve_chats: boolean;
 
   // Cookie settings
-  skip_warning: boolean;
+  skip_first_warning: boolean;
+  skip_second_warning: boolean;
   skip_restricted: boolean;
   skip_non_pro: boolean;
-  skip_cool_down: boolean;
+  skip_rate_limit: boolean;
+  skip_normal_pro: boolean;
 
   // Prompt configurations
   use_real_roles: boolean;

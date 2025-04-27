@@ -1,7 +1,7 @@
 use colored::Colorize;
 use rquest::Method;
 use serde_json::Value;
-use tracing::error;
+use tracing::warn;
 
 use crate::{
     config::{CLEWDR_CONFIG, Reason},
@@ -136,9 +136,14 @@ impl ClientState {
             .filter(|(f, _)| f.contains("restricted"))
             .max_by_key(|(_, expire)| expire.timestamp())
             .cloned();
-        let warned = flag_time
+        let second = flag_time
             .iter()
-            .filter(|(f, _)| f.contains("warning"))
+            .filter(|(f, _)| f.contains("second_warning"))
+            .max_by_key(|(_, expire)| expire.timestamp())
+            .cloned();
+        let first = flag_time
+            .iter()
+            .filter(|(f, _)| f.contains("first_warning"))
             .max_by_key(|(_, expire)| expire.timestamp())
             .cloned();
 
@@ -153,23 +158,36 @@ impl ClientState {
             );
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
         }
-        if let Some((_, expire)) = warned {
-            println!("{}", "Your account is warned.".yellow());
-            if CLEWDR_CONFIG.load().skip_warning {
-                error!("Skipping warned account");
+        if let Some((_, expire)) = restricted {
+            println!("{}", "Your account is restricted.".red());
+            if CLEWDR_CONFIG.load().skip_restricted {
+                warn!("Skipping restricted account");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     expire.timestamp(),
                 )));
             }
         }
-        if let Some((_, expire)) = restricted {
-            println!("{}", "Your account is restricted.".red());
-            if CLEWDR_CONFIG.load().skip_restricted {
-                error!("Skipping restricted account");
+        if let Some((_, expire)) = second {
+            println!("{}", "Your account is second warned.".yellow());
+            if CLEWDR_CONFIG.load().skip_second_warning {
+                warn!("Skipping warned account");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     expire.timestamp(),
                 )));
             }
+        }
+        if let Some((_, expire)) = first {
+            println!("{}", "Your account is first warned.".yellow());
+            if CLEWDR_CONFIG.load().skip_first_warning {
+                warn!("Skipping warned account");
+                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
+                    expire.timestamp(),
+                )));
+            }
+        }
+        if CLEWDR_CONFIG.load().skip_normal_pro {
+            warn!("Skipping normal pro account");
+            return Err(ClewdrError::InvalidCookie(Reason::NormalPro));
         }
         Ok(())
     }

@@ -6,5 +6,5 @@ cookie.txt
 .DS_Store
 *.txt
 static/
-/clewdr.toml
+/clewdr*.toml
 /cline_docs

@@ -121,10 +121,12 @@
       },
       "cookie": {
         "title": "Cookie Settings",
-        "skipWarning": "Skip Warning",
+        "skipFirstWarning": "Skip First Warning",
+        "skipSecondWarning": "Skip Second Warning",
         "skipRestricted": "Skip Restricted",
         "skipNonPro": "Skip Non-Pro",
-        "skipCoolDown": "Skip Cool down"
+        "skipRateLimit": "Skip Rate Limit",
+        "skipNormalPro": "Skip Normal Pro"
       },
       "prompt": {
         "title": "Prompt Configurations",
