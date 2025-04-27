@@ -23,6 +23,7 @@ export interface ConfigData {
   skip_warning: boolean;
   skip_restricted: boolean;
   skip_non_pro: boolean;
+  skip_cool_down: boolean;
 
   // Prompt configurations
   use_real_roles: boolean;

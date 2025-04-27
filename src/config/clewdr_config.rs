@@ -19,7 +19,8 @@ use tracing::{error, warn};
 use crate::{
     config::{
         CONFIG_NAME, CookieStatus, Reason, UselessCookie, default_check_update, default_ip,
-        default_max_retries, default_padtxt_len, default_port, default_use_real_roles,
+        default_max_retries, default_padtxt_len, default_port, default_skip_cool_down,
+        default_use_real_roles,
     },
     error::ClewdrError,
     utils::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH},
@@ -94,6 +95,8 @@ pub struct ClewdrConfig {
     pub skip_restricted: bool,
     #[serde(default)]
     pub skip_non_pro: bool,
+    #[serde(default = "default_skip_cool_down")]
+    pub skip_cool_down: bool,
 
     // Prompt configurations, can hot reload
     #[serde(default = "default_use_real_roles")]
@@ -144,6 +147,7 @@ impl Default for ClewdrConfig {
             skip_warning: false,
             skip_restricted: false,
             skip_non_pro: false,
+            skip_cool_down: default_skip_cool_down(),
         }
     }
 }
