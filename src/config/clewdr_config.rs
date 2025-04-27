@@ -199,7 +199,11 @@ impl Display for ClewdrConfig {
         } else {
             writeln!(f, "Skip warning: {}", "Disabled".red())?;
         }
-        Ok(())
+        if self.skip_cool_down {
+            writeln!(f, "Skip cool down: {}", "Enabled".green())
+        } else {
+            writeln!(f, "Skip cool down: {}", "Disabled".red())
+        }
     }
 }
 

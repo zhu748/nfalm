@@ -1,12 +1,6 @@
 use clap::Parser;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::LazyLock,
-};
+use std::{fs, path::PathBuf, str::FromStr, sync::LazyLock};
 use tracing::error;
-use walkdir::WalkDir;
 
 use crate::{IS_DEV, config::CONFIG_NAME, error::ClewdrError};
 
@@ -81,58 +75,6 @@ fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
         fs::create_dir_all(&log_dir)?;
     }
     Ok(dir)
-}
-
-/// Recursively copies all files and subdirectories from `src` to `dst`
-///
-/// # Arguments
-/// * `src` - Source directory path
-/// * `dst` - Destination directory path
-///
-/// # Returns
-/// * `Result<(), ClewdrError>` - Success or an error with details
-pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), ClewdrError> {
-    #[cfg(feature = "no_fs")]
-    {
-        return Ok(());
-    }
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-
-    if !src.exists() {
-        return Err(ClewdrError::PathNotFound(format!(
-            "Source directory not found: {}",
-            src.display()
-        )));
-    }
-
-    fs::create_dir_all(dst)?;
-
-    for entry in WalkDir::new(src).min_depth(1) {
-        let entry = entry?;
-
-        let path = entry.path();
-        let relative_path = path.strip_prefix(src).map_err(|_| {
-            ClewdrError::PathNotFound(format!(
-                "Failed to strip prefix from path: {}",
-                path.display()
-            ))
-        })?;
-        let target_path = dst.join(relative_path);
-
-        if path.is_dir() {
-            fs::create_dir_all(&target_path)?;
-        } else {
-            if let Some(parent) = target_path.parent() {
-                if !parent.exists() {
-                    fs::create_dir_all(parent)?;
-                }
-            }
-            fs::copy(path, &target_path)?;
-        }
-    }
-
-    Ok(())
 }
 
 /// Helper function to print out JSON to a file in the log directory
