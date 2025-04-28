@@ -1,15 +1,10 @@
-# v0.7.11
-
-## Bug Fixes
-
-- Fix warning detection
-- Fix color on tabs
+# v0.7.12
 
 ## Improvement
 
-- Simplify router building
-- Improve config validation
+- Delete unused code
+- Unify API endpoints
 
 ## Feature
 
-- Pass `-c` or `--config` to specify alternative config file
+- More concise cookie management
