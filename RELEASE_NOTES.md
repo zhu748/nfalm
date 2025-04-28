@@ -1,10 +1,5 @@
-# v0.7.12
+# v0.7.13
 
-## Improvement
+## Bug Fixes
 
-- Delete unused code
-- Unify API endpoints
-
-## Feature
-
-- More concise cookie management
+- Fix branching in cookie flag check
