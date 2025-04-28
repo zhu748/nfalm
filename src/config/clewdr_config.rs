@@ -19,15 +19,14 @@ use tracing::{error, warn};
 
 use crate::{
     config::{
-        CONFIG_NAME, CookieStatus, Reason, UselessCookie, default_check_update, default_ip,
+        CONFIG_NAME, CookieStatus, UselessCookie, default_check_update, default_ip,
         default_max_retries, default_padtxt_len, default_port, default_skip_cool_down,
         default_use_real_roles,
     },
     error::ClewdrError,
-    utils::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH},
 };
 
-use super::ENDPOINT_URL;
+use super::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH, ClewdrCookie, ENDPOINT_URL};
 
 /// Generates a random password for authentication
 /// Creates a secure 64-character password with mixed character types
@@ -235,8 +234,8 @@ impl ClewdrConfig {
     /// Also loads cookies from a file if specified
     ///
     /// # Returns
-    /// * `Result<Self, ClewdrError>` - Config instance or error
-    pub fn new() -> Result<Self, ClewdrError> {
+    /// * Config instance
+    pub fn new() -> Self {
         let config = Figment::new()
             .adjoin(Toml::file("config.toml"))
             .adjoin(Toml::file(CONFIG_NAME));
@@ -249,34 +248,37 @@ impl ClewdrConfig {
         .extract_lossy()
         .inspect_err(|e| {
             error!("Failed to load config: {}", e);
-        })?;
+        })
+        .unwrap_or_default();
         if let Some(ref f) = *ARG_COOKIE_FILE {
             // load cookies from file
             if f.exists() {
-                let Ok(cookies) = std::fs::read_to_string(f) else {
+                if let Ok(cookies) = std::fs::read_to_string(f) {
+                    let cookies =
+                        cookies
+                            .lines()
+                            .map(|line| line.into())
+                            .map_while(|c: ClewdrCookie| {
+                                if c.validate() {
+                                    Some(CookieStatus::new(c.to_string().as_str(), None))
+                                } else {
+                                    warn!("Invalid cookie format: {}", c);
+                                    None
+                                }
+                            });
+                    config.cookie_array.extend(cookies);
+                } else {
                     error!("Failed to read cookie file: {}", f.display());
-                    return Err(ClewdrError::InvalidCookie(Reason::Null));
-                };
-                let cookies = cookies.lines().map(|line| line.into()).map_while(
-                    |c: crate::config::ClewdrCookie| {
-                        if c.validate() {
-                            Some(CookieStatus::new(c.to_string().as_str(), None))
-                        } else {
-                            warn!("Invalid cookie format: {}", c);
-                            None
-                        }
-                    },
-                );
-                config.cookie_array.extend(cookies);
+                }
             } else {
                 error!("Cookie file not found: {}", f.display());
             }
         }
         let config = config.validate();
-        config.save().inspect_err(|e| {
+        config.save().unwrap_or_else(|e| {
             error!("Failed to save config: {}", e);
-        })?;
-        Ok(config)
+        });
+        config
     }
 
     /// Loads padding text from a file

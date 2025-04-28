@@ -1,10 +1,9 @@
 use clewdr::{
     self, BANNER,
-    config::CLEWDR_CONFIG,
+    config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
     services::cookie_manager::CookieManager,
     state::ClientState,
-    utils::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
 };
 use colored::Colorize;
 use tracing::warn;

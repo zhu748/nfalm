@@ -1,11 +1,14 @@
 use arc_swap::ArcSwap;
+use clap::Parser;
 use std::{
     net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
     sync::LazyLock,
 };
+use tracing::error;
 use url::Url;
 
-use crate::config::ClewdrConfig;
+use crate::{config::ClewdrConfig, utils::set_clewdr_dir};
 
 pub const CONFIG_NAME: &str = "clewdr.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
@@ -14,11 +17,47 @@ pub static ENDPOINT_URL: LazyLock<Url> = LazyLock::new(|| {
         panic!("Failed to parse endpoint URL: {}", ENDPOINT);
     })
 });
+pub const LOG_DIR: &str = "log";
 pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
-    let _ = *crate::utils::CLEWDR_DIR;
-    let config = ClewdrConfig::new().unwrap_or_default();
+    let _ = *CLEWDR_DIR;
+    let config = ClewdrConfig::new();
     ArcSwap::from_pointee(config)
 });
+
+pub static ARG_COOKIE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    let args = crate::Args::parse();
+    if let Some(cookie_file) = args.file {
+        // canonicalize the path
+        if !cookie_file.exists() {
+            error!("No cookie file found at: {}", cookie_file.display());
+            return None;
+        }
+        cookie_file.canonicalize().ok()
+    } else {
+        None
+    }
+});
+
+pub static ARG_CONFIG_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    let args = crate::Args::parse();
+    if let Some(config_file) = args.config {
+        // canonicalize the path
+        config_file.canonicalize().ok()
+    } else {
+        None
+    }
+});
+
+pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    if let Some(path) = ARG_CONFIG_FILE.as_ref() {
+        path.to_owned()
+    } else {
+        CLEWDR_DIR.join(CONFIG_NAME)
+    }
+});
+
+pub static CLEWDR_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| set_clewdr_dir().expect("Failed to get dir"));
 
 // Default functions
 /// Default number of maximum retries for API requests
