@@ -54,7 +54,7 @@ pub enum ClewdrError {
     #[error(transparent)]
     UTF8Error(#[from] std::string::FromUtf8Error),
     #[error("Http error: code: {}, body: {}", .0.to_string().red(), serde_json::to_string_pretty(.1).unwrap())]
-    OtherHttpError(StatusCode, HttpError),
+    OtherHttpError(StatusCode, JsError),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error(transparent)]
@@ -67,13 +67,13 @@ pub enum ClewdrError {
 
 /// HTTP error response
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct HttpError {
-    pub error: InnerHttpError,
+pub struct ApiError {
+    pub error: JsError,
     #[serde(skip_serializing_if = "Option::is_none")]
     r#type: Option<String>,
 }
 
-impl Display for HttpError {
+impl Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         serde_json::to_string(self)
             .map_err(|_| std::fmt::Error)?
@@ -83,7 +83,7 @@ impl Display for HttpError {
 
 /// Inner HTTP error response
 #[derive(Debug, Serialize, Clone)]
-pub struct InnerHttpError {
+pub struct JsError {
     pub message: Value,
     pub r#type: String,
 }
@@ -95,7 +95,7 @@ struct InnerHttpErrorRaw {
     pub r#type: String,
 }
 
-impl<'de> Deserialize<'de> for InnerHttpError {
+impl<'de> Deserialize<'de> for JsError {
     /// when message is a json string, try parse it as a object
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -103,19 +103,19 @@ impl<'de> Deserialize<'de> for InnerHttpError {
     {
         let raw = InnerHttpErrorRaw::deserialize(deserializer)?;
         if let Ok(message) = serde_json::from_str::<Value>(&raw.message) {
-            return Ok(InnerHttpError {
+            return Ok(JsError {
                 message,
                 r#type: raw.r#type,
             });
         }
-        Ok(InnerHttpError {
+        Ok(JsError {
             message: json!(raw.message),
             r#type: raw.r#type,
         })
     }
 }
 
-impl Display for InnerHttpError {
+impl Display for JsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         serde_json::to_string(self)
             .map_err(|_| std::fmt::Error)?
@@ -140,43 +140,33 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     debug!("Error response status: {}", status);
     if status == 302 {
         // blocked by cloudflare
-        let http_error = HttpError {
-            error: InnerHttpError {
-                message: json!("Blocked by Cloudflare Impersonation"),
-                r#type: "error".to_string(),
-            },
-            r#type: None,
+        let error = JsError {
+            message: json!("Blocked, check your IP address"),
+            r#type: "error".to_string(),
         };
-        return Err(ClewdrError::OtherHttpError(status, http_error));
+        return Err(ClewdrError::OtherHttpError(status, error));
     }
     let text = match res.text().await {
         Ok(text) => text,
         Err(err) => {
-            let http_error = HttpError {
-                error: InnerHttpError {
-                    message: json!(err.to_string()),
-                    r#type: "error".to_string(),
-                },
-                r#type: None,
+            let error = JsError {
+                message: json!(err.to_string()),
+                r#type: "error_get_error_body".to_string(),
             };
-            return Err(ClewdrError::OtherHttpError(status, http_error));
+            return Err(ClewdrError::OtherHttpError(status, error));
         }
     };
-    let Ok(err) = serde_json::from_str::<HttpError>(&text) else {
-        let http_error = HttpError {
-            error: InnerHttpError {
-                message: format!("Unknown error: {}", text).into(),
-                r#type: "error".to_string(),
-            },
-            r#type: None,
+    let Ok(err) = serde_json::from_str::<ApiError>(&text) else {
+        let error = JsError {
+            message: format!("Unknown error: {}", text).into(),
+            r#type: "error_parse_error".to_string(),
         };
-        return Err(ClewdrError::OtherHttpError(status, http_error));
+        return Err(ClewdrError::OtherHttpError(status, error));
     };
     if status == 400 && err.error.message == json!("This organization has been disabled.") {
         // account disabled
         return Err(ClewdrError::InvalidCookie(Reason::Disabled));
     }
-    let err_clone = err.clone();
     let inner_error = err.error;
     // check if the error is a rate limit error
     if status == 429 {
@@ -192,7 +182,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             return Err(ClewdrError::InvalidCookie(Reason::TooManyRequest(time)));
         }
     }
-    Err(ClewdrError::OtherHttpError(status, err_clone))
+    Err(ClewdrError::OtherHttpError(status, inner_error))
 }
 
 impl ClewdrError {
