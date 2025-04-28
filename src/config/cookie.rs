@@ -99,7 +99,7 @@ impl ClewdrCookie {
     /// * `bool` - True if the cookie has a valid format, false otherwise
     pub fn validate(&self) -> bool {
         // Check if the cookie is valid
-        let re = regex::Regex::new(r"^sk-ant-sid01-[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();
+        let re = regex::Regex::new(r"^[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();
         re.is_match(&self.inner)
     }
 }
@@ -115,6 +115,7 @@ impl From<&str> for ClewdrCookie {
             .filter(|c| c.is_ascii_alphanumeric() || *c == '=' || *c == '_' || *c == '-')
             .collect::<String>()
             .trim_start_matches("sessionKey=")
+            .trim_start_matches("sk-ant-sid01-")
             .to_string();
         let cookie = Self { inner: cookie };
         if !cookie.validate() {
@@ -126,13 +127,13 @@ impl From<&str> for ClewdrCookie {
 
 impl Display for ClewdrCookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "sessionKey={}", self.inner)
+        write!(f, "sessionKey=sk-ant-sid01-{}", self.inner)
     }
 }
 
 impl Debug for ClewdrCookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "sessionKey={}", self.inner)
+        write!(f, "sessionKey=sk-ant-sid01-{}", self.inner)
     }
 }
 
