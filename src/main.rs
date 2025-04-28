@@ -67,7 +67,7 @@ async fn main() -> Result<(), ClewdrError> {
     let state = ClientState::new(tx);
     // build axum router
     // create a TCP listener
-    let addr = CLEWDR_CONFIG.load().address().to_string();
+    let addr = CLEWDR_CONFIG.load().address();
     let listener = tokio::net::TcpListener::bind(addr).await?;
     let router = clewdr::router::RouterBuilder::new(state)
         .with_default_setup()

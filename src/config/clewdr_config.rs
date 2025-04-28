@@ -1,3 +1,4 @@
+use axum::http::{Uri, uri::Scheme};
 use colored::Colorize;
 use figment::{
     Figment,
@@ -5,11 +6,11 @@ use figment::{
 };
 use itertools::Itertools;
 use passwords::PasswordGenerator;
-use rquest::Proxy;
+use rquest::{Proxy, Url};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
-    net::IpAddr,
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
     sync::Arc,
 };
@@ -25,6 +26,8 @@ use crate::{
     error::ClewdrError,
     utils::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH},
 };
+
+use super::ENDPOINT_URL;
 
 /// Generates a random password for authentication
 /// Creates a secure 64-character password with mixed character types
@@ -78,7 +81,7 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub proxy: Option<String>,
     #[serde(default)]
-    pub rproxy: Option<String>,
+    pub rproxy: Option<Url>,
 
     // Api settings, can hot reload
     #[serde(default = "default_max_retries")]
@@ -161,27 +164,38 @@ impl Default for ClewdrConfig {
 impl Display for ClewdrConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // one line per field
-        let api_addr = format!("http://{}/v1", self.address());
-        let web_addr = format!("http://{}", self.address());
+        let authority = format!("{}:{}", self.ip, self.port);
+        let api_url = Uri::builder()
+            .scheme(Scheme::HTTP)
+            .authority(authority.to_owned())
+            .path_and_query("/v1")
+            .build()
+            .map_err(|_| std::fmt::Error)?;
+        let web_url = Uri::builder()
+            .scheme(Scheme::HTTP)
+            .authority(authority)
+            .path_and_query("")
+            .build()
+            .map_err(|_| std::fmt::Error)?;
         write!(
             f,
             "LLM API Endpoint: {}\n\
             LLM API Password: {}\n\
             Web Admin Endpoint: {}\n\
             Web Admin Password: {}\n",
-            api_addr.green().underline(),
+            api_url.to_string().green().underline(),
             self.password.yellow(),
-            web_addr.green().underline(),
+            web_url.to_string().green().underline(),
             self.admin_password.yellow(),
         )?;
         if self.enable_oai {
             writeln!(f, "OpenAI Compatible: {}", "Enabled".green())?;
         }
         if let Some(ref proxy) = self.proxy {
-            writeln!(f, "Proxy: {}", proxy.blue())?;
+            writeln!(f, "Proxy: {}", proxy.to_string().blue())?;
         }
         if let Some(ref rproxy) = self.rproxy {
-            writeln!(f, "Reverse Proxy: {}", rproxy.blue())?;
+            writeln!(f, "Reverse Proxy: {}", rproxy.to_string().blue())?;
         }
         if !self.pad_tokens.is_empty() {
             writeln!(
@@ -297,17 +311,17 @@ impl ClewdrConfig {
     /// Returns the reverse proxy URL if configured, otherwise the default endpoint
     ///
     /// # Returns
-    /// The URL string for the API endpoint
-    pub fn endpoint(&self) -> String {
+    /// The URL for the API endpoint
+    pub fn endpoint(&self) -> Url {
         if let Some(ref proxy) = self.rproxy {
             return proxy.clone();
         }
-        crate::config::ENDPOINT.to_string()
+        ENDPOINT_URL.to_owned()
     }
 
     /// address of proxy
-    pub fn address(&self) -> String {
-        format!("{}:{}", self.ip, self.port)
+    pub fn address(&self) -> SocketAddr {
+        SocketAddr::new(self.ip, self.port)
     }
 
     /// Save the configuration to a file
@@ -339,12 +353,6 @@ impl ClewdrConfig {
             .sorted()
             .collect();
         self.cookie_array.dedup();
-        if self.rproxy.as_ref().map(|p| p.trim()) == Some("") {
-            self.rproxy = None;
-        }
-        if self.proxy.as_ref().map(|p| p.trim()) == Some("") {
-            self.proxy = None;
-        }
         self.rquest_proxy = self.proxy.clone().and_then(|p| {
             Proxy::all(p)
                 .inspect_err(|e| {

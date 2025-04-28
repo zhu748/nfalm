@@ -3,11 +3,17 @@ use std::{
     net::{IpAddr, Ipv4Addr},
     sync::LazyLock,
 };
+use url::Url;
 
 use crate::config::ClewdrConfig;
 
 pub const CONFIG_NAME: &str = "clewdr.toml";
 pub const ENDPOINT: &str = "https://claude.ai";
+pub static ENDPOINT_URL: LazyLock<Url> = LazyLock::new(|| {
+    Url::parse(ENDPOINT).unwrap_or_else(|_| {
+        panic!("Failed to parse endpoint URL: {}", ENDPOINT);
+    })
+});
 pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
     let _ = *crate::utils::CLEWDR_DIR;
     let config = ClewdrConfig::new().unwrap_or_default();

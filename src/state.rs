@@ -10,6 +10,7 @@ use rquest::{
 use rquest_util::Emulation;
 use serde_json::{Value, json};
 use tracing::{debug, error, warn};
+use url::Url;
 
 use std::{collections::HashMap, sync::LazyLock};
 
@@ -38,7 +39,7 @@ pub struct ClientState {
     pub conv_uuid: Option<String>,
     cookies: HashMap<String, String>,
     pub capabilities: Vec<String>,
-    pub endpoint: String,
+    pub endpoint: Url,
     pub proxy: Option<Proxy>,
 }
 
