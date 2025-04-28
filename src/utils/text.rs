@@ -293,7 +293,10 @@ pub async fn merge_sse(
                 };
                 w += completion;
             }
-            Err(e) => error!("Stream Error: {}", e),
+            Err(_) => {
+                // DO NOT LOG
+                // Because it will spam the logs
+            }
         }
     }
     w
