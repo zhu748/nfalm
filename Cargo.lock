@@ -346,9 +346,9 @@ dependencies = [
 
 [[package]]
 name = "boring-sys2"
-version = "4.15.12"
+version = "4.15.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51e79b66b58c037ced30cef79667bbee6bd9eeb5d019f11cd194a8417a4ed51b"
+checksum = "af6dc6cd5c3d99020bc7f5d522dbadaa45d076f9b821fcb3b689bc6567b3977b"
 dependencies = [
  "autocfg",
  "bindgen",
@@ -359,9 +359,9 @@ dependencies = [
 
 [[package]]
 name = "boring2"
-version = "4.15.12"
+version = "4.15.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23d29cafd589649c66c9994deacf204b6cf0118cbbb79423ba68a8cc80e603bc"
+checksum = "c99a6a78c0b05e4bf303725031385fb9e008af0998bd8e40f01fb208a41b2396"
 dependencies = [
  "bitflags",
  "boring-sys2",
@@ -2144,9 +2144,9 @@ dependencies = [
 
 [[package]]
 name = "rquest-util"
-version = "2.3.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e7ac5816b20452556ecb252e7bdbf0c388c53cae001ee8aa65bab5f082f60e"
+checksum = "e314659bb735312dbc8fbb7291e9c551e17732ea55fa8b7ecb7bf8b9a4a6b675"
 dependencies = [
  "rquest",
  "typed-builder",
@@ -2361,9 +2361,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.100"
+version = "2.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b09a44accad81e1ba1cd74a32461ba89dee89095ba17b32f5d03683b1b1fc2a0"
+checksum = "8ce2b7fc941b3a24138a0a7cf8e858bfc6a992e7978a068a5c760deb0ed43caf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2551,9 +2551,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-boring2"
-version = "4.15.12"
+version = "4.15.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73495a946e6b0c6763b980c823e6f58a7738a2c94fe08f6de366a7d709a07a18"
+checksum = "537988a659ca23a4db7088b93dc410f9863df3aded273a84d15384fe9bb94110"
 dependencies = [
  "boring-sys2",
  "boring2",
@@ -2980,9 +2980,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-root-certs"
-version = "0.26.8"
+version = "0.26.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09aed61f5e8d2c18344b3faa33a4c837855fe56642757754775548fee21386c4"
+checksum = "180d2741b6115c3d906577e6533ad89472d48d96df00270fccb78233073d77f7"
 dependencies = [
  "rustls-pki-types",
 ]
