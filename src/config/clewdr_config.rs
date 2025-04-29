@@ -344,11 +344,9 @@ impl ClewdrConfig {
     pub fn validate(mut self) -> Self {
         if self.password.trim().is_empty() {
             self.password = generate_password();
-            self.save().expect("Failed to save config");
         }
         if self.admin_password.trim().is_empty() {
             self.admin_password = generate_password();
-            self.save().expect("Failed to save config");
         }
         self.cookie_array = self
             .cookie_array
