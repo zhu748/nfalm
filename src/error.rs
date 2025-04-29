@@ -101,7 +101,7 @@ pub struct JsError {
 }
 
 /// Raw Inner HTTP error response
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct JsErrorRaw {
     pub message: String,
     pub r#type: String,

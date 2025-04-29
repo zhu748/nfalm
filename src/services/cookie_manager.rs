@@ -270,7 +270,11 @@ impl CookieManager {
                 true
             }
         });
+        if reset_cookies.is_empty() {
+            return;
+        }
         self.valid.extend(reset_cookies);
+        self.log();
         self.save();
     }
 
@@ -376,11 +380,15 @@ impl CookieManager {
             .map(|(cookie, _)| cookie.clone())
             .collect();
 
+        if expired.is_empty() {
+            return;
+        }
         for cookie in expired {
             warn!("Timing out dispatched cookie: {:?}", cookie);
             self.dispatched.remove(&cookie);
             self.valid.push_back(cookie);
         }
+        self.log();
         self.reset();
     }
 
@@ -480,6 +488,7 @@ impl CookieManager {
         Self::spawn_timeout_checker(interval, event_sender);
 
         // 事件处理主循环
+        self.log();
         loop {
             // 尝试从队列中获取事件
             let event = {
@@ -494,10 +503,12 @@ impl CookieManager {
                         CookieEvent::Return(cookie, reason) => {
                             // 处理返回的cookie (最高优先级)
                             self.collect(cookie, reason);
+                            self.log();
                         }
                         CookieEvent::Submit(cookie) => {
                             // 处理提交的新cookie (次高优先级)
                             self.accept(cookie);
+                            self.log();
                         }
                         CookieEvent::CheckTimeout => {
                             // 处理超时检查 (中等优先级)
@@ -510,6 +521,7 @@ impl CookieManager {
                                 error!("Failed to send cookie");
                                 self.valid.push_back(c);
                             }
+                            self.log();
                         }
                         CookieEvent::GetStatus(sender) => {
                             let status_info = self.report();
@@ -522,9 +534,9 @@ impl CookieManager {
                             if sender.send(result).is_err() {
                                 error!("Failed to send delete result");
                             }
+                            self.log();
                         }
                     }
-                    self.log();
                 }
                 None => {
                     // 如果队列为空，等待通知

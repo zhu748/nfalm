@@ -50,7 +50,7 @@ impl ClientState {
             ApiFormat::OpenAI => format.to_string().yellow(),
         };
         info!(
-            "Request received, stream: {}, messages: {}, model: {}, think: {}, format: {}",
+            "[REQ] stream: {}, msgs: {}, model: {}, think: {}, format: {}",
             enabled(stream),
             p.messages.len().to_string().green(),
             p.model.green(),
@@ -59,7 +59,7 @@ impl ClientState {
         );
         for i in 0..CLEWDR_CONFIG.load().max_retries {
             if i > 0 {
-                info!("Retrying request, attempt: {}", (i + 1).to_string().green());
+                info!("[RETRY] attempt: {}", (i + 1).to_string().green());
             }
             let mut state = self.clone();
             let p = p.clone();
@@ -73,7 +73,7 @@ impl ClientState {
                 spawn(async move {
                     let dur = chrono::Utc::now().signed_duration_since(stopwatch);
                     info!(
-                        "Request finished, elapsed time: {} seconds",
+                        "[FIN] elapsed time: {} seconds",
                         dur.num_seconds().to_string().green()
                     );
                     state_clone.return_cookie(None).await;
@@ -86,14 +86,14 @@ impl ClientState {
             }) {
                 Ok(b) => {
                     if let Err(e) = state.clean_chat().await {
-                        warn!("Failed to delete chat: {}", e);
+                        warn!("Failed to clean chat: {}", e);
                     }
                     return Ok(b);
                 }
                 Err(e) => {
                     // delete chat after an error
                     if let Err(e) = state.clean_chat().await {
-                        warn!("Failed to delete chat: {}", e);
+                        warn!("Failed to clean chat: {}", e);
                     }
                     error!("{}", e);
                     // 429 error
