@@ -74,7 +74,7 @@
 简单配置
 
 ```env
-CLEWDR_COOKIE_ARRAY=[[sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA,sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA]]
+CLEWDR_COOKIE_ARRAY=[[sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA],[sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA]]
 CLEWDR_PASSWORD=your_secure_password
 CLEWDR_ADMIN_PASSWORD=your_admin_password
 ```
