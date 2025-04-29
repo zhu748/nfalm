@@ -562,6 +562,7 @@ dependencies = [
  "clap",
  "colored",
  "const_format",
+ "cookie",
  "enable-ansi-support",
  "eventsource-stream",
  "figlet-rs",

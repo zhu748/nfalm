@@ -62,8 +62,7 @@ impl PartialOrd for CookieEvent {
 
 impl Ord for CookieEvent {
     fn cmp(&self, other: &Self) -> Ordering {
-        // Note: We return reverse ordering, so smaller numbers have higher priority
-        other.priority_value().cmp(&self.priority_value())
+        self.priority_value().cmp(&other.priority_value())
     }
 }
 
@@ -74,12 +73,12 @@ impl CookieEvent {
     /// * `u8` - The priority value (lower is higher priority)
     fn priority_value(&self) -> u8 {
         match self {
-            CookieEvent::Return(_, _) => 0, // Highest priority
-            CookieEvent::Submit(_) => 1,
-            CookieEvent::Delete(_, _) => 2,
-            CookieEvent::GetStatus(_) => 3,
-            CookieEvent::CheckTimeout => 4,
-            CookieEvent::Request(_) => 5, // Lowest priority
+            CookieEvent::Return(_, _) => 5,
+            CookieEvent::Submit(_) => 4,
+            CookieEvent::Delete(_, _) => 3,
+            CookieEvent::CheckTimeout => 2,
+            CookieEvent::Request(_) => 1,
+            CookieEvent::GetStatus(_) => 0,
         }
     }
 }
@@ -87,6 +86,7 @@ impl CookieEvent {
 /// Cookie manager that handles cookie distribution, collection, and status tracking
 pub struct CookieManager {
     valid: VecDeque<CookieStatus>,
+    // TODO: Remove dispatched
     dispatched: HashMap<CookieStatus, Instant>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,

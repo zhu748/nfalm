@@ -1,10 +1,11 @@
+use axum::http::HeaderValue;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use colored::Colorize;
+use cookie::{Cookie, CookieJar};
 use futures::future::join_all;
-use regex::RegexBuilder;
 use rquest::{
     Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder, Response,
-    header::{COOKIE, ORIGIN, REFERER, SET_COOKIE},
+    header::{ORIGIN, REFERER},
     multipart::{Form, Part},
 };
 use rquest_util::Emulation;
@@ -12,7 +13,7 @@ use serde_json::{Value, json};
 use tracing::{debug, error, warn};
 use url::Url;
 
-use std::{collections::HashMap, sync::LazyLock};
+use std::sync::LazyLock;
 
 use crate::{
     api::ApiFormat,
@@ -26,6 +27,7 @@ use crate::{
 /// This client is used for requests that require a specific emulation
 static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     ClientBuilder::new()
+        .cookie_store(true)
         .emulation(Emulation::Chrome135)
         .build()
         .expect("Failed to create client")
@@ -38,7 +40,7 @@ pub struct ClientState {
     pub event_sender: CookieEventSender,
     pub org_uuid: Option<String>,
     pub conv_uuid: Option<String>,
-    cookies: HashMap<String, String>,
+    jar: CookieJar,
     pub capabilities: Vec<String>,
     pub endpoint: Url,
     pub proxy: Option<Proxy>,
@@ -54,7 +56,7 @@ impl ClientState {
             cookie: None,
             org_uuid: None,
             conv_uuid: None,
-            cookies: HashMap::new(),
+            jar: CookieJar::new(),
             capabilities: Vec::new(),
             endpoint: CLEWDR_CONFIG.load().endpoint(),
             proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
@@ -64,15 +66,22 @@ impl ClientState {
     }
 
     /// Build a request with the current cookie and proxy settings
-    pub fn request(&self, method: Method, url: impl IntoUrl) -> RequestBuilder {
+    pub fn build_request(&self, method: Method, url: impl IntoUrl) -> RequestBuilder {
+        let r = SUPER_CLIENT.cloned();
+        r.set_cookies(
+            &self.endpoint,
+            self.jar
+                .iter()
+                .map_while(|c| HeaderValue::from_str(c.to_string().as_str()).ok())
+                .collect::<Vec<_>>(),
+        );
         let r = SUPER_CLIENT
             .request(method, url)
-            .header_append(ORIGIN, ENDPOINT)
-            .header_append(COOKIE, self.header_cookie());
+            .header_append(ORIGIN, ENDPOINT);
         let r = if let Some(uuid) = self.conv_uuid.to_owned() {
             r.header_append(REFERER, format!("{}/chat/{}", ENDPOINT, uuid))
         } else {
-            r.header_append(REFERER, format!("{}/chat/new", ENDPOINT))
+            r.header_append(REFERER, format!("{}/new", ENDPOINT))
         };
         if let Some(proxy) = self.proxy.to_owned() {
             r.proxy(proxy)
@@ -94,45 +103,19 @@ impl ClientState {
 
     /// Update cookie from the server response
     pub fn update_cookie_from_res(&mut self, res: &Response) {
-        if let Some(s) = res.headers().get(SET_COOKIE).and_then(|h| h.to_str().ok()) {
-            self.update_cookies(s)
+        for c in res.cookies() {
+            if c.path().is_some()
+                || c.expires().is_some()
+                || c.domain().is_some()
+                || c.http_only()
+                || c.secure()
+                || c.same_site_lax()
+                || c.same_site_strict()
+            {
+                continue;
+            }
+            self.jar.add(c.into_owned().into_inner());
         }
-    }
-
-    /// Update cookies from string
-    fn update_cookies(&mut self, str: &str) {
-        let str = str.split("\n").to_owned().collect::<Vec<_>>().join("");
-        if str.is_empty() {
-            return;
-        }
-        let re = RegexBuilder::new(r"^(path|expires|domain|HttpOnly|Secure|SameSite)[=;]*")
-            .case_insensitive(true)
-            .build()
-            .unwrap();
-        str.split(";")
-            .filter(|s| !re.is_match(s) && !s.is_empty())
-            .for_each(|s| {
-                let Some((name, value)) = s.split_once("=").map(|(n, v)| (n.trim(), v.trim()))
-                else {
-                    return;
-                };
-                if name.is_empty() || value.is_empty() {
-                    return;
-                }
-                self.cookies.insert(name.to_string(), value.to_string());
-            });
-    }
-
-    /// Current cookie string that are used in requests
-    fn header_cookie(&self) -> String {
-        // check rotating guard
-        self.cookies
-            .iter()
-            .map(|(name, value)| format!("{}={}", name, value))
-            .collect::<Vec<_>>()
-            .join("; ")
-            .trim()
-            .to_string()
     }
 
     /// Requests a new cookie from the cookie manager
@@ -140,7 +123,8 @@ impl ClientState {
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
         let res = self.event_sender.request().await?;
         self.cookie = Some(res.to_owned());
-        self.update_cookies(res.cookie.to_string().as_str());
+        self.jar
+            .add_original(res.cookie.to_string().parse::<Cookie>()?);
         // load newest config
         self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
         self.endpoint = CLEWDR_CONFIG.load().endpoint();
@@ -182,14 +166,14 @@ impl ClientState {
                 "name": format!("ClewdR-{}-{}", org_uuid, conv_uuid),
             });
             let _ = self
-                .request(Method::PUT, endpoint)
+                .build_request(Method::PUT, endpoint)
                 .json(&pld)
                 .send()
                 .await?;
             return Ok(());
         }
         debug!("Deleting chat: {}", conv_uuid);
-        let _ = self.request(Method::DELETE, endpoint).send().await?;
+        let _ = self.build_request(Method::DELETE, endpoint).send().await?;
         Ok(())
     }
 
@@ -226,7 +210,7 @@ impl ClientState {
                 let endpoint = format!("{}/api/{}/upload", self.endpoint, self.org_uuid.as_ref()?);
                 Some(
                     // send the request into future
-                    self.request(Method::POST, endpoint)
+                    self.build_request(Method::POST, endpoint)
                         .header_append("anthropic-client-platform", "web_claude_ai")
                         .multipart(form)
                         .send(),

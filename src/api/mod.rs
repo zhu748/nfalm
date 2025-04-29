@@ -215,7 +215,7 @@ impl ClientState {
             body["model"] = p.model.to_owned().into();
         }
         let api_res = self
-            .request(Method::POST, endpoint)
+            .build_request(Method::POST, endpoint)
             .json(&body)
             .send()
             .await?;
@@ -246,7 +246,7 @@ impl ClientState {
         );
 
         let api_res = self
-            .request(Method::POST, endpoint)
+            .build_request(Method::POST, endpoint)
             .json(&body)
             .header_append(ACCEPT, "text/event-stream")
             .send()

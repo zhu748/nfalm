@@ -13,6 +13,8 @@ use crate::{config::Reason, services::cookie_manager::CookieEvent};
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[error(transparent)]
+    CookieParseError(#[from] cookie::ParseError),
     #[error("Bad request: {0}")]
     BadRequest(String),
     #[error("Pad text too short")]
