@@ -24,6 +24,7 @@ use crate::{
         default_use_real_roles,
     },
     error::ClewdrError,
+    utils::enabled,
 };
 
 use super::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH, ClewdrCookie, ENDPOINT_URL};
@@ -203,19 +204,20 @@ impl Display for ClewdrConfig {
                 self.pad_tokens.len().to_string().blue()
             )?
         }
-        let flag = |flag| {
-            if flag {
-                "Enabled".green()
-            } else {
-                "Disabled".red()
-            }
-        };
-        writeln!(f, "Skip non Pro: {}", flag(self.skip_non_pro))?;
-        writeln!(f, "Skip restricted: {}", flag(self.skip_restricted))?;
-        writeln!(f, "Skip second warning: {}", flag(self.skip_second_warning))?;
-        writeln!(f, "Skip first warning: {}", flag(self.skip_first_warning))?;
-        writeln!(f, "Skip normal Pro: {}", flag(self.skip_normal_pro))?;
-        writeln!(f, "Skip rate limit: {}", flag(self.skip_rate_limit))?;
+        writeln!(f, "Skip non Pro: {}", enabled(self.skip_non_pro))?;
+        writeln!(f, "Skip restricted: {}", enabled(self.skip_restricted))?;
+        writeln!(
+            f,
+            "Skip second warning: {}",
+            enabled(self.skip_second_warning)
+        )?;
+        writeln!(
+            f,
+            "Skip first warning: {}",
+            enabled(self.skip_first_warning)
+        )?;
+        writeln!(f, "Skip normal Pro: {}", enabled(self.skip_normal_pro))?;
+        writeln!(f, "Skip rate limit: {}", enabled(self.skip_rate_limit))?;
         Ok(())
     }
 }

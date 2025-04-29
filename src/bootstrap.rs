@@ -28,7 +28,7 @@ impl ClientState {
         self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
-        print_out_json(&bootstrap, "bootstrap.json");
+        print_out_json(&bootstrap, "bootstrap_res.json");
         if bootstrap["account"].is_null() {
             return Err(ClewdrError::InvalidCookie(Reason::Null));
         }

@@ -1,9 +1,19 @@
+use colored::{ColoredString, Colorize};
 use std::{fs, path::PathBuf, str::FromStr};
 use tracing::error;
 
 use crate::{IS_DEV, config::LOG_DIR, error::ClewdrError};
 
 pub mod text;
+
+/// Helper function to format a boolean value as "Enabled" or "Disabled"
+pub fn enabled(flag: bool) -> ColoredString {
+    if flag {
+        "Enabled".green()
+    } else {
+        "Disabled".red()
+    }
+}
 
 /// Gets and sets up the configuration directory for the application
 ///

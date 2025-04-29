@@ -89,6 +89,15 @@ pub struct Thinking {
     r#type: String,
 }
 
+impl Default for Thinking {
+    fn default() -> Self {
+        Thinking {
+            budget_tokens: 0,
+            r#type: "none".to_string(),
+        }
+    }
+}
+
 pub struct XApiKey(pub String);
 
 impl<S> FromRequestParts<S> for XApiKey
