@@ -5,7 +5,7 @@ use itertools::Itertools;
 use rand::{Rng, rng};
 use serde::Deserialize;
 use serde_json::Value;
-use std::fmt::Write;
+use std::{fmt::Write, mem};
 use tracing::warn;
 
 use crate::{
@@ -32,10 +32,37 @@ impl ClientState {
     ///
     /// # Returns
     /// * `Option<RequestBody>` - The transformed request body for Claude web, or None if transformation fails
-    pub fn transform_anthropic(&self, value: ClientRequestBody) -> Option<RequestBody> {
-        let system = merge_system(value.system);
-        let merged = self.merge_messages(value.messages, system)?;
-        Some(RequestBody {
+    pub fn transform_claude(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
+        let system = value.system.take();
+        let msgs = mem::take(&mut value.messages);
+        let system = merge_system(system);
+        let merged = self.merge_messages(msgs, system)?;
+        Some(self.transform(value, merged))
+    }
+
+    /// Transforms the request body from Claude web format to OpenAI API format
+    ///
+    /// # Arguments
+    /// * `value` - The client request body to transform
+    ///
+    /// # Returns
+    /// * `Option<RequestBody>` - The transformed request body for OpenAI API, or None if transformation fails
+    pub fn transform_oai(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
+        let mut msgs = mem::take(&mut value.messages);
+        let mut role = msgs.first().map(|m| m.role)?;
+        for msg in msgs.iter_mut() {
+            if msg.role != Role::System {
+                role = msg.role;
+            } else {
+                msg.role = role;
+            }
+        }
+        let merged = self.merge_messages(msgs, String::new())?;
+        Some(self.transform(value, merged))
+    }
+
+    fn transform(&self, value: ClientRequestBody, merged: Merged) -> RequestBody {
+        RequestBody {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
             files: vec![],
@@ -52,40 +79,7 @@ impl ClientState {
             prompt: merged.prompt,
             timezone: TIME_ZONE.to_string(),
             images: merged.images,
-        })
-    }
-
-    /// Transforms the request body from Claude web format to OpenAI API format
-    ///
-    /// # Arguments
-    /// * `value` - The client request body to transform
-    ///
-    /// # Returns
-    /// * `Option<RequestBody>` - The transformed request body for OpenAI API, or None if transformation fails
-    pub fn transform_oai(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
-        let mut role = value.messages.first().map(|m| m.role)?;
-        for msg in value.messages.iter_mut() {
-            if msg.role != Role::System {
-                role = msg.role;
-            } else {
-                msg.role = role;
-            }
         }
-        let merged = self.merge_messages(value.messages, String::new())?;
-        Some(RequestBody {
-            max_tokens_to_sample: value.max_tokens,
-            attachments: vec![Attachment::new(merged.paste)],
-            files: vec![],
-            model: if self.is_pro() {
-                Some(value.model)
-            } else {
-                None
-            },
-            rendering_mode: "raw".to_string(),
-            prompt: merged.prompt,
-            timezone: TIME_ZONE.to_string(),
-            images: merged.images,
-        })
     }
 
     /// Merges multiple messages into a single text prompt, handling system instructions
@@ -285,9 +279,6 @@ pub async fn merge_sse(
         let Ok(event) = event else {
             continue;
         };
-        if event.event != "completion" {
-            continue;
-        }
         let data = event.data;
         let Ok(data) = serde_json::from_str::<Data>(&data) else {
             continue;

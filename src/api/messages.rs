@@ -45,7 +45,7 @@ pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
 /// * `Response` - Stream or JSON response from Claude
 pub async fn api_messages(
     XApiKey(_): XApiKey,
-    State(state): State<ClientState>,
+    State(mut state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
 ) -> Result<Response, ClewdrError> {
     // Check if the request is a test message
@@ -56,7 +56,8 @@ pub async fn api_messages(
         ))
         .into_response());
     }
-    state.retry(p, ApiFormat::Claude).await
+    state.api_format = ApiFormat::Claude;
+    state.try_chat(p).await
 }
 
 impl ClientState {
@@ -70,7 +71,7 @@ impl ClientState {
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
     pub async fn try_message(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         let stream = p.stream;
-        let api_res = self.chat(p).await?;
+        let api_res = self.send_chat(p).await?;
 
         // if not streaming, return the response
         if !stream {

@@ -32,26 +32,19 @@ use super::stream::NonStreamEventData;
 /// * `Response` - JSON or stream response in OpenAI format
 pub async fn api_completion(
     AuthBearer(token): AuthBearer,
-    State(state): State<ClientState>,
-    Json(p): Json<ClientRequestBody>,
+    State(mut state): State<ClientState>,
+    Json(mut p): Json<ClientRequestBody>,
 ) -> Result<Response, ClewdrError> {
     if !CLEWDR_CONFIG.load().v1_auth(&token) {
         return Err(ClewdrError::IncorrectKey);
     }
     // TODO: Check if the request is a test message
-    let p = enable_thinking(p);
-    state.retry(p, ApiFormat::OpenAI).await
-}
-
-/// Transforms a message into a format compatible with the Claude API
-/// Enables thinking mode if the model name contains "-thinking"
-fn enable_thinking(mut p: ClientRequestBody) -> ClientRequestBody {
-    // remove thinking mode
+    state.api_format = ApiFormat::OpenAI;
     if p.model.contains("-thinking") {
         p.model = p.model.trim_end_matches("-thinking").to_string();
     }
     p.thinking = Some(Thinking::default());
-    p
+    state.try_chat(p).await
 }
 
 impl ClientState {
@@ -65,7 +58,7 @@ impl ClientState {
     /// * `Result<Response, ClewdrError>` - OpenAI-formatted response or error
     pub async fn try_completion(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         let stream = p.stream;
-        let api_res = self.chat(p).await?;
+        let api_res = self.send_chat(p).await?;
 
         if !stream {
             let stream = api_res.bytes_stream().eventsource();

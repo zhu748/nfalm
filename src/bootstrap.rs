@@ -131,21 +131,16 @@ impl ClientState {
             .collect::<Vec<_>>();
 
         let banned = flag_time.iter().any(|(f, _)| f.contains("banned"));
-        let restricted = flag_time
-            .iter()
-            .filter(|(f, _)| f.contains("restricted"))
-            .max_by_key(|(_, expire)| expire.timestamp())
-            .cloned();
-        let second = flag_time
-            .iter()
-            .filter(|(f, _)| f.contains("second_warning"))
-            .max_by_key(|(_, expire)| expire.timestamp())
-            .cloned();
-        let first = flag_time
-            .iter()
-            .filter(|(f, _)| f.contains("first_warning"))
-            .max_by_key(|(_, expire)| expire.timestamp())
-            .cloned();
+        let find_flag = |flag: &str| {
+            flag_time
+                .iter()
+                .filter(|(f, _)| f.contains(flag))
+                .max_by_key(|(_, expire)| expire.timestamp())
+                .cloned()
+        };
+        let restricted = find_flag("restricted");
+        let second = find_flag("second_warning");
+        let first = find_flag("first_warning");
 
         for (f, t) in flag_time {
             let hours = t.to_utc() - now;

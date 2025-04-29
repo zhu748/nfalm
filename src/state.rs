@@ -15,6 +15,7 @@ use url::Url;
 use std::{collections::HashMap, sync::LazyLock};
 
 use crate::{
+    api::ApiFormat,
     config::{CLEWDR_CONFIG, CookieStatus, ENDPOINT, Reason},
     error::ClewdrError,
     services::cookie_manager::CookieEventSender,
@@ -41,6 +42,7 @@ pub struct ClientState {
     pub capabilities: Vec<String>,
     pub endpoint: Url,
     pub proxy: Option<Proxy>,
+    pub api_format: ApiFormat,
 }
 
 impl ClientState {
@@ -55,6 +57,7 @@ impl ClientState {
             capabilities: Vec::new(),
             endpoint: CLEWDR_CONFIG.load().endpoint(),
             proxy: CLEWDR_CONFIG.load().rquest_proxy.clone(),
+            api_format: ApiFormat::Claude,
         }
     }
 

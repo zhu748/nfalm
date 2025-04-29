@@ -32,22 +32,21 @@ use crate::state::ClientState;
 use crate::utils::enabled;
 use crate::utils::print_out_json;
 
-#[derive(Display)]
+#[derive(Display, Clone)]
 pub enum ApiFormat {
     Claude,
     OpenAI,
 }
 
 impl ClientState {
-    pub async fn retry(
+    pub async fn try_chat(
         &self,
         p: ClientRequestBody,
-        format: ApiFormat,
     ) -> Result<axum::response::Response, ClewdrError> {
         let stream = p.stream;
-        let format_display = match format {
-            ApiFormat::Claude => format.to_string().green(),
-            ApiFormat::OpenAI => format.to_string().yellow(),
+        let format_display = match self.api_format {
+            ApiFormat::Claude => self.api_format.to_string().green(),
+            ApiFormat::OpenAI => self.api_format.to_string().yellow(),
         };
         info!(
             "[REQ] stream: {}, msgs: {}, model: {}, think: {}, format: {}",
@@ -80,7 +79,7 @@ impl ClientState {
                 });
             }
             // check if request is successful
-            match state.bootstrap().await.and(match format {
+            match state.bootstrap().await.and(match self.api_format {
                 ApiFormat::Claude => state.try_message(p).await,
                 ApiFormat::OpenAI => state.try_completion(p).await,
             }) {
@@ -117,7 +116,7 @@ impl ClientState {
     ///
     /// # Returns
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
-    pub async fn chat(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
+    pub async fn send_chat(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "client_req.json");
         let org_uuid = self.org_uuid.clone().ok_or(ClewdrError::UnexpectedNone)?;
 
@@ -150,9 +149,11 @@ impl ClientState {
 
         // generate the request body
         // check if the request is empty
-        let mut body = self
-            .transform_anthropic(p)
-            .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
+        let mut body = match self.api_format {
+            ApiFormat::Claude => self.transform_claude(p),
+            ApiFormat::OpenAI => self.transform_oai(p),
+        }
+        .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
 
         // check images
         let images = mem::take(&mut body.images);

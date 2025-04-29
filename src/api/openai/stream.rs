@@ -2,9 +2,11 @@ use axum::response::sse::Event;
 use eventsource_stream::EventStreamError;
 use futures::{Stream, StreamExt};
 use serde::Serialize;
-use serde_json::Value;
 
-use crate::error::ClewdrError;
+use crate::{
+    error::ClewdrError,
+    types::message::{ContentBlockDelta, StreamEvent},
+};
 
 /// Represents the data structure for streaming events in OpenAI API format
 /// Contains a choices array with deltas of content
@@ -107,22 +109,21 @@ where
         async move {
             match event {
                 Ok(data) => {
-                    let parsed = serde_json::from_str::<Value>(&data).ok()?;
-                    if let Some(thinking) = parsed["delta"]["thinking"].as_str() {
-                        return Some(Ok::<Event, ClewdrError>(build_event(
-                            EventContent::Reasoning {
-                                reasoning_content: thinking.to_string(),
-                            },
-                        )));
+                    let parsed = serde_json::from_str::<StreamEvent>(&data).ok()?;
+                    match parsed {
+                        StreamEvent::ContentBlockDelta { delta, .. } => match delta {
+                            ContentBlockDelta::TextDelta { text } => {
+                                Some(Ok(build_event(EventContent::Content { content: text })))
+                            }
+                            ContentBlockDelta::ThinkingDelta { thinking } => {
+                                Some(Ok(build_event(EventContent::Reasoning {
+                                    reasoning_content: thinking,
+                                })))
+                            }
+                            _ => None,
+                        },
+                        _ => None,
                     }
-                    let completion = parsed
-                        .get("completion")
-                        .or(parsed.pointer("/delta/text"))
-                        .or(parsed.pointer("/choices/0/delta/content"))
-                        .and_then(|c| c.as_str())?;
-                    Some(Ok(build_event(EventContent::Content {
-                        content: completion.to_string(),
-                    })))
                 }
                 Err(e) => Some(Err(e.into())),
             }
