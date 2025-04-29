@@ -19,7 +19,7 @@ use super::{
 };
 
 /// Exact test message send by SillyTavern
-pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
+static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
     Message::new_blocks(
         Role::User,
         vec![ContentBlock::Text {

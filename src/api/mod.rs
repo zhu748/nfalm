@@ -4,18 +4,19 @@ mod messages;
 mod misc;
 mod openai;
 
-pub use config::api_get_config;
-pub use config::api_post_config;
+// Re-exports
+
+// Configuration related endpoints
+pub use config::{api_get_config, api_post_config};
+// Message handling endpoints
 pub use messages::api_messages;
-pub use misc::api_auth;
-pub use misc::api_delete_cookie;
-pub use misc::api_get_cookies;
-pub use misc::api_post_cookie;
-pub use misc::api_version;
+// Miscellaneous endpoints
+pub use misc::{api_auth, api_delete_cookie, api_get_cookies, api_post_cookie, api_version};
+// OpenAI compatibility endpoints
 pub use openai::api_completion;
 
-use openai::NonStreamEventData;
-use openai::transform_stream;
+// Internal imports from OpenAI module
+use openai::{NonStreamEventData, transform_stream};
 
 use std::mem;
 
@@ -44,9 +45,12 @@ use crate::utils::print_out_json;
 use crate::utils::print_out_text;
 use crate::utils::text::merge_sse;
 
-#[derive(Display, Clone)]
+/// Represents the format of the API response
+#[derive(Display, Clone, Copy)]
 pub enum ApiFormat {
+    /// Claude native format
     Claude,
+    /// OpenAI compatible format
     OpenAI,
 }
 
@@ -58,16 +62,17 @@ impl ClientState {
     ///
     /// # Returns
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
-    pub async fn transform_response(
-        &self,
+    async fn transform_response(
         input: Response,
+        api_format: ApiFormat,
+        stream: bool,
     ) -> Result<axum::response::Response, ClewdrError> {
         // if not streaming, return the response
-        if !self.stream {
+        if !stream {
             let stream = input.bytes_stream().eventsource();
             let text = merge_sse(stream).await;
             print_out_text(&text, "non_stream.txt");
-            match self.api_format {
+            match api_format {
                 ApiFormat::Claude => return Ok(Json(non_stream_message(text)).into_response()),
                 ApiFormat::OpenAI => return Ok(Json(NonStreamEventData::new(text)).into_response()),
             }
@@ -75,7 +80,7 @@ impl ClientState {
 
         // stream the response
         let input_stream = input.bytes_stream();
-        match self.api_format {
+        match api_format {
             ApiFormat::Claude => Ok(Body::from_stream(input_stream).into_response()),
             ApiFormat::OpenAI => {
                 let input_stream = input_stream.eventsource();
@@ -85,14 +90,29 @@ impl ClientState {
         }
     }
 
-    pub async fn try_chat(
+    /// Attempts to send a chat message to Claude API with retry mechanism
+    ///
+    /// This method handles the complete chat flow including:
+    /// - Request preparation and logging
+    /// - Cookie management for authentication
+    /// - Executing the chat request with automatic retries on failure
+    /// - Response transformation according to the specified API format
+    /// - Error handling and cleanup
+    ///
+    /// # Arguments
+    /// * `p` - The client request body containing messages and configuration
+    ///
+    /// # Returns
+    /// * `Result<axum::response::Response, ClewdrError>` - Formatted response or error
+    pub(self) async fn try_chat(
         &mut self,
         p: ClientRequestBody,
     ) -> Result<axum::response::Response, ClewdrError> {
+        let api_format = self.api_format;
         let stream = p.stream;
-        let format_display = match self.api_format {
-            ApiFormat::Claude => self.api_format.to_string().green(),
-            ApiFormat::OpenAI => self.api_format.to_string().yellow(),
+        let format_display = match api_format {
+            ApiFormat::Claude => api_format.to_string().green(),
+            ApiFormat::OpenAI => api_format.to_string().yellow(),
         };
         info!(
             "[REQ] stream: {}, msgs: {}, model: {}, think: {}, format: {}",
@@ -102,13 +122,20 @@ impl ClientState {
             enabled(p.thinking.is_some()),
             format_display
         );
+        let stopwatch = chrono::Utc::now();
+        defer!(
+            let elapsed = chrono::Utc::now().signed_duration_since(stopwatch);
+            info!(
+                "[FIN] elapsed: {}",
+                format!("{}", elapsed).green()
+            );
+        );
         for i in 0..CLEWDR_CONFIG.load().max_retries {
             if i > 0 {
                 info!("[RETRY] attempt: {}", (i + 1).to_string().green());
             }
             let mut state = self.to_owned();
             let p = p.to_owned();
-            let stopwatch = chrono::Utc::now();
 
             state.request_cookie().await?;
 
@@ -116,19 +143,13 @@ impl ClientState {
             defer! {
                 // ensure the cookie is returned
                 spawn(async move {
-                    let dur = chrono::Utc::now().signed_duration_since(stopwatch);
-                    info!(
-                        "[FIN] elapsed time: {} seconds",
-                        dur.num_seconds().to_string().green()
-                    );
                     defer_clone.return_cookie(None).await;
                 });
             }
             // check if request is successful
-            let transform_clone = state.to_owned();
             let web_res = async { state.bootstrap().await.and(state.send_chat(p).await) };
             match web_res
-                .and_then(|r| transform_clone.transform_response(r))
+                .and_then(|r| Self::transform_response(r, api_format, stream))
                 .await
             {
                 Ok(b) => {
@@ -156,15 +177,21 @@ impl ClientState {
         Err(ClewdrError::TooManyRetries)
     }
 
-    /// Tries to send a message to the Claude API
-    /// Creates a new conversation, processes the request,
+    /// Sends a message to the Claude API by creating a new conversation and processing the request
+    ///
+    /// This method performs several key operations:
+    /// - Creates a new conversation with a unique UUID
+    /// - Configures thinking mode if applicable
+    /// - Transforms the client request to the Claude API format
+    /// - Handles image uploads if present
+    /// - Sends the request to the Claude API endpoint
     ///
     /// # Arguments
     /// * `p` - The client request body containing messages and configuration
     ///
     /// # Returns
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
-    pub async fn send_chat(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
+    async fn send_chat(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "client_req.json");
         let org_uuid = self
             .org_uuid

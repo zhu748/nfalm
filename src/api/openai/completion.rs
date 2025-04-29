@@ -1,15 +1,25 @@
-use axum::{Json, extract::State, response::Response};
+use std::sync::LazyLock;
+
+use axum::{
+    Json,
+    extract::State,
+    response::{IntoResponse, Response},
+};
 use axum_auth::AuthBearer;
 
 use crate::{
     api::{
         ApiFormat,
         body::{ClientRequestBody, Thinking},
+        openai::stream::NonStreamEventData,
     },
     config::CLEWDR_CONFIG,
     error::ClewdrError,
     state::ClientState,
+    types::message::{Message, Role},
 };
+
+static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
 
 /// OpenAI-compatible API endpoint for chat completions
 /// Handles authentication, processes messages, and supports both streaming and non-streaming responses
@@ -29,7 +39,15 @@ pub async fn api_completion(
     if !CLEWDR_CONFIG.load().v1_auth(&token) {
         return Err(ClewdrError::IncorrectKey);
     }
-    // TODO: Check if the request is a test message
+
+    // Check if the request is a test message
+    if !p.stream && p.messages == vec![TEST_MESSAGE.to_owned()] {
+        // respond with a test message
+        return Ok(Json(NonStreamEventData::new(
+            "Claude Reverse Proxy is working, please send a real message.".to_string(),
+        ))
+        .into_response());
+    }
     state.api_format = ApiFormat::OpenAI;
     state.stream = p.stream;
     if p.model.contains("-thinking") {
