@@ -1,12 +1,11 @@
 use axum::extract::FromRequestParts;
-use rquest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::warn;
 
 use crate::{
     config::CLEWDR_CONFIG,
-    state::ClientState,
+    error::ClewdrError,
     types::message::{ContentBlock, ImageSource, Message, Role},
 };
 
@@ -90,13 +89,16 @@ pub struct Thinking {
     r#type: String,
 }
 
-pub struct KeyAuth(pub String);
+pub struct XApiKey(pub String);
 
-impl FromRequestParts<ClientState> for KeyAuth {
-    type Rejection = StatusCode;
+impl<S> FromRequestParts<S> for XApiKey
+where
+    S: Sync,
+{
+    type Rejection = ClewdrError;
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        _: &ClientState,
+        _: &S,
     ) -> Result<Self, Self::Rejection> {
         let key = parts
             .headers
@@ -105,9 +107,9 @@ impl FromRequestParts<ClientState> for KeyAuth {
             .unwrap_or_default();
         if !CLEWDR_CONFIG.load().v1_auth(key) {
             warn!("Invalid password: {}", key);
-            return Err(StatusCode::UNAUTHORIZED);
+            return Err(ClewdrError::IncorrectKey);
         }
-        Ok(KeyAuth(key.to_string()))
+        Ok(XApiKey(key.to_string()))
     }
 }
 

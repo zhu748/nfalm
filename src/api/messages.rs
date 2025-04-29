@@ -8,7 +8,7 @@ use axum::{
 };
 use colored::Colorize;
 use eventsource_stream::Eventsource;
-use rquest::{Method, StatusCode, header::ACCEPT};
+use rquest::{Method, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
 use tokio::spawn;
@@ -24,7 +24,7 @@ use crate::{
     utils::{print_out_json, print_out_text},
 };
 
-use super::body::{ClientRequestBody, KeyAuth};
+use super::body::{ClientRequestBody, XApiKey};
 
 /// Exact test message send by SillyTavern
 pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
@@ -41,24 +41,24 @@ pub static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
 /// Processes messages, handles retries, and returns responses in stream or non-stream mode
 ///
 /// # Arguments
-/// * `KeyAuth(_)` - API key authentication
+/// * `XApiKey(_)` - API key authentication
 /// * `state` - Application state containing client information
 /// * `p` - Request body containing messages and configuration
 ///
 /// # Returns
 /// * `Response` - Stream or JSON response from Claude
 pub async fn api_messages(
-    KeyAuth(_): KeyAuth,
+    XApiKey(_): XApiKey,
     State(state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
-) -> Response {
+) -> Result<Response, ClewdrError> {
     // Check if the request is a test message
     if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
         // respond with a test message
-        return Json(non_stream_message(
+        return Ok(Json(non_stream_message(
             "Claude Reverse Proxy is working, please send a real message.".to_string(),
         ))
-        .into_response();
+        .into_response());
     }
 
     let stream = p.stream;
@@ -76,9 +76,8 @@ pub async fn api_messages(
         let p = p.clone();
         let stopwatch = chrono::Utc::now();
 
-        if let Err(e) = state.request_cookie().await {
-            return Body::from_stream(e.error_stream()).into_response();
-        }
+        state.request_cookie().await?;
+
         let mut state_clone = state.clone();
         defer! {
             // ensure the cookie is returned
@@ -97,41 +96,25 @@ pub async fn api_messages(
                 if let Err(e) = state.clean_chat().await {
                     warn!("Failed to delete chat: {}", e);
                 }
-                return b.into_response();
+                return Ok(b);
             }
             Err(e) => {
                 // delete chat after an error
                 if let Err(e) = state.clean_chat().await {
                     warn!("Failed to delete chat: {}", e);
                 }
-                warn!("Error: {}", e);
+                error!("{}", e);
                 // 429 error
-                match e {
-                    ClewdrError::InvalidCookie(ref r) => {
-                        state.return_cookie(Some(r.clone())).await;
-                        continue;
-                    }
-                    ClewdrError::OtherHttpError(c, e) => {
-                        return (c, Json(e)).into_response();
-                    }
-                    _ => {}
+                if let ClewdrError::InvalidCookie(ref r) = e {
+                    state.return_cookie(Some(r.to_owned())).await;
+                    continue;
                 }
-                if stream {
-                    // stream the error as a response
-                    return Body::from_stream(e.error_stream()).into_response();
-                } else {
-                    // return the error as a response
-                    return Json(e.error_body()).into_response();
-                }
+                return Err(e);
             }
         }
     }
     error!("Max retries exceeded");
-    (
-        StatusCode::TOO_MANY_REQUESTS,
-        Json(ClewdrError::TooManyRetries.error_body()),
-    )
-        .into_response()
+    Err(ClewdrError::TooManyRetries)
 }
 
 impl ClientState {
@@ -146,12 +129,7 @@ impl ClientState {
     async fn try_message(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
-        let Some(org_uuid) = self.org_uuid.clone() else {
-            return Ok(Json(non_stream_message(
-                "No organization found, please check your cookie.".to_string(),
-            ))
-            .into_response());
-        };
+        let org_uuid = self.org_uuid.clone().ok_or(ClewdrError::UnexpectedNone)?;
 
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
@@ -182,12 +160,9 @@ impl ClientState {
 
         // generate the request body
         // check if the request is empty
-        let Some(mut body) = self.transform_anthropic(p) else {
-            return Ok(Json(non_stream_message(
-                "Empty request, please send a message.".to_string(),
-            ))
-            .into_response());
-        };
+        let mut body = self
+            .transform_anthropic(p)
+            .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
 
         // check images
         let images = mem::take(&mut body.images);

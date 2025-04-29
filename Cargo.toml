@@ -8,7 +8,7 @@ authors = ["Xerxes-2"]
 path = "src/lib.rs"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
 rquest = { version = "5", features = [
     "json",
     "stream",
@@ -23,13 +23,7 @@ const_format = { version = "0.2", features = ["fmt"] }
 figlet-rs = "0.1"
 serde = { version = "1", features = ["derive"] }
 colored = "3"
-axum = { version = "0.8", features = [
-    "json",
-    "tracing",
-    "tokio",
-    "macros",
-    "http2",
-] }
+axum = { version = "0.8", features = ["json", "tracing", "tokio", "macros"] }
 regex = "1"
 tracing = { version = "0.1", features = [
     "max_level_debug",
@@ -63,6 +57,7 @@ arc-swap = "1"
 include_dir = "0.7"
 tower-serve-static = "0.1"
 url = { version = "2", features = ["serde"] }
+strum = { version = "0.27", features = ["derive"] }
 
 [features]
 no_fs = []

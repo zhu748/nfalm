@@ -3,9 +3,10 @@ use eventsource_stream::EventStream;
 use futures::{Stream, StreamExt, pin_mut};
 use itertools::Itertools;
 use rand::{Rng, rng};
+use serde::Deserialize;
 use serde_json::Value;
 use std::fmt::Write;
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::{
     api::body::{Attachment, ClientRequestBody, RequestBody},
@@ -17,7 +18,7 @@ use crate::{
 
 /// Merged messages and images
 #[derive(Default, Debug)]
-pub struct Merged {
+struct Merged {
     pub paste: String,
     pub prompt: String,
     pub images: Vec<ImageSource>,
@@ -274,30 +275,24 @@ fn merge_system(sys: Value) -> String {
 pub async fn merge_sse(
     stream: EventStream<impl Stream<Item = Result<Bytes, rquest::Error>>>,
 ) -> String {
+    #[derive(Deserialize)]
+    struct Data {
+        completion: String,
+    }
     pin_mut!(stream);
     let mut w = String::new();
     while let Some(event) = stream.next().await {
-        match event {
-            Ok(event) => {
-                if event.event != "completion" {
-                    continue;
-                }
-                let data = event.data;
-                let Ok(json) = serde_json::from_str::<Value>(&data) else {
-                    error!("Failed to parse JSON: {}", data);
-                    continue;
-                };
-                let Some(completion) = json["completion"].as_str() else {
-                    error!("Failed to get completion from JSON: {}", json);
-                    continue;
-                };
-                w += completion;
-            }
-            Err(_) => {
-                // DO NOT LOG
-                // Because it will spam the logs
-            }
+        let Ok(event) = event else {
+            continue;
+        };
+        if event.event != "completion" {
+            continue;
         }
+        let data = event.data;
+        let Ok(data) = serde_json::from_str::<Data>(&data) else {
+            continue;
+        };
+        w += data.completion.as_str();
     }
     w
 }

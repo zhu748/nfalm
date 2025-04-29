@@ -1,29 +1,25 @@
+use axum::{Json, response::IntoResponse};
 use colored::Colorize;
-use futures::{Stream, stream};
 use rquest::{Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::{convert::Infallible, fmt::Display};
+use std::fmt::Display;
+use strum::IntoStaticStr;
 use tokio::sync::oneshot;
 use tracing::{debug, error};
 
-use crate::{
-    api::body::non_stream_message,
-    config::Reason,
-    services::cookie_manager::CookieEvent,
-    types::message::{
-        ContentBlock, ContentBlockDelta, Message, MessageDeltaContent, MessageStartContent,
-        StreamEvent,
-    },
-};
+use crate::{config::Reason, services::cookie_manager::CookieEvent};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[error("Bad request: {0}")]
+    BadRequest(String),
     #[error("Pad text too short")]
     PadtxtTooShort,
     #[error(transparent)]
     FigmentError(#[from] figment::Error),
-    #[error("Cookie request error: {0}")]
+    #[error(transparent)]
     MpscSendError(#[from] tokio::sync::mpsc::error::SendError<CookieEvent>),
     #[error("Retries exceeded")]
     TooManyRetries,
@@ -37,11 +33,11 @@ pub enum ClewdrError {
     InvalidVersion(String),
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
-    #[error("Cookie receive error: {0}")]
+    #[error(transparent)]
     CookieDispatchError(#[from] oneshot::error::RecvError),
     #[error("No cookie available")]
     NoCookieAvailable,
-    #[error("Invalid Cookie, reason: {0}")]
+    #[error("Invalid Cookie: {0}")]
     InvalidCookie(Reason),
     #[error(transparent)]
     TomlDeError(#[from] toml::de::Error),
@@ -53,7 +49,7 @@ pub enum ClewdrError {
     RquestError(#[from] rquest::Error),
     #[error(transparent)]
     UTF8Error(#[from] std::string::FromUtf8Error),
-    #[error("Http error: code: {}, body: {}", .0.to_string().red(), serde_json::to_string_pretty(.1).unwrap())]
+    #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
     OtherHttpError(StatusCode, JsError),
     #[error("Unexpected None")]
     UnexpectedNone,
@@ -63,22 +59,36 @@ pub enum ClewdrError {
     PathNotFound(String),
     #[error("Invalid timestamp: {0}")]
     TimestampError(i64),
+    #[error("Key/Password Incorrect")]
+    IncorrectKey,
+}
+
+impl IntoResponse for ClewdrError {
+    fn into_response(mut self) -> axum::response::Response {
+        let (status, msg) = match self {
+            ClewdrError::OtherHttpError(status, ref mut inner) => (status, inner.message.take()),
+            ClewdrError::PadtxtTooShort => (StatusCode::BAD_REQUEST, json!(self.to_string())),
+            ClewdrError::TooManyRetries => (StatusCode::TOO_MANY_REQUESTS, json!(self.to_string())),
+            ClewdrError::InvalidCookie(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
+            ClewdrError::PathNotFound(_) => (StatusCode::NOT_FOUND, json!(self.to_string())),
+            ClewdrError::IncorrectKey => (StatusCode::UNAUTHORIZED, json!(self.to_string())),
+            ClewdrError::BadRequest(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
+            _ => (StatusCode::INTERNAL_SERVER_ERROR, json!(self.to_string())),
+        };
+        let r#type: &'static str = self.into();
+        let body = JsError {
+            message: msg,
+            r#type: r#type.to_owned(),
+            code: Some(status.as_u16()),
+        };
+        (status, Json(body)).into_response()
+    }
 }
 
 /// HTTP error response
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ApiError {
     pub error: JsError,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<String>,
-}
-
-impl Display for ApiError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        serde_json::to_string(self)
-            .map_err(|_| std::fmt::Error)?
-            .fmt(f)
-    }
 }
 
 /// Inner HTTP error response
@@ -86,11 +96,13 @@ impl Display for ApiError {
 pub struct JsError {
     pub message: Value,
     pub r#type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<u16>,
 }
 
 /// Raw Inner HTTP error response
 #[derive(Debug, Serialize, Deserialize)]
-struct InnerHttpErrorRaw {
+struct JsErrorRaw {
     pub message: String,
     pub r#type: String,
 }
@@ -101,23 +113,25 @@ impl<'de> Deserialize<'de> for JsError {
     where
         D: serde::Deserializer<'de>,
     {
-        let raw = InnerHttpErrorRaw::deserialize(deserializer)?;
+        let raw = JsErrorRaw::deserialize(deserializer)?;
         if let Ok(message) = serde_json::from_str::<Value>(&raw.message) {
             return Ok(JsError {
                 message,
                 r#type: raw.r#type,
+                code: None,
             });
         }
         Ok(JsError {
             message: json!(raw.message),
             r#type: raw.r#type,
+            code: None,
         })
     }
 }
 
 impl Display for JsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        serde_json::to_string(self)
+        serde_json::to_string_pretty(self)
             .map_err(|_| std::fmt::Error)?
             .fmt(f)
     }
@@ -143,6 +157,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         let error = JsError {
             message: json!("Blocked, check your IP address"),
             r#type: "error".to_string(),
+            code: Some(status.as_u16()),
         };
         return Err(ClewdrError::OtherHttpError(status, error));
     }
@@ -152,6 +167,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             let error = JsError {
                 message: json!(err.to_string()),
                 r#type: "error_get_error_body".to_string(),
+                code: Some(status.as_u16()),
             };
             return Err(ClewdrError::OtherHttpError(status, error));
         }
@@ -160,6 +176,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         let error = JsError {
             message: format!("Unknown error: {}", text).into(),
             r#type: "error_parse_error".to_string(),
+            code: Some(status.as_u16()),
         };
         return Err(ClewdrError::OtherHttpError(status, error));
     };
@@ -183,65 +200,4 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
         }
     }
     Err(ClewdrError::OtherHttpError(status, inner_error))
-}
-
-impl ClewdrError {
-    /// Converts a ClewdrError to a Stream of Claude API events
-    /// Formats the error as a sequence of SSE events that can be consumed by clients
-    ///
-    /// # Returns
-    /// A stream of events representing the error in the Claude API format
-    pub fn error_stream(
-        &self,
-    ) -> impl Stream<Item = Result<axum::body::Bytes, Infallible>> + Send + use<> {
-        let msg_start_content = MessageStartContent::default();
-        let msg_start_block = StreamEvent::MessageStart {
-            message: msg_start_content,
-        };
-        let content_block = ContentBlock::Text {
-            text: String::new(),
-        };
-        let content_block_start = StreamEvent::ContentBlockStart {
-            index: 0,
-            content_block,
-        };
-        let content_block_delta = ContentBlockDelta::TextDelta {
-            text: format!("ClewdR Error: {self}"),
-        };
-        let content_block_delta = StreamEvent::ContentBlockDelta {
-            index: 0,
-            delta: content_block_delta,
-        };
-        let content_block_end = StreamEvent::ContentBlockStop { index: 0 };
-        let message_delta = StreamEvent::MessageDelta {
-            delta: MessageDeltaContent::default(),
-            usage: None,
-        };
-        let message_stop = StreamEvent::MessageStop;
-        let vec = vec![
-            msg_start_block,
-            content_block_start,
-            content_block_delta,
-            content_block_end,
-            message_delta,
-            message_stop,
-        ];
-        let vec = vec.into_iter().map(|e| {
-            let e = serde_json::to_string(&e).unwrap();
-            // SSE format
-            let e = format!("data: {e}\n\n");
-            let bytes = axum::body::Bytes::from(e);
-            Ok::<axum::body::Bytes, Infallible>(bytes)
-        });
-        stream::iter(vec)
-    }
-
-    /// Converts the error to a message body
-    /// Creates a non-streaming message containing the error text
-    ///
-    /// # Returns
-    /// A `Message` object containing the error information
-    pub fn error_body(&self) -> Message {
-        non_stream_message(self.to_string())
-    }
 }

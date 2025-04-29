@@ -8,7 +8,7 @@ use axum::{
 use axum_auth::AuthBearer;
 use colored::Colorize;
 use eventsource_stream::Eventsource;
-use rquest::{Method, StatusCode, header::ACCEPT};
+use rquest::{Method, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
 use tokio::spawn;
@@ -38,9 +38,9 @@ pub async fn api_completion(
     AuthBearer(token): AuthBearer,
     State(mut state): State<ClientState>,
     Json(p): Json<ClientRequestBody>,
-) -> Response {
+) -> Result<Response, ClewdrError> {
     if !CLEWDR_CONFIG.load().v1_auth(&token) {
-        return (StatusCode::UNAUTHORIZED, Json("Unauthorized".to_string())).into_response();
+        return Err(ClewdrError::IncorrectKey);
     }
     // TODO: Check if the request is a test message
 
@@ -58,19 +58,8 @@ pub async fn api_completion(
         if i > 0 {
             info!("Retrying request, attempt: {}", (i + 1).to_string().green());
         }
-        if let Err(e) = state.request_cookie().await {
-            return Json(json!(
-                {
-                    "error": {
-                        "message": e.to_string(),
-                        "type": "invalid_request_error",
-                        "param": null,
-                        "code": 500
-                    }
-                }
-            ))
-            .into_response();
-        }
+        state.request_cookie().await?;
+
         let mut state_clone = state.clone();
         defer! {
             // ensure the cookie is returned
@@ -89,56 +78,25 @@ pub async fn api_completion(
                 if let Err(e) = state.clean_chat().await {
                     warn!("Failed to delete chat: {}", e);
                 }
-                return b.into_response();
+                return Ok(b);
             }
             Err(e) => {
                 // delete chat after an error
                 if let Err(e) = state.clean_chat().await {
                     warn!("Failed to delete chat: {}", e);
                 }
-                warn!("Error: {}", e);
+                error!("{}", e);
                 // 429 error
-                match e {
-                    ClewdrError::InvalidCookie(ref r) => {
-                        state.return_cookie(Some(r.clone())).await;
-                        continue;
-                    }
-                    ClewdrError::OtherHttpError(c, e) => {
-                        return (c, Json(e)).into_response();
-                    }
-                    _ => {}
+                if let ClewdrError::InvalidCookie(ref r) = e {
+                    state.return_cookie(Some(r.to_owned())).await;
+                    continue;
                 }
-
-                // return the error as a response
-                return Json(json! {
-                    {
-                        "error": {
-                            "message": e.to_string(),
-                            "type": "invalid_request_error",
-                            "param": null,
-                            "code": 500
-                        }
-                    }
-                })
-                .into_response();
+                return Err(e);
             }
         }
     }
     error!("Max retries exceeded");
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        Json(json! {
-            {
-                "error": {
-                    "message": "Max retries exceeded",
-                    "type": "invalid_request_error",
-                    "param": null,
-                    "code": 500
-                }
-            }
-        }),
-    )
-        .into_response()
+    Err(ClewdrError::TooManyRetries)
 }
 
 impl ClientState {
@@ -153,19 +111,7 @@ impl ClientState {
     async fn try_completion(&mut self, mut p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "0.req.json");
         let stream = p.stream;
-        let Some(org_uuid) = self.org_uuid.clone() else {
-            return Ok(Json(json!(
-                {
-                    "error": {
-                        "message": "No organization found, please check your cookie.",
-                        "type": "invalid_request_error",
-                        "param": null,
-                        "code": 500
-                    }
-                }
-            ))
-            .into_response());
-        };
+        let org_uuid = self.org_uuid.clone().ok_or(ClewdrError::UnexpectedNone)?;
 
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
@@ -197,19 +143,9 @@ impl ClientState {
 
         // generate the request body
         // check if the request is empty
-        let Some(mut body) = self.transform_anthropic(p) else {
-            return Ok(Json(json!(
-                {
-                    "error": {
-                        "message": "Empty request, please send a message.",
-                        "type": "invalid_request_error",
-                        "param": null,
-                        "code": 500
-                    }
-                }
-            ))
-            .into_response());
-        };
+        let mut body = self
+            .transform_anthropic(p)
+            .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
 
         // check images
         let images = mem::take(&mut body.images);
