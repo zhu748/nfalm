@@ -126,8 +126,8 @@ impl ClientState {
         defer!(
             let elapsed = chrono::Utc::now().signed_duration_since(stopwatch);
             info!(
-                "[FIN] elapsed: {}",
-                format!("{}", elapsed).green()
+                "[FIN] elapsed: {}s",
+                format!("{}", elapsed.num_milliseconds() as f64 / 1000.0).green()
             );
         );
         for i in 0..CLEWDR_CONFIG.load().max_retries {
