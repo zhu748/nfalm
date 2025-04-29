@@ -6,6 +6,7 @@
 
 ## Improvements
 
+- Improve logging readability.
 - Unify error response to standard json format.
 - Massively simplify code for error handling and api endpoints.
 - Further trim cookie input for more flexible cookie parsing.
