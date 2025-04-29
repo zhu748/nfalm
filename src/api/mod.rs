@@ -14,10 +14,20 @@ pub use misc::api_post_cookie;
 pub use misc::api_version;
 pub use openai::api_completion;
 
+use openai::NonStreamEventData;
+use openai::transform_stream;
+
 use std::mem;
 
-use body::ClientRequestBody;
+use axum::{
+    Json,
+    body::Body,
+    response::{IntoResponse, Sse},
+};
+use body::{ClientRequestBody, non_stream_message};
 use colored::Colorize;
+use eventsource_stream::Eventsource;
+use futures::TryFutureExt;
 use rquest::{Method, Response, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
@@ -31,6 +41,8 @@ use crate::error::check_res_err;
 use crate::state::ClientState;
 use crate::utils::enabled;
 use crate::utils::print_out_json;
+use crate::utils::print_out_text;
+use crate::utils::text::merge_sse;
 
 #[derive(Display, Clone)]
 pub enum ApiFormat {
@@ -39,8 +51,42 @@ pub enum ApiFormat {
 }
 
 impl ClientState {
-    pub async fn try_chat(
+    /// Converts the response from the Claude Web into Claude API or OpenAI API format
+    ///
+    /// # Arguments
+    /// * `input` - The response from the Claude Web
+    ///
+    /// # Returns
+    /// * `Result<Response, ClewdrError>` - Response from Claude or error
+    pub async fn transform_response(
         &self,
+        input: Response,
+    ) -> Result<axum::response::Response, ClewdrError> {
+        // if not streaming, return the response
+        if !self.stream {
+            let stream = input.bytes_stream().eventsource();
+            let text = merge_sse(stream).await;
+            print_out_text(&text, "non_stream.txt");
+            match self.api_format {
+                ApiFormat::Claude => return Ok(Json(non_stream_message(text)).into_response()),
+                ApiFormat::OpenAI => return Ok(Json(NonStreamEventData::new(text)).into_response()),
+            }
+        }
+
+        // stream the response
+        let input_stream = input.bytes_stream();
+        match self.api_format {
+            ApiFormat::Claude => Ok(Body::from_stream(input_stream).into_response()),
+            ApiFormat::OpenAI => {
+                let input_stream = input_stream.eventsource();
+                let output = transform_stream(input_stream);
+                Ok(Sse::new(output).into_response())
+            }
+        }
+    }
+
+    pub async fn try_chat(
+        &mut self,
         p: ClientRequestBody,
     ) -> Result<axum::response::Response, ClewdrError> {
         let stream = p.stream;
@@ -79,10 +125,9 @@ impl ClientState {
                 });
             }
             // check if request is successful
-            match state.bootstrap().await.and(match self.api_format {
-                ApiFormat::Claude => state.try_message(p).await,
-                ApiFormat::OpenAI => state.try_completion(p).await,
-            }) {
+            let self_clone = self.clone();
+            let web_res = async { state.bootstrap().await.and(self.send_chat(p).await) };
+            match web_res.and_then(|r| self_clone.transform_response(r)).await {
                 Ok(b) => {
                     if let Err(e) = state.clean_chat().await {
                         warn!("Failed to clean chat: {}", e);
@@ -149,11 +194,9 @@ impl ClientState {
 
         // generate the request body
         // check if the request is empty
-        let mut body = match self.api_format {
-            ApiFormat::Claude => self.transform_claude(p),
-            ApiFormat::OpenAI => self.transform_oai(p),
-        }
-        .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
+        let mut body = self
+            .transform_request(p)
+            .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
 
         // check images
         let images = mem::take(&mut body.images);

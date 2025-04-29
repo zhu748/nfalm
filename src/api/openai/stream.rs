@@ -98,7 +98,7 @@ fn build_event(content: EventContent) -> Event {
 ///
 /// # Returns
 /// A stream of OpenAI-compatible SSE events
-pub fn transform<I>(s: I) -> impl Stream<Item = Result<Event, ClewdrError>> + Send + 'static
+pub fn transform_stream<I>(s: I) -> impl Stream<Item = Result<Event, ClewdrError>> + Send + 'static
 where
     I: Stream<Item = Result<eventsource_stream::Event, EventStreamError<rquest::Error>>>
         + Send

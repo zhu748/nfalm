@@ -9,7 +9,10 @@ use std::{fmt::Write, mem};
 use tracing::warn;
 
 use crate::{
-    api::body::{Attachment, ClientRequestBody, RequestBody},
+    api::{
+        ApiFormat,
+        body::{Attachment, ClientRequestBody, RequestBody},
+    },
     config::CLEWDR_CONFIG,
     state::ClientState,
     types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
@@ -25,44 +28,30 @@ struct Merged {
 }
 
 impl ClientState {
-    /// Transforms the request body from Claude API format to Claude web format
-    ///
-    /// # Arguments
-    /// * `value` - The client request body in Claude API format
-    ///
-    /// # Returns
-    /// * `Option<RequestBody>` - The transformed request body for Claude web, or None if transformation fails
-    pub fn transform_claude(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
-        let system = value.system.take();
-        let msgs = mem::take(&mut value.messages);
-        let system = merge_system(system);
-        let merged = self.merge_messages(msgs, system)?;
-        Some(self.transform(value, merged))
-    }
-
-    /// Transforms the request body from Claude web format to OpenAI API format
-    ///
-    /// # Arguments
-    /// * `value` - The client request body to transform
-    ///
-    /// # Returns
-    /// * `Option<RequestBody>` - The transformed request body for OpenAI API, or None if transformation fails
-    pub fn transform_oai(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
-        let mut msgs = mem::take(&mut value.messages);
-        let mut role = msgs.first().map(|m| m.role)?;
-        for msg in msgs.iter_mut() {
-            if msg.role != Role::System {
-                role = msg.role;
-            } else {
-                msg.role = role;
+    pub fn transform_request(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
+        let (value, merged) = match self.api_format {
+            ApiFormat::Claude => {
+                let system = value.system.take();
+                let msgs = mem::take(&mut value.messages);
+                let system = merge_system(system);
+                let merged = self.merge_messages(msgs, system)?;
+                (value, merged)
             }
-        }
-        let merged = self.merge_messages(msgs, String::new())?;
-        Some(self.transform(value, merged))
-    }
-
-    fn transform(&self, value: ClientRequestBody, merged: Merged) -> RequestBody {
-        RequestBody {
+            ApiFormat::OpenAI => {
+                let mut msgs = mem::take(&mut value.messages);
+                let mut role = msgs.first().map(|m| m.role)?;
+                for msg in msgs.iter_mut() {
+                    if msg.role != Role::System {
+                        role = msg.role;
+                    } else {
+                        msg.role = role;
+                    }
+                }
+                let merged = self.merge_messages(msgs, String::new())?;
+                (value, merged)
+            }
+        };
+        Some(RequestBody {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
             files: vec![],
@@ -79,7 +68,7 @@ impl ClientState {
             prompt: merged.prompt,
             timezone: TIME_ZONE.to_string(),
             images: merged.images,
-        }
+        })
     }
 
     /// Merges multiple messages into a single text prompt, handling system instructions

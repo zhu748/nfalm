@@ -43,6 +43,7 @@ pub struct ClientState {
     pub endpoint: Url,
     pub proxy: Option<Proxy>,
     pub api_format: ApiFormat,
+    pub stream: bool,
 }
 
 impl ClientState {
@@ -58,6 +59,7 @@ impl ClientState {
             endpoint: CLEWDR_CONFIG.load().endpoint(),
             proxy: CLEWDR_CONFIG.load().rquest_proxy.clone(),
             api_format: ApiFormat::Claude,
+            stream: false,
         }
     }
 
