@@ -45,7 +45,7 @@ pub async fn api_messages(
     Json(p): Json<ClientRequestBody>,
 ) -> Result<Response, ClewdrError> {
     // Check if the request is a test message
-    if !p.stream && p.messages == vec![TEST_MESSAGE.clone()] {
+    if !p.stream && p.messages == vec![TEST_MESSAGE.to_owned()] {
         // respond with a test message
         return Ok(Json(non_stream_message(
             "Claude Reverse Proxy is working, please send a real message.".to_string(),

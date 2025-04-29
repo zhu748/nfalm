@@ -221,7 +221,7 @@ impl CookieManager {
             dispatched,
         };
         // 启动事件处理器
-        spawn(manager.run(event_rx, sender.clone()));
+        spawn(manager.run(event_rx, sender.to_owned()));
 
         sender
     }
@@ -262,7 +262,7 @@ impl CookieManager {
     fn reset(&mut self) {
         let mut reset_cookies = Vec::new();
         self.exhausted.retain(|cookie| {
-            let reset_cookie = cookie.clone().reset();
+            let reset_cookie = cookie.to_owned().reset();
             if reset_cookie.reset_time.is_none() {
                 reset_cookies.push(reset_cookie);
                 false
@@ -290,7 +290,7 @@ impl CookieManager {
             .pop_front()
             .ok_or(ClewdrError::NoCookieAvailable)?;
         let instant = Instant::now();
-        self.dispatched.insert(cookie.clone(), instant);
+        self.dispatched.insert(cookie.to_owned(), instant);
         Ok(cookie)
     }
 
@@ -347,7 +347,7 @@ impl CookieManager {
             warn!("Cookie already exists");
             return;
         }
-        self.valid.push_back(cookie.clone());
+        self.valid.push_back(cookie.to_owned());
         self.save();
     }
 
@@ -361,7 +361,7 @@ impl CookieManager {
             dispatched: self
                 .dispatched
                 .iter()
-                .map(|(cookie, instant)| (cookie.clone(), instant.elapsed().as_secs()))
+                .map(|(cookie, instant)| (cookie.to_owned(), instant.elapsed().as_secs()))
                 .collect(),
             exhausted: self.exhausted.iter().cloned().collect(),
             invalid: self.invalid.iter().cloned().collect(),
@@ -377,7 +377,7 @@ impl CookieManager {
             .dispatched
             .iter()
             .filter(|(_, time)| now.duration_since(**time).as_secs() > 5 * 60)
-            .map(|(cookie, _)| cookie.clone())
+            .map(|(cookie, _)| cookie.to_owned())
             .collect();
 
         if expired.is_empty() {
@@ -459,8 +459,8 @@ impl CookieManager {
     /// # Arguments
     /// * `event_rx` - Event receiver to get incoming events
     fn spawn_event_enqueuer(&self, mut event_rx: mpsc::Receiver<CookieEvent>) {
-        let event_queue = self.event_queue.clone();
-        let event_notify = self.event_notify.clone();
+        let event_queue = self.event_queue.to_owned();
+        let event_notify = self.event_notify.to_owned();
 
         tokio::spawn(async move {
             while let Some(event) = event_rx.recv().await {

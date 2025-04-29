@@ -57,7 +57,7 @@ impl ClientState {
             cookies: HashMap::new(),
             capabilities: Vec::new(),
             endpoint: CLEWDR_CONFIG.load().endpoint(),
-            proxy: CLEWDR_CONFIG.load().rquest_proxy.clone(),
+            proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
             api_format: ApiFormat::Claude,
             stream: false,
         }
@@ -69,12 +69,12 @@ impl ClientState {
             .request(method, url)
             .header_append(ORIGIN, ENDPOINT)
             .header_append(COOKIE, self.header_cookie());
-        let r = if let Some(uuid) = self.conv_uuid.clone() {
+        let r = if let Some(uuid) = self.conv_uuid.to_owned() {
             r.header_append(REFERER, format!("{}/chat/{}", ENDPOINT, uuid))
         } else {
             r.header_append(REFERER, format!("{}/chat/new", ENDPOINT))
         };
-        if let Some(proxy) = self.proxy.clone() {
+        if let Some(proxy) = self.proxy.to_owned() {
             r.proxy(proxy)
         } else {
             r
@@ -139,10 +139,10 @@ impl ClientState {
     /// Updates the internal state with the new cookie and proxy configuration
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
         let res = self.event_sender.request().await?;
-        self.cookie = Some(res.clone());
+        self.cookie = Some(res.to_owned());
         self.update_cookies(res.cookie.to_string().as_str());
         // load newest config
-        self.proxy = CLEWDR_CONFIG.load().rquest_proxy.clone();
+        self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
         self.endpoint = CLEWDR_CONFIG.load().endpoint();
         println!("Cookie: {}", res.cookie.to_string().green());
         Ok(())

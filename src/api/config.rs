@@ -68,8 +68,8 @@ pub async fn api_post_config(
     CLEWDR_CONFIG.rcu(|old_c| {
         let mut new_c = ClewdrConfig::clone(&c);
         // add cookie_array and wasted_cookie
-        new_c.cookie_array = old_c.cookie_array.clone();
-        new_c.wasted_cookie = old_c.wasted_cookie.clone();
+        new_c.cookie_array = old_c.cookie_array.to_owned();
+        new_c.wasted_cookie = old_c.wasted_cookie.to_owned();
         new_c
     });
     if let Err(e) = CLEWDR_CONFIG.load().save() {

@@ -318,7 +318,7 @@ impl ClewdrConfig {
     /// The URL for the API endpoint
     pub fn endpoint(&self) -> Url {
         if let Some(ref proxy) = self.rproxy {
-            return proxy.clone();
+            return proxy.to_owned();
         }
         ENDPOINT_URL.to_owned()
     }
@@ -355,7 +355,7 @@ impl ClewdrConfig {
             .sorted()
             .collect();
         self.cookie_array.dedup();
-        self.rquest_proxy = self.proxy.clone().and_then(|p| {
+        self.rquest_proxy = self.proxy.to_owned().and_then(|p| {
             Proxy::all(p)
                 .inspect_err(|e| {
                     self.proxy = None;

@@ -87,12 +87,12 @@ impl ClientState {
         let h = CLEWDR_CONFIG
             .load()
             .custom_h
-            .clone()
+            .to_owned()
             .unwrap_or("Human".to_string());
         let a = CLEWDR_CONFIG
             .load()
             .custom_a
-            .clone()
+            .to_owned()
             .unwrap_or("Assistant".to_string());
 
         let user_real_roles = CLEWDR_CONFIG.load().use_real_roles;
@@ -172,7 +172,7 @@ impl ClientState {
         print_out_text(w.as_str(), "paste.txt");
 
         // prompt polyfill
-        let p = CLEWDR_CONFIG.load().custom_prompt.clone();
+        let p = CLEWDR_CONFIG.load().custom_prompt.to_owned();
 
         Some(Merged {
             paste: w,

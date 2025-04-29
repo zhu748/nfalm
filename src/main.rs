@@ -32,7 +32,7 @@ async fn main() -> Result<(), ClewdrError> {
     let subscriber = Registry::default().with(
         fmt::Layer::default()
             .with_writer(std::io::stdout)
-            .with_timer(timer.clone()),
+            .with_timer(timer.to_owned()),
     );
     #[cfg(not(feature = "no_fs"))]
     let (subscriber, _guard) = {

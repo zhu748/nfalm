@@ -106,13 +106,13 @@ impl ClientState {
             if i > 0 {
                 info!("[RETRY] attempt: {}", (i + 1).to_string().green());
             }
-            let mut state = self.clone();
-            let p = p.clone();
+            let mut state = self.to_owned();
+            let p = p.to_owned();
             let stopwatch = chrono::Utc::now();
 
             state.request_cookie().await?;
 
-            let mut state_clone = state.clone();
+            let mut defer_clone = state.to_owned();
             defer! {
                 // ensure the cookie is returned
                 spawn(async move {
@@ -121,13 +121,16 @@ impl ClientState {
                         "[FIN] elapsed time: {} seconds",
                         dur.num_seconds().to_string().green()
                     );
-                    state_clone.return_cookie(None).await;
+                    defer_clone.return_cookie(None).await;
                 });
             }
             // check if request is successful
-            let self_clone = self.clone();
-            let web_res = async { state.bootstrap().await.and(self.send_chat(p).await) };
-            match web_res.and_then(|r| self_clone.transform_response(r)).await {
+            let transform_clone = state.to_owned();
+            let web_res = async { state.bootstrap().await.and(state.send_chat(p).await) };
+            match web_res
+                .and_then(|r| transform_clone.transform_response(r))
+                .await
+            {
                 Ok(b) => {
                     if let Err(e) = state.clean_chat().await {
                         warn!("Failed to clean chat: {}", e);
@@ -163,7 +166,10 @@ impl ClientState {
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
     pub async fn send_chat(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
         print_out_json(&p, "client_req.json");
-        let org_uuid = self.org_uuid.clone().ok_or(ClewdrError::UnexpectedNone)?;
+        let org_uuid = self
+            .org_uuid
+            .to_owned()
+            .ok_or(ClewdrError::UnexpectedNone)?;
 
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
@@ -179,7 +185,7 @@ impl ClientState {
         // enable thinking mode
         if p.thinking.is_some() && self.is_pro() {
             body["paprika_mode"] = "extended".into();
-            body["model"] = p.model.clone().into();
+            body["model"] = p.model.to_owned().into();
         }
         let api_res = self
             .request(Method::POST, endpoint)
