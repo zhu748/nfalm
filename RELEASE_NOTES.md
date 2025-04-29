@@ -1,12 +1,9 @@
-# v0.7.14
+# v0.7.15
 
 ## Bug Fixes
 
-- Remove potentially spamming logging in streaming process.
+- Fix system prompt generation in OpenAI Compatible mode.
 
 ## Improvements
 
-- Improve logging readability.
-- Unify error response to standard json format.
-- Massively simplify code for error handling and api endpoints.
-- Further trim cookie input for more flexible cookie parsing.
+- Simplify api format logic.
