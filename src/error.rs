@@ -1,6 +1,6 @@
 use axum::{Json, response::IntoResponse};
 use colored::Colorize;
-use rquest::{Response, StatusCode};
+use rquest::{header::InvalidHeaderValue, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::fmt::Display;
@@ -14,7 +14,7 @@ use crate::{config::Reason, services::cookie_manager::CookieEvent};
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
     #[error(transparent)]
-    CookieParseError(#[from] cookie::ParseError),
+    InvalidHeaderValue(#[from] InvalidHeaderValue),
     #[error("Bad request: {0}")]
     BadRequest(String),
     #[error("Pad text too short")]

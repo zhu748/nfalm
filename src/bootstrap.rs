@@ -25,7 +25,6 @@ impl ClientState {
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
         let end_point = format!("{}/api/bootstrap", self.endpoint);
         let res = self.build_request(Method::GET, end_point).send().await?;
-        self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let bootstrap = res.json::<Value>().await?;
         print_out_json(&bootstrap, "bootstrap_res.json");
@@ -68,7 +67,6 @@ impl ClientState {
         // Bootstrap complete
         let end_point = format!("{}/api/organizations", self.endpoint);
         let res = self.build_request(Method::GET, end_point).send().await?;
-        self.update_cookie_from_res(&res);
         let res = check_res_err(res).await?;
         let ret_json = res.json::<Value>().await?;
         print_out_json(&ret_json, "org.json");

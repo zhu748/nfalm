@@ -1,10 +1,9 @@
 use axum::http::HeaderValue;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use colored::Colorize;
-use cookie::{Cookie, CookieJar};
 use futures::future::join_all;
 use rquest::{
-    Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder, Response,
+    Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder,
     header::{ORIGIN, REFERER},
     multipart::{Form, Part},
 };
@@ -37,15 +36,16 @@ static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
 #[derive(Clone)]
 pub struct ClientState {
     pub cookie: Option<CookieStatus>,
+    cookie_header_value: HeaderValue,
     pub event_sender: CookieEventSender,
     pub org_uuid: Option<String>,
     pub conv_uuid: Option<String>,
-    jar: CookieJar,
     pub capabilities: Vec<String>,
     pub endpoint: Url,
     pub proxy: Option<Proxy>,
     pub api_format: ApiFormat,
     pub stream: bool,
+    client: Client,
 }
 
 impl ClientState {
@@ -56,26 +56,23 @@ impl ClientState {
             cookie: None,
             org_uuid: None,
             conv_uuid: None,
-            jar: CookieJar::new(),
+            cookie_header_value: HeaderValue::from_static(""),
             capabilities: Vec::new(),
             endpoint: CLEWDR_CONFIG.load().endpoint(),
             proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
             api_format: ApiFormat::Claude,
             stream: false,
+            client: SUPER_CLIENT.clone(),
         }
     }
 
     /// Build a request with the current cookie and proxy settings
     pub fn build_request(&self, method: Method, url: impl IntoUrl) -> RequestBuilder {
-        let r = SUPER_CLIENT.cloned();
-        r.set_cookies(
-            &self.endpoint,
-            self.jar
-                .iter()
-                .map_while(|c| HeaderValue::from_str(c.to_string().as_str()).ok())
-                .collect::<Vec<_>>(),
-        );
-        let r = SUPER_CLIENT
+        // let r = SUPER_CLIENT.cloned();
+        self.client
+            .set_cookie(&self.endpoint, self.cookie_header_value.to_owned());
+        let r = self
+            .client
             .request(method, url)
             .header_append(ORIGIN, ENDPOINT);
         let r = if let Some(uuid) = self.conv_uuid.to_owned() {
@@ -101,30 +98,13 @@ impl ClientState {
         })
     }
 
-    /// Update cookie from the server response
-    pub fn update_cookie_from_res(&mut self, res: &Response) {
-        for c in res.cookies() {
-            if c.path().is_some()
-                || c.expires().is_some()
-                || c.domain().is_some()
-                || c.http_only()
-                || c.secure()
-                || c.same_site_lax()
-                || c.same_site_strict()
-            {
-                continue;
-            }
-            self.jar.add(c.into_owned().into_inner());
-        }
-    }
-
     /// Requests a new cookie from the cookie manager
     /// Updates the internal state with the new cookie and proxy configuration
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
         let res = self.event_sender.request().await?;
         self.cookie = Some(res.to_owned());
-        self.jar
-            .add_original(res.cookie.to_string().parse::<Cookie>()?);
+        self.client = SUPER_CLIENT.cloned();
+        self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
         // load newest config
         self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
         self.endpoint = CLEWDR_CONFIG.load().endpoint();

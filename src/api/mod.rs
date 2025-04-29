@@ -219,7 +219,6 @@ impl ClientState {
             .json(&body)
             .send()
             .await?;
-        self.update_cookie_from_res(&api_res);
 
         check_res_err(api_res).await?;
         self.conv_uuid = Some(new_uuid.to_string());
@@ -251,7 +250,6 @@ impl ClientState {
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?;
-        self.update_cookie_from_res(&api_res);
         check_res_err(api_res).await
     }
 }
