@@ -8,7 +8,7 @@ use rquest::{
     multipart::{Form, Part},
 };
 use rquest_util::Emulation;
-use serde_json::{Value, json};
+use serde_json::json;
 use tracing::{debug, error, warn};
 use url::Url;
 
@@ -70,20 +70,20 @@ impl ClientState {
     pub fn build_request(&self, method: Method, url: impl IntoUrl) -> RequestBuilder {
         // let r = SUPER_CLIENT.cloned();
         self.client
-            .set_cookie(&self.endpoint, self.cookie_header_value.to_owned());
-        let r = self
+            .set_cookie(&self.endpoint, &self.cookie_header_value);
+        let req = self
             .client
             .request(method, url)
             .header_append(ORIGIN, ENDPOINT);
-        let r = if let Some(uuid) = self.conv_uuid.to_owned() {
-            r.header_append(REFERER, format!("{}/chat/{}", ENDPOINT, uuid))
+        let req = if let Some(uuid) = self.conv_uuid.to_owned() {
+            req.header_append(REFERER, format!("{}/chat/{}", ENDPOINT, uuid))
         } else {
-            r.header_append(REFERER, format!("{}/new", ENDPOINT))
+            req.header_append(REFERER, format!("{}/new", ENDPOINT))
         };
         if let Some(proxy) = self.proxy.to_owned() {
-            r.proxy(proxy)
+            req.proxy(proxy)
         } else {
-            r
+            req
         }
     }
 
@@ -143,7 +143,7 @@ impl ClientState {
         if CLEWDR_CONFIG.load().preserve_chats {
             debug!("Renaming chat: {}", conv_uuid);
             let pld = json!({
-                "name": format!("ClewdR-{}-{}", org_uuid, conv_uuid),
+                "name": format!("ClewdR-{}", conv_uuid),
             });
             let _ = self
                 .build_request(Method::PUT, endpoint)
@@ -170,13 +170,13 @@ impl ClientState {
                 }
                 // decode the image
                 let bytes = BASE64_STANDARD
-                    .decode(img.data.as_bytes())
+                    .decode(img.data)
                     .inspect_err(|e| {
                         warn!("Failed to decode image: {}", e);
                     })
                     .ok()?;
                 // choose the file name based on the media type
-                let file_name = match img.media_type.as_str() {
+                let file_name = match img.media_type.to_lowercase().as_str() {
                     "image/png" => "image.png",
                     "image/jpeg" => "image.jpg",
                     "image/gif" => "image.gif",
@@ -191,7 +191,6 @@ impl ClientState {
                 Some(
                     // send the request into future
                     self.build_request(Method::POST, endpoint)
-                        .header_append("anthropic-client-platform", "web_claude_ai")
                         .multipart(form)
                         .send(),
                 )
@@ -202,24 +201,27 @@ impl ClientState {
         let fut = join_all(fut)
             .await
             .into_iter()
-            .map_while(|r| {
+            .map(async |r| {
                 // check if the response is ok
-                r.inspect_err(|e| {
-                    warn!("Failed to upload image: {}", e);
-                })
-                .ok()
-            })
-            .map(|r| async {
+                let r = r
+                    .inspect_err(|e| {
+                        warn!("Failed to upload image: {}", e);
+                    })
+                    .ok()?;
+                #[derive(serde::Deserialize)]
+                struct UploadResponse {
+                    file_uuid: String,
+                }
                 // get the response json
-                // extract the file_uuid
                 let json = r
-                    .json::<Value>()
+                    .json::<UploadResponse>()
                     .await
                     .inspect_err(|e| {
                         warn!("Failed to parse image response: {}", e);
                     })
                     .ok()?;
-                Some(json["file_uuid"].as_str()?.to_string())
+                // extract the file_uuid
+                Some(json.file_uuid)
             })
             .collect::<Vec<_>>();
 
