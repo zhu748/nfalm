@@ -81,12 +81,13 @@ impl IntoResponse for ClewdrError {
             r#type: r#type.to_owned(),
             code: Some(status.as_u16()),
         };
-        (status, Json(body)).into_response()
+        let err = ApiError { error: body };
+        (status, Json(err)).into_response()
     }
 }
 
 /// HTTP error response
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ApiError {
     pub error: JsError,
 }
