@@ -8,43 +8,31 @@
 
 1. 前往 [HF Space](https://hf.space) 点击右侧的 **New space** 创建一个空间
 
----
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-31_651.avif)
 
-2. ![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-31_651.avif)
+2. 填写详情页
 
----
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-35_000.avif)
 
-3. 填写详情页
-
----
-
-4. ![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-35_000.avif)
-
----
-
-5. ![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-37_973.avif)
-
----
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-37_973.avif)
 
 ### 上传 Dockerfile
 
-![image.png](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-41_795.avif)
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-41_795.avif)
 
-![image.png](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-44_914.avif)
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-44_914.avif)
 
 ### [下载 Dockerfile.huggingface](https://github.com/Xerxes-2/clewdr/blob/master/Dockerfile.huggingface)
 
 手动重命名为`Dockerfile`并上传
-![image.png](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-48_851.avif)
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-48_851.avif)
 
 状态为 Running 后打开日志
-![image.png](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-52_190.avif)
-![image.png](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-56_188.avif)
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-52_190.avif)
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-14-56_188.avif)
 
 `LLM API Password` 为请求 API 的密码
 `Web Admin Password` 为前端管理密码
-
----
 
 ### API 地址
 
@@ -55,7 +43,9 @@
 
 举例 API 地址
 
-`https://3v4pyve7-clewdr.hf.space/v1`
+```
+https://3v4pyve7-clewdr.hf.space/v1
+```
 
 认证令牌为上文的 `LLM API Password`
 
@@ -63,9 +53,9 @@
 
 ### 自定义变量
 
-![image.png](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-15-05_524.avif)
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-15-05_524.avif)
 
-![image.png](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-15-08_059.avif)
+![](https://raw.githubusercontent.com/Goojoe/PicList/master/images/2025-04-26_15-15-08_059.avif)
 
 配置如下
 
@@ -74,7 +64,7 @@
 简单配置
 
 ```env
-CLEWDR_COOKIE_ARRAY=[[sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA],[sk-ant-sid01-MRM7m79xnS101emZmZvm-VU8ptQAA]]
+CLEWDR_COOKIE_ARRAY=[[cookie1],[cookie2]]
 CLEWDR_PASSWORD=your_secure_password
 CLEWDR_ADMIN_PASSWORD=your_admin_password
 ```
