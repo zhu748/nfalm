@@ -25,13 +25,9 @@ impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let colored_time = |secs: i64| {
             chrono::DateTime::from_timestamp(secs, 0)
-                .map(|t| {
-                    t.naive_local()
-                        .format("%Y-%m-%d %H:%M:%S")
-                        .to_string()
-                        .yellow()
-                })
-                .unwrap_or("Invalid date".to_string().yellow())
+                .map(|t| t.naive_local().format("%Y-%m-%d %H:%M:%S").to_string())
+                .unwrap_or("Invalid date".to_string())
+                .yellow()
         };
         match self {
             Reason::NormalPro => write!(f, "Normal Pro account"),

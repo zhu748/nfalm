@@ -104,29 +104,24 @@ where
         + Send
         + 'static,
 {
-    s.filter_map(|event| {
-        let event = event.map(|e| e.data);
-        async move {
-            match event {
-                Ok(data) => {
-                    let parsed = serde_json::from_str::<StreamEvent>(&data).ok()?;
-                    let StreamEvent::ContentBlockDelta { delta, .. } = parsed else {
-                        return None;
-                    };
-                    match delta {
-                        ContentBlockDelta::TextDelta { text } => {
-                            Some(Ok(build_event(EventContent::Content { content: text })))
-                        }
-                        ContentBlockDelta::ThinkingDelta { thinking } => {
-                            Some(Ok(build_event(EventContent::Reasoning {
-                                reasoning_content: thinking,
-                            })))
-                        }
-                        _ => None,
-                    }
+    s.filter_map(async |event| match event {
+        Ok(eventsource_stream::Event { data, .. }) => {
+            let parsed = serde_json::from_str::<StreamEvent>(&data).ok()?;
+            let StreamEvent::ContentBlockDelta { delta, .. } = parsed else {
+                return None;
+            };
+            match delta {
+                ContentBlockDelta::TextDelta { text } => {
+                    Some(Ok(build_event(EventContent::Content { content: text })))
                 }
-                Err(e) => Some(Err(e.into())),
+                ContentBlockDelta::ThinkingDelta { thinking } => {
+                    Some(Ok(build_event(EventContent::Reasoning {
+                        reasoning_content: thinking,
+                    })))
+                }
+                _ => None,
             }
         }
+        Err(e) => Some(Err(e.into())),
     })
 }
