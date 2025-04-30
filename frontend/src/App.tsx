@@ -12,7 +12,6 @@ import ConfigTab from "./components/config";
 import StatusMessage from "./components/common/StatusMessage";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { useAppContext } from "./context/AppContext";
-import "./i18n"; // Import i18n configuration
 
 function App() {
   const { t } = useTranslation();
