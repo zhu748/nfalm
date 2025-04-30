@@ -7,6 +7,8 @@ use std::{
 
 use crate::config::ClewdrCookie;
 
+use super::CookieStatus;
+
 /// Reason why a cookie is considered useless
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Reason {
@@ -53,6 +55,12 @@ impl Display for Reason {
 pub struct UselessCookie {
     pub cookie: ClewdrCookie,
     pub reason: Reason,
+}
+
+impl PartialEq<CookieStatus> for UselessCookie {
+    fn eq(&self, other: &CookieStatus) -> bool {
+        self.cookie == other.cookie
+    }
 }
 
 impl PartialEq for UselessCookie {

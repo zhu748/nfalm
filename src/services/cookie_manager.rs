@@ -337,7 +337,7 @@ impl CookieManager {
                 .load()
                 .wasted_cookie
                 .iter()
-                .any(|c| c.cookie == cookie.cookie)
+                .any(|c| *c == cookie)
         {
             warn!("Cookie already exists");
             return;
