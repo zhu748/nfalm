@@ -64,15 +64,20 @@ pub enum ClewdrError {
 }
 
 impl IntoResponse for ClewdrError {
-    fn into_response(mut self) -> axum::response::Response {
+    fn into_response(self) -> axum::response::Response {
         let (status, msg) = match self {
-            ClewdrError::OtherHttpError(status, ref mut inner) => (status, inner.message.take()),
+            ClewdrError::OtherHttpError(status, inner) => {
+                return (status, Json(JsError { error: inner })).into_response();
+            }
             ClewdrError::PadtxtTooShort => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::TooManyRetries => (StatusCode::TOO_MANY_REQUESTS, json!(self.to_string())),
             ClewdrError::InvalidCookie(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::PathNotFound(_) => (StatusCode::NOT_FOUND, json!(self.to_string())),
             ClewdrError::IncorrectKey => (StatusCode::UNAUTHORIZED, json!(self.to_string())),
             ClewdrError::BadRequest(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
+            ClewdrError::InvalidHeaderValue(_) => {
+                (StatusCode::BAD_REQUEST, json!(self.to_string()))
+            }
             _ => (StatusCode::INTERNAL_SERVER_ERROR, json!(self.to_string())),
         };
         let err = JsError {
