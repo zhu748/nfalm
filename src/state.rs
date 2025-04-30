@@ -1,7 +1,7 @@
 use axum::http::HeaderValue;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use colored::Colorize;
-use futures::future::join_all;
+use futures::{StreamExt, stream};
 use rquest::{
     Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder,
     header::{ORIGIN, REFERER},
@@ -160,9 +160,8 @@ impl ClientState {
     /// Upload images to the Claude.ai
     pub async fn upload_images(&self, imgs: Vec<ImageSource>) -> Vec<String> {
         // upload images
-        let fut = imgs
-            .into_iter()
-            .map_while(|img| {
+        stream::iter(imgs)
+            .filter_map(async |img| {
                 // check if the image is base64
                 if img.type_ != "base64" {
                     warn!("Image type is not base64");
@@ -188,22 +187,12 @@ impl ClientState {
                 let part = Part::bytes(bytes).file_name(file_name);
                 let form = Form::new().part("file", part);
                 let endpoint = format!("{}/api/{}/upload", self.endpoint, self.org_uuid.as_ref()?);
-                Some(
-                    // send the request into future
-                    self.build_request(Method::POST, endpoint)
-                        .multipart(form)
-                        .send(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        // get upload responses
-        let fut = join_all(fut)
-            .await
-            .into_iter()
-            .map(async |r| {
-                // check if the response is ok
-                let r = r
+                // send the request into future
+                let res = self
+                    .build_request(Method::POST, endpoint)
+                    .multipart(form)
+                    .send()
+                    .await
                     .inspect_err(|e| {
                         warn!("Failed to upload image: {}", e);
                     })
@@ -213,7 +202,7 @@ impl ClientState {
                     file_uuid: String,
                 }
                 // get the response json
-                let json = r
+                let json = res
                     .json::<UploadResponse>()
                     .await
                     .inspect_err(|e| {
@@ -223,13 +212,7 @@ impl ClientState {
                 // extract the file_uuid
                 Some(json.file_uuid)
             })
-            .collect::<Vec<_>>();
-
-        // collect the results
-        join_all(fut)
-            .await
-            .into_iter()
-            .flatten()
             .collect::<Vec<_>>()
+            .await
     }
 }
