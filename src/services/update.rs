@@ -272,19 +272,14 @@ impl ClewdrUpdater {
     /// * `Result<bool, ClewdrError>` - True if latest is newer than current, false otherwise
     fn compare_versions(&self, current: &str, latest: &str) -> Result<bool, ClewdrError> {
         let parse_version = |v: &str| -> Result<(u32, u32, u32), ClewdrError> {
-            let parts: Vec<&str> = v.split('.').collect();
-            if parts.len() < 3 {
+            let vec = v.split('.').collect::<Vec<_>>();
+            let [major, minor, patch, ..] = vec.as_slice() else {
                 return Err(ClewdrError::InvalidVersion(v.to_string()));
-            }
-            let major = parts[0].parse::<u32>()?;
-            let minor = parts[1].parse::<u32>()?;
-            let patch = parts[2].parse::<u32>()?;
-            Ok((major, minor, patch))
+            };
+            Ok((major.parse()?, minor.parse()?, patch.parse()?))
         };
-
         let current = parse_version(current)?;
         let latest = parse_version(latest)?;
-
         Ok(current < latest)
     }
 }
