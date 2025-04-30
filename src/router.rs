@@ -1,6 +1,7 @@
 use axum::{
     Router,
     http::Method,
+    middleware::from_extractor,
     routing::{delete, get, post},
 };
 use const_format::formatc;
@@ -13,6 +14,7 @@ use crate::{
         api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
+    middleware::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth},
     state::ClientState,
 };
 
@@ -38,7 +40,7 @@ impl RouterBuilder {
     /// Creates a new RouterBuilder instance
     /// Sets up routes for API endpoints and static file serving
     pub fn with_default_setup(self) -> Self {
-        self.route_v1_endpoints()
+        self.route_claude_endpoints()
             .route_api_endpoints()
             .route_openai_endpoints()
             .setup_static_serving()
@@ -46,32 +48,38 @@ impl RouterBuilder {
     }
 
     /// Sets up routes for v1 endpoints
-    fn route_v1_endpoints(mut self) -> Self {
-        self.inner = self.inner.route("/v1/messages", post(api_messages));
+    fn route_claude_endpoints(mut self) -> Self {
+        let router = Router::new()
+            .route("/v1/messages", post(api_messages))
+            .route_layer(from_extractor::<RequireClaudeAuth>());
+        self.inner = self.inner.merge(router);
         self
     }
 
     /// Sets up routes for API endpoints
     fn route_api_endpoints(mut self) -> Self {
-        self.inner = self
-            .inner
-            .route(
-                "/api/cookie",
-                delete(api_delete_cookie).post(api_post_cookie),
+        let router = Router::new()
+            .nest(
+                "/api",
+                Router::new()
+                    .route("/cookies", get(api_get_cookies))
+                    .route("/cookie", delete(api_delete_cookie).post(api_post_cookie))
+                    .route("/auth", get(api_auth))
+                    .route("/config", get(api_get_config).put(api_post_config))
+                    .route_layer(from_extractor::<RequireAdminAuth>()),
             )
-            .route("/api/cookies", get(api_get_cookies))
-            .route("/api/version", get(api_version))
-            .route("/api/auth", get(api_auth))
-            .route("/api/config", get(api_get_config).put(api_post_config));
+            .route("/api/version", get(api_version));
+        self.inner = self.inner.merge(router);
         self
     }
 
     /// Optionally sets up routes for OpenAI compatible endpoints
     fn route_openai_endpoints(mut self) -> Self {
         if CLEWDR_CONFIG.load().enable_oai {
-            self.inner = self
-                .inner
-                .route("/v1/chat/completions", post(api_completion));
+            let router = Router::new()
+                .route("/v1/chat/completions", post(api_completion))
+                .route_layer(from_extractor::<RequireOaiAuth>());
+            self.inner = self.inner.merge(router);
         }
         self
     }

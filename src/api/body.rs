@@ -1,12 +1,6 @@
-use axum::extract::FromRequestParts;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
-use crate::{
-    config::CLEWDR_CONFIG,
-    error::ClewdrError,
-    types::message::{ContentBlock, ImageSource, Message, Role},
-};
+use crate::types::message::{ContentBlock, ImageSource, Message, Role};
 
 /// Claude.ai attachment
 #[derive(Deserialize, Serialize, Debug)]
@@ -48,29 +42,6 @@ pub struct RequestBody {
     pub timezone: String,
     #[serde(skip)]
     pub images: Vec<ImageSource>,
-}
-pub struct XApiKey(pub String);
-
-impl<S> FromRequestParts<S> for XApiKey
-where
-    S: Sync,
-{
-    type Rejection = ClewdrError;
-    async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        _: &S,
-    ) -> Result<Self, Self::Rejection> {
-        let key = parts
-            .headers
-            .get("x-api-key")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default();
-        if !CLEWDR_CONFIG.load().v1_auth(key) {
-            warn!("Invalid password: {}", key);
-            return Err(ClewdrError::IncorrectKey);
-        }
-        Ok(XApiKey(key.to_string()))
-    }
 }
 
 /// Transforms a string to a message with assistant role

@@ -12,6 +12,7 @@ pub mod services;
 pub mod state;
 pub mod types;
 pub mod utils;
+pub mod middleware;
 
 pub const IS_DEBUG: bool = cfg!(debug_assertions);
 pub static IS_DEV: LazyLock<bool> = LazyLock::new(|| std::env::var("CARGO_MANIFEST_DIR").is_ok());

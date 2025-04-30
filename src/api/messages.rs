@@ -9,11 +9,12 @@ use axum::{
 use crate::{
     api::body::non_stream_message,
     error::ClewdrError,
+    middleware::UnifiedRequestBody,
     state::ClientState,
-    types::message::{ContentBlock, CreateMessageParams, Message, Role},
+    types::message::{ContentBlock, Message, Role},
 };
 
-use super::{ApiFormat, body::XApiKey};
+use super::ApiFormat;
 
 /// Exact test message send by SillyTavern
 static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
@@ -37,9 +38,8 @@ static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
 /// # Returns
 /// * `Response` - Stream or JSON response from Claude
 pub async fn api_messages(
-    XApiKey(_): XApiKey,
     State(mut state): State<ClientState>,
-    Json(p): Json<CreateMessageParams>,
+    UnifiedRequestBody(p): UnifiedRequestBody,
 ) -> Result<Response, ClewdrError> {
     // Check if the request is a test message
     let stream = p.stream.unwrap_or_default();
@@ -49,6 +49,10 @@ pub async fn api_messages(
             "Claude Reverse Proxy is working, please send a real message.".to_string(),
         ))
         .into_response());
+    }
+    let key = p.get_hash();
+    if let Some(r) = state.try_from_cache(p.to_owned(), key).await {
+        return Ok(r);
     }
     state.api_format = ApiFormat::Claude;
     state.stream = stream;

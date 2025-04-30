@@ -6,6 +6,7 @@ mod openai;
 
 // Re-exports
 
+use bytes::Bytes;
 // Configuration related endpoints
 pub use config::{api_get_config, api_post_config};
 // Message handling endpoints
@@ -18,7 +19,10 @@ pub use openai::api_completion;
 // Internal imports from OpenAI module
 use openai::{NonStreamEventData, transform_stream};
 
-use std::mem;
+use std::{
+    mem,
+    sync::{Arc, Mutex},
+};
 
 use axum::{
     Json,
@@ -28,7 +32,7 @@ use axum::{
 use body::non_stream_message;
 use colored::Colorize;
 use eventsource_stream::Eventsource;
-use futures::TryFutureExt;
+use futures::{Stream, TryFutureExt};
 use rquest::{Method, Response, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
@@ -36,14 +40,14 @@ use strum::Display;
 use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
-use crate::error::ClewdrError;
-use crate::error::check_res_err;
-use crate::state::ClientState;
-use crate::utils::enabled;
-use crate::utils::print_out_json;
-use crate::utils::print_out_text;
-use crate::utils::text::merge_sse;
-use crate::{config::CLEWDR_CONFIG, types::message::CreateMessageParams};
+use crate::{
+    config::CLEWDR_CONFIG,
+    error::{CheckResErr, ClewdrError},
+    services::cache::{CACHE, CachedResponse, stream_to_vec, vec_to_stream},
+    state::ClientState,
+    types::message::CreateMessageParams,
+    utils::{enabled, print_out_json, print_out_text, text::merge_sse},
+};
 
 /// Represents the format of the API response
 #[derive(Display, Clone, Copy)]
@@ -55,6 +59,59 @@ pub enum ApiFormat {
 }
 
 impl ClientState {
+    pub async fn try_from_cache(
+        &mut self,
+        p: CreateMessageParams,
+        key: u64,
+    ) -> Option<axum::response::Response> {
+        if let Some(value) = CACHE.get(&key).await {
+            let (vec, empty) = {
+                let mut value = value.lock().unwrap();
+                (value.pop(), value.is_empty())
+            };
+            if empty {
+                debug!("Cache is empty for key: {}", key);
+                // remove the cache entry
+                CACHE.invalidate(&key).await;
+            }
+            if let Some(vec) = vec {
+                info!("Cache hit for key: {}", key);
+                let byte_stream = vec_to_stream(vec);
+                return self
+                    .transform_response(byte_stream, self.api_format, self.stream)
+                    .await
+                    .ok();
+            }
+        }
+        for id in 0..CLEWDR_CONFIG.load().max_cache {
+            let mut state = self.to_owned();
+            state.key = Some((key, id));
+            let p = p.to_owned();
+            spawn(async move { state.try_chat(p).await });
+        }
+        None
+    }
+
+    async fn cache_response(
+        &self,
+        stream: impl Stream<Item = Result<Bytes, rquest::Error>>,
+        key: u64,
+        id: usize,
+    ) {
+        let vec = stream_to_vec(stream).await;
+        let value = CACHE
+            .get_with(key, async {
+                Arc::new(Mutex::new(CachedResponse::default()))
+            })
+            .await;
+        let mut value = value.lock().unwrap();
+        if value.len() >= CLEWDR_CONFIG.load().max_cache {
+            debug!("Cache is full, skipping cache for key: {}", key);
+            return;
+        }
+        info!("[CACHE {}] cache response for key: {}", id, key);
+        value.push(vec);
+    }
     /// Converts the response from the Claude Web into Claude API or OpenAI API format
     ///
     /// # Arguments
@@ -62,14 +119,19 @@ impl ClientState {
     ///
     /// # Returns
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
-    async fn transform_response(
-        input: Response,
+    pub async fn transform_response(
+        &self,
+        input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
         api_format: ApiFormat,
         stream: bool,
     ) -> Result<axum::response::Response, ClewdrError> {
+        if let Some((key, id)) = self.key {
+            self.cache_response(input, key, id).await;
+            return Ok(Body::empty().into_response());
+        }
         // if not streaming, return the response
         if !stream {
-            let stream = input.bytes_stream().eventsource();
+            let stream = input.eventsource();
             let text = merge_sse(stream).await;
             print_out_text(&text, "non_stream.txt");
             match api_format {
@@ -79,11 +141,10 @@ impl ClientState {
         }
 
         // stream the response
-        let input_stream = input.bytes_stream();
         match api_format {
-            ApiFormat::Claude => Ok(Body::from_stream(input_stream).into_response()),
+            ApiFormat::Claude => Ok(Body::from_stream(input).into_response()),
             ApiFormat::OpenAI => {
-                let input_stream = input_stream.eventsource();
+                let input_stream = input.eventsource();
                 let output = transform_stream(input_stream);
                 Ok(Sse::new(output).into_response())
             }
@@ -149,7 +210,7 @@ impl ClientState {
             // check if request is successful
             let web_res = async { state.bootstrap().await.and(state.send_chat(p).await) };
             match web_res
-                .and_then(|r| Self::transform_response(r, api_format, stream))
+                .and_then(|r| self.transform_response(r.bytes_stream(), api_format, stream))
                 .await
             {
                 Ok(b) => {
@@ -214,13 +275,12 @@ impl ClientState {
             body["paprika_mode"] = "extended".into();
             body["model"] = p.model.to_owned().into();
         }
-        let api_res = self
-            .build_request(Method::POST, endpoint)
+        self.build_request(Method::POST, endpoint)
             .json(&body)
             .send()
+            .await?
+            .check()
             .await?;
-
-        check_res_err(api_res).await?;
         self.conv_uuid = Some(new_uuid.to_string());
         debug!("New conversation created: {}", new_uuid);
 
@@ -244,12 +304,12 @@ impl ClientState {
             self.endpoint, org_uuid, new_uuid
         );
 
-        let api_res = self
-            .build_request(Method::POST, endpoint)
+        self.build_request(Method::POST, endpoint)
             .json(&body)
             .header_append(ACCEPT, "text/event-stream")
             .send()
-            .await?;
-        check_res_err(api_res).await
+            .await?
+            .check()
+            .await
     }
 }

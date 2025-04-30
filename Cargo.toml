@@ -56,6 +56,9 @@ include_dir = "0.7"
 tower-serve-static = "0.1"
 url = { version = "2", features = ["serde"] }
 strum = { version = "0.27", features = ["derive"] }
+moka = { version = "0.12", features = ["future"] }
+tower = "0.5"
+bytes = "1"
 
 [features]
 no_fs = []

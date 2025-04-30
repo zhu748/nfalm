@@ -44,7 +44,8 @@ pub struct ClientState {
     pub proxy: Option<Proxy>,
     pub api_format: ApiFormat,
     pub stream: bool,
-    client: Client,
+    pub client: Client,
+    pub key: Option<(u64, usize)>,
 }
 
 impl ClientState {
@@ -62,6 +63,7 @@ impl ClientState {
             api_format: ApiFormat::Claude,
             stream: false,
             client: SUPER_CLIENT.clone(),
+            key: None,
         }
     }
 

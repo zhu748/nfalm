@@ -1,4 +1,4 @@
-use axum::{Json, response::IntoResponse};
+use axum::{Json, extract::rejection::JsonRejection, response::IntoResponse};
 use colored::Colorize;
 use rquest::{Response, StatusCode, header::InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,8 @@ pub enum ClewdrError {
     #[error(transparent)]
     TomlSeError(#[from] toml::ser::Error),
     #[error(transparent)]
+    JsonRejection(#[from] JsonRejection),
+    #[error(transparent)]
     RquestError(#[from] rquest::Error),
     #[error(transparent)]
     UTF8Error(#[from] std::string::FromUtf8Error),
@@ -59,8 +61,8 @@ pub enum ClewdrError {
     PathNotFound(String),
     #[error("Invalid timestamp: {0}")]
     TimestampError(i64),
-    #[error("Key/Password Incorrect")]
-    IncorrectKey,
+    #[error("Key/Password Invalid")]
+    InvalidKey,
 }
 
 impl IntoResponse for ClewdrError {
@@ -69,11 +71,12 @@ impl IntoResponse for ClewdrError {
             ClewdrError::OtherHttpError(status, inner) => {
                 return (status, Json(JsError { error: inner })).into_response();
             }
+            ClewdrError::JsonRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::PadtxtTooShort => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::TooManyRetries => (StatusCode::TOO_MANY_REQUESTS, json!(self.to_string())),
             ClewdrError::InvalidCookie(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::PathNotFound(_) => (StatusCode::NOT_FOUND, json!(self.to_string())),
-            ClewdrError::IncorrectKey => (StatusCode::UNAUTHORIZED, json!(self.to_string())),
+            ClewdrError::InvalidKey => (StatusCode::UNAUTHORIZED, json!(self.to_string())),
             ClewdrError::BadRequest(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::InvalidHeaderValue(_) => {
                 (StatusCode::BAD_REQUEST, json!(self.to_string()))
@@ -143,67 +146,76 @@ impl Display for JsErrorBody {
     }
 }
 
-/// Checks response from Claude Web API for errors
-/// Validates HTTP status codes and parses error messages from responses
-///
-/// # Arguments
-/// * `res` - The HTTP response to check
-///
-/// # Returns
-/// * `Ok(Response)` if the request was successful
-/// * `Err(ClewdrError)` if the request failed, with details about the failure
-pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
-    let status = res.status();
-    if status.is_success() {
-        return Ok(res);
-    }
-    debug!("Error response status: {}", status);
-    if status == 302 {
-        // blocked by cloudflare
-        let error = JsErrorBody {
-            message: json!("Blocked, check your IP address"),
-            r#type: "error".to_string(),
-            code: Some(status.as_u16()),
-        };
-        return Err(ClewdrError::OtherHttpError(status, error));
-    }
-    let text = match res.text().await {
-        Ok(text) => text,
-        Err(err) => {
+pub trait CheckResErr
+where
+    Self: Sized,
+{
+    fn check(self) -> impl Future<Output = Result<Self, ClewdrError>>;
+}
+
+impl CheckResErr for Response {
+    /// Checks response from Claude Web API for errors
+    /// Validates HTTP status codes and parses error messages from responses
+    ///
+    /// # Arguments
+    /// * `res` - The HTTP response to check
+    ///
+    /// # Returns
+    /// * `Ok(Response)` if the request was successful
+    /// * `Err(ClewdrError)` if the request failed, with details about the failure
+    async fn check(self) -> Result<Self, ClewdrError> {
+        let status = self.status();
+        if status.is_success() {
+            return Ok(self);
+        }
+        debug!("Error response status: {}", status);
+        if status == 302 {
+            // blocked by cloudflare
             let error = JsErrorBody {
-                message: json!(err.to_string()),
-                r#type: "error_get_error_body".to_string(),
+                message: json!("Blocked, check your IP address"),
+                r#type: "error".to_string(),
                 code: Some(status.as_u16()),
             };
             return Err(ClewdrError::OtherHttpError(status, error));
         }
-    };
-    let Ok(err) = serde_json::from_str::<JsError>(&text) else {
-        let error = JsErrorBody {
-            message: format!("Unknown error: {}", text).into(),
-            r#type: "error_parse_error_body".to_string(),
-            code: Some(status.as_u16()),
+        let text = match self.text().await {
+            Ok(text) => text,
+            Err(err) => {
+                let error = JsErrorBody {
+                    message: json!(err.to_string()),
+                    r#type: "error_get_error_body".to_string(),
+                    code: Some(status.as_u16()),
+                };
+                return Err(ClewdrError::OtherHttpError(status, error));
+            }
         };
-        return Err(ClewdrError::OtherHttpError(status, error));
-    };
-    if status == 400 && err.error.message == json!("This organization has been disabled.") {
-        // account disabled
-        return Err(ClewdrError::InvalidCookie(Reason::Disabled));
-    }
-    let inner_error = err.error;
-    // check if the error is a rate limit error
-    if status == 429 {
-        // get the reset time from the error message
-        if let Some(time) = inner_error.message["resetsAt"].as_i64() {
-            let reset_time = chrono::DateTime::from_timestamp(time, 0)
-                .ok_or(ClewdrError::TimestampError(time))?
-                .to_utc();
-            let now = chrono::Utc::now();
-            let diff = reset_time - now;
-            let hours = diff.num_hours();
-            error!("Rate limit exceeded, expires in {} hours", hours);
-            return Err(ClewdrError::InvalidCookie(Reason::TooManyRequest(time)));
+        let Ok(err) = serde_json::from_str::<JsError>(&text) else {
+            let error = JsErrorBody {
+                message: format!("Unknown error: {}", text).into(),
+                r#type: "error_parse_error_body".to_string(),
+                code: Some(status.as_u16()),
+            };
+            return Err(ClewdrError::OtherHttpError(status, error));
+        };
+        if status == 400 && err.error.message == json!("This organization has been disabled.") {
+            // account disabled
+            return Err(ClewdrError::InvalidCookie(Reason::Disabled));
         }
+        let inner_error = err.error;
+        // check if the error is a rate limit error
+        if status == 429 {
+            // get the reset time from the error message
+            if let Some(time) = inner_error.message["resetsAt"].as_i64() {
+                let reset_time = chrono::DateTime::from_timestamp(time, 0)
+                    .ok_or(ClewdrError::TimestampError(time))?
+                    .to_utc();
+                let now = chrono::Utc::now();
+                let diff = reset_time - now;
+                let hours = diff.num_hours();
+                error!("Rate limit exceeded, expires in {} hours", hours);
+                return Err(ClewdrError::InvalidCookie(Reason::TooManyRequest(time)));
+            }
+        }
+        Err(ClewdrError::OtherHttpError(status, inner_error))
     }
-    Err(ClewdrError::OtherHttpError(status, inner_error))
 }

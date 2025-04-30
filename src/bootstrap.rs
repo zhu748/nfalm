@@ -5,7 +5,7 @@ use tracing::warn;
 
 use crate::{
     config::{CLEWDR_CONFIG, Reason},
-    error::{ClewdrError, check_res_err},
+    error::{CheckResErr, ClewdrError},
     state::ClientState,
     utils::print_out_json,
 };
@@ -24,8 +24,12 @@ impl ClientState {
     /// * `Result<(), ClewdrError>` - Success or an error with details about cookie validity
     pub async fn bootstrap(&mut self) -> Result<(), ClewdrError> {
         let end_point = format!("{}/api/bootstrap", self.endpoint);
-        let res = self.build_request(Method::GET, end_point).send().await?;
-        let res = check_res_err(res).await?;
+        let res = self
+            .build_request(Method::GET, end_point)
+            .send()
+            .await?
+            .check()
+            .await?;
         let bootstrap = res.json::<Value>().await?;
         print_out_json(&bootstrap, "bootstrap_res.json");
         if bootstrap["account"].is_null() {
@@ -66,8 +70,12 @@ impl ClientState {
 
         // Bootstrap complete
         let end_point = format!("{}/api/organizations", self.endpoint);
-        let res = self.build_request(Method::GET, end_point).send().await?;
-        let res = check_res_err(res).await?;
+        let res = self
+            .build_request(Method::GET, end_point)
+            .send()
+            .await?
+            .check()
+            .await?;
         let ret_json = res.json::<Value>().await?;
         print_out_json(&ret_json, "org.json");
         let acc_info = ret_json

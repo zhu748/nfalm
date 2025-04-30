@@ -32,6 +32,9 @@ pub struct CreateMessageParams {
     /// Whether to stream the response
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    /// Thinking mode configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<Thinking>,
     /// Top-k sampling
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
@@ -47,9 +50,6 @@ pub struct CreateMessageParams {
     /// Request metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
-    /// Thinking mode configuration
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thinking: Option<Thinking>,
 }
 
 /// Thinking mode in Claude API Request
@@ -124,7 +124,7 @@ impl CreateMessageParams {
 }
 
 /// Message in a conversation
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct Message {
     /// Role of the message sender
     pub role: Role,
@@ -134,7 +134,7 @@ pub struct Message {
 }
 
 /// Role of a message sender
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     System,
@@ -144,7 +144,7 @@ pub enum Role {
 }
 
 /// Content of a message
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(untagged)]
 pub enum MessageContent {
     /// Simple text content
@@ -154,7 +154,7 @@ pub enum MessageContent {
 }
 
 /// Content block in a message
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(tag = "type")]
 pub enum ContentBlock {
     /// Text content
@@ -179,7 +179,7 @@ pub enum ContentBlock {
 }
 
 /// Source of an image
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct ImageSource {
     /// Type of image source
     #[serde(rename = "type")]
