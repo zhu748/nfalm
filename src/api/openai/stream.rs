@@ -110,18 +110,18 @@ where
             match event {
                 Ok(data) => {
                     let parsed = serde_json::from_str::<StreamEvent>(&data).ok()?;
-                    match parsed {
-                        StreamEvent::ContentBlockDelta { delta, .. } => match delta {
-                            ContentBlockDelta::TextDelta { text } => {
-                                Some(Ok(build_event(EventContent::Content { content: text })))
-                            }
-                            ContentBlockDelta::ThinkingDelta { thinking } => {
-                                Some(Ok(build_event(EventContent::Reasoning {
-                                    reasoning_content: thinking,
-                                })))
-                            }
-                            _ => None,
-                        },
+                    let StreamEvent::ContentBlockDelta { delta, .. } = parsed else {
+                        return None;
+                    };
+                    match delta {
+                        ContentBlockDelta::TextDelta { text } => {
+                            Some(Ok(build_event(EventContent::Content { content: text })))
+                        }
+                        ContentBlockDelta::ThinkingDelta { thinking } => {
+                            Some(Ok(build_event(EventContent::Reasoning {
+                                reasoning_content: thinking,
+                            })))
+                        }
                         _ => None,
                     }
                 }
