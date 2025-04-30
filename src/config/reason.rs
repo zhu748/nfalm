@@ -21,6 +21,16 @@ pub enum Reason {
 
 impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let colored_time = |secs: i64| {
+            chrono::DateTime::from_timestamp(secs, 0)
+                .map(|t| {
+                    t.naive_local()
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string()
+                        .yellow()
+                })
+                .unwrap_or("Invalid date".to_string().yellow())
+        };
         match self {
             Reason::NormalPro => write!(f, "Normal Pro account"),
             Reason::Disabled => write!(f, "Organization Disabled"),
@@ -28,26 +38,10 @@ impl Display for Reason {
             Reason::Banned => write!(f, "Banned"),
             Reason::Null => write!(f, "Null"),
             Reason::Restricted(i) => {
-                let time = chrono::DateTime::from_timestamp(*i, 0)
-                    .map(|t| {
-                        t.naive_local()
-                            .format("%Y-%m-%d %H:%M:%S")
-                            .to_string()
-                            .yellow()
-                    })
-                    .unwrap_or("Invalid date".to_string().yellow());
-                write!(f, "Restricted/Warning: until {}", time)
+                write!(f, "Restricted/Warning: until {}", colored_time(*i))
             }
             Reason::TooManyRequest(i) => {
-                let time = chrono::DateTime::from_timestamp(*i, 0)
-                    .map(|t| {
-                        t.naive_local()
-                            .format("%Y-%m-%d %H:%M:%S")
-                            .to_string()
-                            .yellow()
-                    })
-                    .unwrap_or("Invalid date".to_string().yellow());
-                write!(f, "429 Too many request: until {}", time)
+                write!(f, "429 Too many request: until {}", colored_time(*i))
             }
         }
     }

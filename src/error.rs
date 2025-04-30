@@ -1,6 +1,6 @@
 use axum::{Json, response::IntoResponse};
 use colored::Colorize;
-use rquest::{header::InvalidHeaderValue, Response, StatusCode};
+use rquest::{Response, StatusCode, header::InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::fmt::Display;
@@ -46,13 +46,11 @@ pub enum ClewdrError {
     #[error(transparent)]
     TomlSeError(#[from] toml::ser::Error),
     #[error(transparent)]
-    RegexError(#[from] regex::Error),
-    #[error(transparent)]
     RquestError(#[from] rquest::Error),
     #[error(transparent)]
     UTF8Error(#[from] std::string::FromUtf8Error),
     #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
-    OtherHttpError(StatusCode, JsError),
+    OtherHttpError(StatusCode, JsErrorBody),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error(transparent)]
@@ -77,26 +75,26 @@ impl IntoResponse for ClewdrError {
             ClewdrError::BadRequest(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, json!(self.to_string())),
         };
-        let r#type: &'static str = self.into();
-        let body = JsError {
-            message: msg,
-            r#type: r#type.to_owned(),
-            code: Some(status.as_u16()),
+        let err = JsError {
+            error: JsErrorBody {
+                message: msg,
+                r#type: <&'static str>::from(self).into(),
+                code: Some(status.as_u16()),
+            },
         };
-        let err = ApiError { error: body };
         (status, Json(err)).into_response()
     }
 }
 
 /// HTTP error response
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ApiError {
-    pub error: JsError,
+pub struct JsError {
+    pub error: JsErrorBody,
 }
 
 /// Inner HTTP error response
 #[derive(Debug, Serialize, Clone)]
-pub struct JsError {
+pub struct JsErrorBody {
     pub message: Value,
     pub r#type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -105,26 +103,26 @@ pub struct JsError {
 
 /// Raw Inner HTTP error response
 #[derive(Debug, Deserialize)]
-struct JsErrorRaw {
+struct RawBody {
     pub message: String,
     pub r#type: String,
 }
 
-impl<'de> Deserialize<'de> for JsError {
+impl<'de> Deserialize<'de> for JsErrorBody {
     /// when message is a json string, try parse it as a object
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let raw = JsErrorRaw::deserialize(deserializer)?;
+        let raw = RawBody::deserialize(deserializer)?;
         if let Ok(message) = serde_json::from_str::<Value>(&raw.message) {
-            return Ok(JsError {
+            return Ok(JsErrorBody {
                 message,
                 r#type: raw.r#type,
                 code: None,
             });
         }
-        Ok(JsError {
+        Ok(JsErrorBody {
             message: json!(raw.message),
             r#type: raw.r#type,
             code: None,
@@ -132,7 +130,7 @@ impl<'de> Deserialize<'de> for JsError {
     }
 }
 
-impl Display for JsError {
+impl Display for JsErrorBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         serde_json::to_string_pretty(self)
             .map_err(|_| std::fmt::Error)?
@@ -157,7 +155,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     debug!("Error response status: {}", status);
     if status == 302 {
         // blocked by cloudflare
-        let error = JsError {
+        let error = JsErrorBody {
             message: json!("Blocked, check your IP address"),
             r#type: "error".to_string(),
             code: Some(status.as_u16()),
@@ -167,7 +165,7 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
     let text = match res.text().await {
         Ok(text) => text,
         Err(err) => {
-            let error = JsError {
+            let error = JsErrorBody {
                 message: json!(err.to_string()),
                 r#type: "error_get_error_body".to_string(),
                 code: Some(status.as_u16()),
@@ -175,10 +173,10 @@ pub async fn check_res_err(res: Response) -> Result<Response, ClewdrError> {
             return Err(ClewdrError::OtherHttpError(status, error));
         }
     };
-    let Ok(err) = serde_json::from_str::<ApiError>(&text) else {
-        let error = JsError {
+    let Ok(err) = serde_json::from_str::<JsError>(&text) else {
+        let error = JsErrorBody {
             message: format!("Unknown error: {}", text).into(),
-            r#type: "error_parse_error".to_string(),
+            r#type: "error_parse_error_body".to_string(),
             code: Some(status.as_u16()),
         };
         return Err(ClewdrError::OtherHttpError(status, error));

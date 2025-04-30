@@ -352,7 +352,7 @@ impl CookieManager {
     /// * `CookieStatusInfo` - Information about all cookie collections
     fn report(&self) -> CookieStatusInfo {
         CookieStatusInfo {
-            valid: self.valid.iter().cloned().collect(),
+            valid: self.valid.to_owned().into(),
             exhausted: self.exhausted.iter().cloned().collect(),
             invalid: self.invalid.iter().cloned().collect(),
         }
@@ -368,21 +368,11 @@ impl CookieManager {
     fn delete(&mut self, cookie: CookieStatus) -> Result<(), ClewdrError> {
         let mut found = false;
         self.valid.retain(|c| {
-            if *c == cookie {
-                found = true;
-                false // remove
-            } else {
-                true // keep
-            }
+            found |= *c == cookie;
+            *c != cookie
         });
-
-        if self.exhausted.remove(&cookie) {
-            found = true;
-        }
-        let useless = UselessCookie::new(cookie.cookie, Reason::Null);
-        if self.invalid.remove(&useless) {
-            found = true;
-        }
+        let useless = UselessCookie::new(cookie.cookie.to_owned(), Reason::Null);
+        found = self.exhausted.remove(&cookie) | self.invalid.remove(&useless);
 
         if found {
             // Update config to reflect changes
@@ -446,12 +436,11 @@ impl CookieManager {
         self.log();
         loop {
             // 尝试从队列中获取事件
-            let event = {
+            let res = {
                 let mut event_queue = self.event_queue.lock().unwrap();
                 event_queue.pop()
             };
-
-            match event {
+            match res {
                 // 处理事件
                 Some(CookieEvent::Return(cookie, reason)) => {
                     // 处理返回的cookie (最高优先级)
