@@ -1,6 +1,5 @@
 use axum::extract::FromRequestParts;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tracing::warn;
 
 use crate::{
@@ -39,7 +38,7 @@ impl Attachment {
 /// Request body to be sent to the Claude.ai
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
-    pub max_tokens_to_sample: u64,
+    pub max_tokens_to_sample: u32,
     pub attachments: Vec<Attachment>,
     pub files: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -50,54 +49,6 @@ pub struct RequestBody {
     #[serde(skip)]
     pub images: Vec<ImageSource>,
 }
-
-/// Default function for maximum tokens
-///
-/// # Returns
-/// * `u64` - The default value of 4096 tokens
-fn max_tokens() -> u64 {
-    4096
-}
-
-/// Request body sent from the client
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct ClientRequestBody {
-    #[serde(default = "max_tokens")]
-    pub max_tokens: u64,
-    pub messages: Vec<Message>,
-    #[serde(default)]
-    pub stop_sequences: Vec<String>,
-    pub model: String,
-    #[serde(default)]
-    pub stream: bool,
-    #[serde(default)]
-    pub thinking: Option<Thinking>,
-    #[serde(default)]
-    pub system: Value,
-    #[serde(default)]
-    pub temperature: f32,
-    #[serde(default)]
-    pub top_p: f32,
-    #[serde(default)]
-    pub top_k: u64,
-}
-
-/// Thinking mode in Claude API Request
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Thinking {
-    budget_tokens: u64,
-    r#type: String,
-}
-
-impl Default for Thinking {
-    fn default() -> Self {
-        Thinking {
-            budget_tokens: 0,
-            r#type: "none".to_string(),
-        }
-    }
-}
-
 pub struct XApiKey(pub String);
 
 impl<S> FromRequestParts<S> for XApiKey

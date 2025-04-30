@@ -10,13 +10,10 @@ use crate::{
     api::body::non_stream_message,
     error::ClewdrError,
     state::ClientState,
-    types::message::{ContentBlock, Message, Role},
+    types::message::{ContentBlock, CreateMessageParams, Message, Role},
 };
 
-use super::{
-    ApiFormat,
-    body::{ClientRequestBody, XApiKey},
-};
+use super::{ApiFormat, body::XApiKey};
 
 /// Exact test message send by SillyTavern
 static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
@@ -42,10 +39,11 @@ static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
 pub async fn api_messages(
     XApiKey(_): XApiKey,
     State(mut state): State<ClientState>,
-    Json(p): Json<ClientRequestBody>,
+    Json(p): Json<CreateMessageParams>,
 ) -> Result<Response, ClewdrError> {
     // Check if the request is a test message
-    if !p.stream && p.messages == vec![TEST_MESSAGE.to_owned()] {
+    let stream = p.stream.unwrap_or_default();
+    if !stream && p.messages == vec![TEST_MESSAGE.to_owned()] {
         // respond with a test message
         return Ok(Json(non_stream_message(
             "Claude Reverse Proxy is working, please send a real message.".to_string(),
@@ -53,6 +51,6 @@ pub async fn api_messages(
         .into_response());
     }
     state.api_format = ApiFormat::Claude;
-    state.stream = p.stream;
+    state.stream = stream;
     state.try_chat(p).await
 }

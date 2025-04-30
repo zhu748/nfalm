@@ -11,11 +11,13 @@ use tracing::warn;
 use crate::{
     api::{
         ApiFormat,
-        body::{Attachment, ClientRequestBody, RequestBody},
+        body::{Attachment, RequestBody},
     },
     config::CLEWDR_CONFIG,
     state::ClientState,
-    types::message::{ContentBlock, ImageSource, Message, MessageContent, Role},
+    types::message::{
+        ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
+    },
     utils::{TIME_ZONE, print_out_text},
 };
 
@@ -28,12 +30,12 @@ struct Merged {
 }
 
 impl ClientState {
-    pub fn transform_request(&self, mut value: ClientRequestBody) -> Option<RequestBody> {
+    pub fn transform_request(&self, mut value: CreateMessageParams) -> Option<RequestBody> {
         let (value, merged) = match self.api_format {
             ApiFormat::Claude => {
                 let system = value.system.take();
                 let msgs = mem::take(&mut value.messages);
-                let system = merge_system(system);
+                let system = merge_system(system.unwrap_or_default());
                 let merged = self.merge_messages(msgs, system)?;
                 (value, merged)
             }
@@ -60,7 +62,7 @@ impl ClientState {
             } else {
                 None
             },
-            rendering_mode: if value.stream {
+            rendering_mode: if value.stream.unwrap_or_default() {
                 "messages".to_string()
             } else {
                 "raw".to_string()

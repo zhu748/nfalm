@@ -1,42 +1,4 @@
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-/// Error types for the Messages API
-#[derive(Debug, Error)]
-pub enum MessageError {
-    #[error("API request failed: {0}")]
-    RequestFailed(String),
-    #[error("API error: {0}")]
-    ApiError(String),
-}
-
-impl From<String> for MessageError {
-    fn from(error: String) -> Self {
-        MessageError::ApiError(error)
-    }
-}
-
-#[async_trait]
-pub trait MessageClient {
-    async fn create_message<'a>(
-        &'a self,
-        params: Option<&'a CreateMessageParams>,
-    ) -> Result<CreateMessageResponse, MessageError>;
-
-    async fn count_tokens<'a>(
-        &'a self,
-        params: Option<&'a CountMessageTokensParams>,
-    ) -> Result<CountMessageTokensResponse, MessageError>;
-
-    async fn create_message_streaming<'a>(
-        &'a self,
-        body: &'a CreateMessageParams,
-    ) -> Result<
-        impl futures_util::Stream<Item = Result<StreamEvent, MessageError>> + 'a,
-        MessageError,
-    >;
-}
 
 #[derive(Debug)]
 pub struct RequiredMessageParams {
@@ -45,10 +7,14 @@ pub struct RequiredMessageParams {
     pub max_tokens: u32,
 }
 
+fn default_max_tokens() -> u32 {
+    4096
+}
 /// Parameters for creating a message
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct CreateMessageParams {
     /// Maximum number of tokens to generate
+    #[serde(default = "default_max_tokens")]
     pub max_tokens: u32,
     /// Input messages for the conversation
     pub messages: Vec<Message>,
@@ -56,7 +22,7 @@ pub struct CreateMessageParams {
     pub model: String,
     /// System prompt
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub system: Option<String>,
+    pub system: Option<serde_json::Value>,
     /// Temperature for response generation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
@@ -81,6 +47,16 @@ pub struct CreateMessageParams {
     /// Request metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
+    /// Thinking mode configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<Thinking>,
+}
+
+/// Thinking mode in Claude API Request
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct Thinking {
+    budget_tokens: u64,
+    r#type: String,
 }
 
 impl From<RequiredMessageParams> for CreateMessageParams {
@@ -102,7 +78,7 @@ impl CreateMessageParams {
 
     // Builder methods for optional parameters
     pub fn with_system(mut self, system: impl Into<String>) -> Self {
-        self.system = Some(system.into());
+        self.system = Some(serde_json::json!(system.into()));
         self
     }
 
@@ -215,7 +191,7 @@ pub struct ImageSource {
 }
 
 /// Tool definition
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Tool {
     /// Name of the tool
     pub name: String,
@@ -227,7 +203,7 @@ pub struct Tool {
 }
 
 /// Tool choice configuration
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum ToolChoice {
     /// Let model choose whether to use tools
@@ -242,7 +218,7 @@ pub enum ToolChoice {
 }
 
 /// Message metadata
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Metadata {
     /// Custom metadata fields
     #[serde(flatten)]

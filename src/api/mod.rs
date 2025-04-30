@@ -25,7 +25,7 @@ use axum::{
     body::Body,
     response::{IntoResponse, Sse},
 };
-use body::{ClientRequestBody, non_stream_message};
+use body::non_stream_message;
 use colored::Colorize;
 use eventsource_stream::Eventsource;
 use futures::TryFutureExt;
@@ -36,7 +36,6 @@ use strum::Display;
 use tokio::spawn;
 use tracing::{debug, error, info, warn};
 
-use crate::config::CLEWDR_CONFIG;
 use crate::error::ClewdrError;
 use crate::error::check_res_err;
 use crate::state::ClientState;
@@ -44,6 +43,7 @@ use crate::utils::enabled;
 use crate::utils::print_out_json;
 use crate::utils::print_out_text;
 use crate::utils::text::merge_sse;
+use crate::{config::CLEWDR_CONFIG, types::message::CreateMessageParams};
 
 /// Represents the format of the API response
 #[derive(Display, Clone, Copy)]
@@ -106,10 +106,10 @@ impl ClientState {
     /// * `Result<axum::response::Response, ClewdrError>` - Formatted response or error
     pub(self) async fn try_chat(
         &mut self,
-        p: ClientRequestBody,
+        p: CreateMessageParams,
     ) -> Result<axum::response::Response, ClewdrError> {
         let api_format = self.api_format;
-        let stream = p.stream;
+        let stream = p.stream.unwrap_or_default();
         let format_display = match api_format {
             ApiFormat::Claude => api_format.to_string().green(),
             ApiFormat::OpenAI => api_format.to_string().yellow(),
@@ -191,7 +191,7 @@ impl ClientState {
     ///
     /// # Returns
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
-    async fn send_chat(&mut self, p: ClientRequestBody) -> Result<Response, ClewdrError> {
+    async fn send_chat(&mut self, p: CreateMessageParams) -> Result<Response, ClewdrError> {
         print_out_json(&p, "client_req.json");
         let org_uuid = self
             .org_uuid

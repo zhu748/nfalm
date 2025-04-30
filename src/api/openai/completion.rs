@@ -8,15 +8,11 @@ use axum::{
 use axum_auth::AuthBearer;
 
 use crate::{
-    api::{
-        ApiFormat,
-        body::{ClientRequestBody, Thinking},
-        openai::stream::NonStreamEventData,
-    },
+    api::{ApiFormat, openai::stream::NonStreamEventData},
     config::CLEWDR_CONFIG,
     error::ClewdrError,
     state::ClientState,
-    types::message::{Message, Role},
+    types::message::{CreateMessageParams, Message, Role, Thinking},
 };
 
 static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
@@ -34,14 +30,15 @@ static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role
 pub async fn api_completion(
     AuthBearer(token): AuthBearer,
     State(mut state): State<ClientState>,
-    Json(mut p): Json<ClientRequestBody>,
+    Json(mut p): Json<CreateMessageParams>,
 ) -> Result<Response, ClewdrError> {
     if !CLEWDR_CONFIG.load().v1_auth(&token) {
         return Err(ClewdrError::IncorrectKey);
     }
+    let stream = p.stream.unwrap_or_default();
 
     // Check if the request is a test message
-    if !p.stream && p.messages == vec![TEST_MESSAGE.to_owned()] {
+    if !stream && p.messages == vec![TEST_MESSAGE.to_owned()] {
         // respond with a test message
         return Ok(Json(NonStreamEventData::new(
             "Claude Reverse Proxy is working, please send a real message.".to_string(),
@@ -49,7 +46,7 @@ pub async fn api_completion(
         .into_response());
     }
     state.api_format = ApiFormat::OpenAI;
-    state.stream = p.stream;
+    state.stream = stream;
     if p.model.contains("-thinking") {
         p.model = p.model.trim_end_matches("-thinking").to_string();
     }

@@ -4,7 +4,7 @@ target/
 log/
 cookie.txt
 .DS_Store
-*.txt
+/*.txt
 static/
 /clewdr*.toml
 /cline_docs
