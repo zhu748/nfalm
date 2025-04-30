@@ -5,6 +5,7 @@ use axum::{
     extract::State,
     response::{IntoResponse, Response},
 };
+use tracing::debug;
 
 use crate::{
     api::body::non_stream_message,
@@ -12,6 +13,7 @@ use crate::{
     middleware::UnifiedRequestBody,
     state::ClientState,
     types::message::{ContentBlock, Message, Role},
+    utils::print_out_json,
 };
 
 use super::ApiFormat;
@@ -50,11 +52,13 @@ pub async fn api_messages(
         ))
         .into_response());
     }
+    print_out_json(&p, "Claude Request.json");
     let key = p.get_hash();
+    debug!("key: {key}");
+    state.api_format = ApiFormat::Claude;
+    state.stream = stream;
     if let Some(r) = state.try_from_cache(p.to_owned(), key).await {
         return Ok(r);
     }
-    state.api_format = ApiFormat::Claude;
-    state.stream = stream;
     state.try_chat(p).await
 }

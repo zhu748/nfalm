@@ -21,16 +21,8 @@ use crate::{
     types::message::ImageSource,
 };
 
-/// The client to be used for requests to the Claude.ai
-/// This client is used for requests that require a specific emulation
-static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| {
-    ClientBuilder::new()
-        .cookie_store(true)
-        .emulation(Emulation::Chrome135)
-        .build()
-        .expect("Failed to create client")
-});
-
+/// Placeholder
+static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| Client::new());
 /// State of current connection
 #[derive(Clone)]
 pub struct ClientState {
@@ -104,7 +96,10 @@ impl ClientState {
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
         let res = self.event_sender.request().await?;
         self.cookie = Some(res.to_owned());
-        self.client = SUPER_CLIENT.cloned();
+        self.client = ClientBuilder::new()
+            .cookie_store(true)
+            .emulation(Emulation::Chrome135)
+            .build()?;
         self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
         // load newest config
         self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();

@@ -19,10 +19,7 @@ pub use openai::api_completion;
 // Internal imports from OpenAI module
 use openai::{NonStreamEventData, transform_stream};
 
-use std::{
-    mem,
-    sync::{Arc, Mutex},
-};
+use std::{mem, sync::Arc};
 
 use axum::{
     Json,
@@ -43,7 +40,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     config::CLEWDR_CONFIG,
     error::{CheckResErr, ClewdrError},
-    services::cache::{CACHE, CachedResponse, stream_to_vec, vec_to_stream},
+    services::cache::{CACHE, stream_to_vec, vec_to_stream},
     state::ClientState,
     types::message::CreateMessageParams,
     utils::{enabled, print_out_json, print_out_text, text::merge_sse},
@@ -77,10 +74,8 @@ impl ClientState {
             if let Some(vec) = vec {
                 info!("Cache hit for key: {}", key);
                 let byte_stream = vec_to_stream(vec);
-                return self
-                    .transform_response(byte_stream, self.api_format, self.stream)
-                    .await
-                    .ok();
+                self.key = None;
+                return self.transform_response(byte_stream).await.ok();
             }
         }
         for id in 0..CLEWDR_CONFIG.load().max_cache {
@@ -100,9 +95,7 @@ impl ClientState {
     ) {
         let vec = stream_to_vec(stream).await;
         let value = CACHE
-            .get_with(key, async {
-                Arc::new(Mutex::new(CachedResponse::default()))
-            })
+            .get_with(key, async { Arc::new(Default::default()) })
             .await;
         let mut value = value.lock().unwrap();
         if value.len() >= CLEWDR_CONFIG.load().max_cache {
@@ -122,26 +115,24 @@ impl ClientState {
     pub async fn transform_response(
         &self,
         input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
-        api_format: ApiFormat,
-        stream: bool,
     ) -> Result<axum::response::Response, ClewdrError> {
         if let Some((key, id)) = self.key {
             self.cache_response(input, key, id).await;
             return Ok(Body::empty().into_response());
         }
         // if not streaming, return the response
-        if !stream {
+        if !self.stream {
             let stream = input.eventsource();
             let text = merge_sse(stream).await;
             print_out_text(&text, "non_stream.txt");
-            match api_format {
+            match self.api_format {
                 ApiFormat::Claude => return Ok(Json(non_stream_message(text)).into_response()),
                 ApiFormat::OpenAI => return Ok(Json(NonStreamEventData::new(text)).into_response()),
             }
         }
 
         // stream the response
-        match api_format {
+        match self.api_format {
             ApiFormat::Claude => Ok(Body::from_stream(input).into_response()),
             ApiFormat::OpenAI => {
                 let input_stream = input.eventsource();
@@ -210,7 +201,7 @@ impl ClientState {
             // check if request is successful
             let web_res = async { state.bootstrap().await.and(state.send_chat(p).await) };
             match web_res
-                .and_then(|r| self.transform_response(r.bytes_stream(), api_format, stream))
+                .and_then(|r| self.transform_response(r.bytes_stream()))
                 .await
             {
                 Ok(b) => {
@@ -253,7 +244,6 @@ impl ClientState {
     /// # Returns
     /// * `Result<Response, ClewdrError>` - Response from Claude or error
     async fn send_chat(&mut self, p: CreateMessageParams) -> Result<Response, ClewdrError> {
-        print_out_json(&p, "client_req.json");
         let org_uuid = self
             .org_uuid
             .to_owned()

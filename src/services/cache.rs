@@ -58,7 +58,7 @@ pub fn vec_to_stream(bytes: Vec<Bytes>) -> impl Stream<Item = Result<Bytes, rque
 }
 
 #[derive(Hash, Eq, PartialEq, Debug)]
-pub struct RequestKeys {
+struct RequestKeys {
     /// Maximum number of tokens to generate
     pub max_tokens: u32,
     /// Input messages for the conversation
@@ -69,8 +69,6 @@ pub struct RequestKeys {
     pub system: Option<Value>,
     /// Custom stop sequences
     pub stop_sequences: Option<Vec<String>>,
-    /// Whether to stream the response
-    pub stream: Option<bool>,
     /// Thinking mode configuration
     pub thinking: bool,
     /// Top-k sampling
@@ -101,7 +99,6 @@ impl From<&CreateMessageParams> for RequestKeys {
             model: params.model.to_owned(),
             system: params.system.to_owned(),
             stop_sequences: params.stop_sequences.to_owned(),
-            stream: params.stream,
             thinking: params.thinking.is_some(),
             top_k: params.top_k,
         }
