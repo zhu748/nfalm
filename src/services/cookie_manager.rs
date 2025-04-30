@@ -242,7 +242,7 @@ impl CookieManager {
                 .iter()
                 .chain(self.exhausted.iter())
                 .cloned()
-                .collect::<Vec<_>>();
+                .collect();
             config.wasted_cookie = self.invalid.iter().cloned().collect();
             config
         });

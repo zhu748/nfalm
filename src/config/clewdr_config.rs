@@ -4,11 +4,11 @@ use figment::{
     Figment,
     providers::{Env, Format, Toml},
 };
-use itertools::Itertools;
 use passwords::PasswordGenerator;
 use rquest::{Proxy, Url};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashSet,
     fmt::{Debug, Display},
     net::{IpAddr, SocketAddr},
     path::PathBuf,
@@ -55,9 +55,9 @@ fn generate_password() -> String {
 pub struct ClewdrConfig {
     // Cookie configurations
     #[serde(default)]
-    pub cookie_array: Vec<CookieStatus>,
+    pub cookie_array: HashSet<CookieStatus>,
     #[serde(default)]
-    pub wasted_cookie: Vec<UselessCookie>,
+    pub wasted_cookie: HashSet<UselessCookie>,
 
     // Server settings, cannot hot reload
     #[serde(default = "default_ip")]
@@ -90,6 +90,8 @@ pub struct ClewdrConfig {
     pub pass_params: bool,
     #[serde(default)]
     pub preserve_chats: bool,
+    #[serde(default)]
+    pub cache_requests: usize,
 
     // Cookie settings, can hot reload
     #[serde(default)]
@@ -133,8 +135,8 @@ impl Default for ClewdrConfig {
             max_retries: default_max_retries(),
             check_update: default_check_update(),
             auto_update: false,
-            cookie_array: vec![],
-            wasted_cookie: Vec::new(),
+            cookie_array: HashSet::new(),
+            wasted_cookie: HashSet::new(),
             password: String::new(),
             admin_password: String::new(),
             proxy: None,
@@ -151,6 +153,7 @@ impl Default for ClewdrConfig {
             pad_tokens: Arc::new(vec![]),
             pass_params: false,
             preserve_chats: false,
+            cache_requests: 0,
             skip_first_warning: false,
             skip_second_warning: false,
             skip_restricted: false,
@@ -348,13 +351,7 @@ impl ClewdrConfig {
         if self.admin_password.trim().is_empty() {
             self.admin_password = generate_password();
         }
-        self.cookie_array = self
-            .cookie_array
-            .into_iter()
-            .map(|x| x.reset())
-            .sorted()
-            .collect();
-        self.cookie_array.dedup();
+        self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
         self.rquest_proxy = self.proxy.to_owned().and_then(|p| {
             Proxy::all(p)
                 .inspect_err(|e| {
