@@ -3,11 +3,11 @@ use serde::Serialize;
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashSet, VecDeque},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 use tokio::{
     spawn,
-    sync::{Mutex, Notify},
+    sync::Notify,
     sync::{mpsc, oneshot},
     time::Interval,
 };
@@ -421,7 +421,7 @@ impl CookieManager {
             while let Some(event) = event_rx.recv().await {
                 // 将事件添加到优先级队列
                 {
-                    event_queue.lock().await.push(event);
+                    event_queue.lock().unwrap().push(event);
                 }
                 // 通知主循环有新事件
                 event_notify.notify_one();
@@ -447,51 +447,47 @@ impl CookieManager {
         loop {
             // 尝试从队列中获取事件
             let event = {
-                let mut event_queue = self.event_queue.lock().await;
+                let mut event_queue = self.event_queue.lock().unwrap();
                 event_queue.pop()
             };
 
             match event {
-                Some(event) => {
-                    // 处理事件
-                    match event {
-                        CookieEvent::Return(cookie, reason) => {
-                            // 处理返回的cookie (最高优先级)
-                            self.collect(cookie, reason);
-                            self.log();
-                        }
-                        CookieEvent::Submit(cookie) => {
-                            // 处理提交的新cookie (次高优先级)
-                            self.accept(cookie);
-                            self.log();
-                        }
-                        CookieEvent::CheckReset => {
-                            // 处理超时检查 (中等优先级)
-                            self.reset();
-                        }
-                        CookieEvent::Request(sender) => {
-                            // 处理请求 (最低优先级)
-                            let cookie = self.dispatch();
-                            if let Err(Ok(c)) = sender.send(cookie) {
-                                error!("Failed to send cookie");
-                                self.valid.push_back(c);
-                            }
-                            self.log();
-                        }
-                        CookieEvent::GetStatus(sender) => {
-                            let status_info = self.report();
-                            sender.send(status_info).unwrap_or_else(|_| {
-                                error!("Failed to send status info");
-                            });
-                        }
-                        CookieEvent::Delete(cookie, sender) => {
-                            let result = self.delete(cookie);
-                            if sender.send(result).is_err() {
-                                error!("Failed to send delete result");
-                            }
-                            self.log();
-                        }
+                // 处理事件
+                Some(CookieEvent::Return(cookie, reason)) => {
+                    // 处理返回的cookie (最高优先级)
+                    self.collect(cookie, reason);
+                    self.log();
+                }
+                Some(CookieEvent::Submit(cookie)) => {
+                    // 处理提交的新cookie (次高优先级)
+                    self.accept(cookie);
+                    self.log();
+                }
+                Some(CookieEvent::CheckReset) => {
+                    // 处理超时检查 (中等优先级)
+                    self.reset();
+                }
+                Some(CookieEvent::Request(sender)) => {
+                    // 处理请求 (最低优先级)
+                    let cookie = self.dispatch();
+                    if let Err(Ok(c)) = sender.send(cookie) {
+                        error!("Failed to send cookie");
+                        self.valid.push_back(c);
                     }
+                    self.log();
+                }
+                Some(CookieEvent::GetStatus(sender)) => {
+                    let status_info = self.report();
+                    sender.send(status_info).unwrap_or_else(|_| {
+                        error!("Failed to send status info");
+                    });
+                }
+                Some(CookieEvent::Delete(cookie, sender)) => {
+                    let result = self.delete(cookie);
+                    if sender.send(result).is_err() {
+                        error!("Failed to send delete result");
+                    }
+                    self.log();
                 }
                 None => {
                     // 如果队列为空，等待通知
