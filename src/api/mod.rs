@@ -206,7 +206,7 @@ impl ClientState {
         );
         let mut body = json!({
             "uuid": new_uuid,
-            "name":""
+            "name": format!("ClewdR-{}", new_uuid),
         });
 
         // enable thinking mode

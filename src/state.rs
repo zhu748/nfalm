@@ -8,7 +8,6 @@ use rquest::{
     multipart::{Form, Part},
 };
 use rquest_util::Emulation;
-use serde_json::json;
 use tracing::{debug, error, warn};
 use url::Url;
 
@@ -129,29 +128,19 @@ impl ClientState {
     /// Deletes or renames the current chat conversation based on configuration
     /// If preserve_chats is true, the chat is renamed rather than deleted
     pub async fn clean_chat(&self) -> Result<(), ClewdrError> {
+        if CLEWDR_CONFIG.load().preserve_chats {
+            return Ok(());
+        }
         let Some(ref org_uuid) = self.org_uuid else {
             return Ok(());
         };
         let Some(ref conv_uuid) = self.conv_uuid else {
             return Ok(());
         };
-        // if preserve_chats is true, do not delete chat, just rename it
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}",
             self.endpoint, org_uuid, conv_uuid
         );
-        if CLEWDR_CONFIG.load().preserve_chats {
-            debug!("Renaming chat: {}", conv_uuid);
-            let pld = json!({
-                "name": format!("ClewdR-{}", conv_uuid),
-            });
-            let _ = self
-                .build_request(Method::PUT, endpoint)
-                .json(&pld)
-                .send()
-                .await?;
-            return Ok(());
-        }
         debug!("Deleting chat: {}", conv_uuid);
         let _ = self.build_request(Method::DELETE, endpoint).send().await?;
         Ok(())
