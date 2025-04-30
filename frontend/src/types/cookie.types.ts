@@ -11,7 +11,6 @@ export interface UselessCookie {
 
 export interface CookieStatusInfo {
   valid: CookieStatus[];
-  dispatched: [CookieStatus, number][];
   exhausted: CookieStatus[];
   invalid: UselessCookie[];
 }

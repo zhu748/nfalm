@@ -47,7 +47,7 @@ pub async fn api_post_cookie(
 }
 
 /// API endpoint to retrieve all cookies and their status
-/// Gets information about valid, dispatched, exhausted, and invalid cookies
+/// Gets information about valid, exhausted, and invalid cookies
 ///
 /// # Arguments
 /// * `s` - Application state containing event sender

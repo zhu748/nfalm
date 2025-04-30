@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getCookieStatus, deleteCookie } from "../../api";
-import { formatTimestamp, formatTimeElapsed } from "../../utils/formatters";
+import { formatTimestamp } from "../../utils/formatters";
 import { CookieStatusInfo } from "../../types/cookie.types";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -13,7 +13,6 @@ import DeleteButton from "./DeleteButton";
 // Default empty state
 const emptyCookieStatus: CookieStatusInfo = {
   valid: [],
-  dispatched: [],
   exhausted: [],
   invalid: [],
 };
@@ -36,7 +35,6 @@ const CookieVisualization: React.FC = () => {
       const data = await getCookieStatus();
       const safeData: CookieStatusInfo = {
         valid: Array.isArray(data?.valid) ? data.valid : [],
-        dispatched: Array.isArray(data?.dispatched) ? data.dispatched : [],
         exhausted: Array.isArray(data?.exhausted) ? data.exhausted : [],
         invalid: Array.isArray(data?.invalid) ? data.invalid : [],
       };
@@ -75,7 +73,7 @@ const CookieVisualization: React.FC = () => {
                 .then(
                   (data) =>
                     data.error ||
-                    t("common.error", { message: response.status }),
+                    t("common.error", { message: response.status })
                 );
         setError(errorMessage);
       }
@@ -118,7 +116,6 @@ const CookieVisualization: React.FC = () => {
   // Calculate total cookie count
   const totalCookies =
     cookieStatus.valid.length +
-    cookieStatus.dispatched.length +
     cookieStatus.exhausted.length +
     cookieStatus.invalid.length;
 
@@ -214,38 +211,6 @@ const CookieVisualization: React.FC = () => {
                 <div className="flex items-center">
                   <span className="text-gray-400">
                     {t("cookieStatus.status.available")}
-                  </span>
-                  <DeleteButton
-                    cookie={status.cookie}
-                    onDelete={handleDeleteCookie}
-                    isDeleting={deletingCookie === status.cookie}
-                  />
-                </div>
-              </div>
-            );
-          }}
-        />
-
-        {/* Dispatched Cookies */}
-        <CookieSection
-          title={t("cookieStatus.sections.inUse")}
-          cookies={cookieStatus.dispatched}
-          color="blue"
-          renderStatus={(item, index) => {
-            const [status, time] = item;
-            return (
-              <div
-                key={index}
-                className="py-2 flex flex-wrap justify-between text-sm items-start"
-              >
-                <div className="text-blue-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
-                  <CookieValue cookie={status.cookie} />
-                </div>
-                <div className="flex items-center">
-                  <span className="text-gray-400">
-                    {t("cookieStatus.status.used", {
-                      time: formatTimeElapsed(time),
-                    })}
                   </span>
                   <DeleteButton
                     cookie={status.cookie}

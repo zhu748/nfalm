@@ -2,14 +2,14 @@ use colored::Colorize;
 use serde::Serialize;
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashSet, VecDeque},
     sync::Arc,
 };
 use tokio::{
     spawn,
     sync::{Mutex, Notify},
     sync::{mpsc, oneshot},
-    time::{Instant, Interval},
+    time::Interval,
 };
 use tracing::{error, info, warn};
 
@@ -23,7 +23,6 @@ const INTERVAL: u64 = 300;
 #[derive(Debug, Serialize, Clone)]
 pub struct CookieStatusInfo {
     pub valid: Vec<CookieStatus>,
-    pub dispatched: Vec<(CookieStatus, u64)>,
     pub exhausted: Vec<CookieStatus>,
     pub invalid: Vec<UselessCookie>,
 }
@@ -36,7 +35,7 @@ pub enum CookieEvent {
     /// Submit a new Cookie
     Submit(CookieStatus),
     /// Check for timed out Cookies
-    CheckTimeout,
+    CheckReset,
     /// Request to get a Cookie
     Request(oneshot::Sender<Result<CookieStatus, ClewdrError>>),
     /// Get all Cookie status information
@@ -76,7 +75,7 @@ impl CookieEvent {
             CookieEvent::Return(_, _) => 5,
             CookieEvent::Submit(_) => 4,
             CookieEvent::Delete(_, _) => 3,
-            CookieEvent::CheckTimeout => 2,
+            CookieEvent::CheckReset => 2,
             CookieEvent::Request(_) => 1,
             CookieEvent::GetStatus(_) => 0,
         }
@@ -86,8 +85,6 @@ impl CookieEvent {
 /// Cookie manager that handles cookie distribution, collection, and status tracking
 pub struct CookieManager {
     valid: VecDeque<CookieStatus>,
-    // TODO: Remove dispatched
-    dispatched: HashMap<CookieStatus, Instant>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
     event_queue: Arc<Mutex<BinaryHeap<CookieEvent>>>,
@@ -164,13 +161,13 @@ impl CookieEventSender {
         rx.await?
     }
 
-    /// Used for internal timeout checking
-    /// Sends a timeout check event to the cookie manager
+    /// Used for internal reset checking
+    /// Sends a reset check event to the cookie manager
     ///
     /// # Returns
     /// Result indicating success or send error
-    pub(crate) async fn check_timeout(&self) -> Result<(), mpsc::error::SendError<CookieEvent>> {
-        self.sender.send(CookieEvent::CheckTimeout).await
+    pub(crate) async fn check_reset(&self) -> Result<(), mpsc::error::SendError<CookieEvent>> {
+        self.sender.send(CookieEvent::CheckReset).await
     }
 }
 
@@ -200,7 +197,6 @@ impl CookieManager {
                 .cloned(),
         );
         let invalid = HashSet::from_iter(CLEWDR_CONFIG.load().wasted_cookie.iter().cloned());
-        let dispatched = HashMap::new();
 
         // 创建事件通道
         let (event_tx, event_rx) = mpsc::channel(100);
@@ -218,7 +214,6 @@ impl CookieManager {
             invalid,
             event_queue,
             event_notify,
-            dispatched,
         };
         // 启动事件处理器
         spawn(manager.run(event_rx, sender.to_owned()));
@@ -227,12 +222,11 @@ impl CookieManager {
     }
 
     /// Logs the current state of cookie collections
-    /// Displays counts of valid, dispatched, exhausted, and invalid cookies
+    /// Displays counts of valid, exhausted, and invalid cookies
     fn log(&self) {
         info!(
-            "Valid: {}, Dispatched: {}, Exhausted: {}, Invalid: {}",
+            "Valid: {}, Exhausted: {}, Invalid: {}",
             self.valid.len().to_string().green(),
-            self.dispatched.len().to_string().blue(),
             self.exhausted.len().to_string().yellow(),
             self.invalid.len().to_string().red(),
         );
@@ -279,7 +273,7 @@ impl CookieManager {
     }
 
     /// Dispatches a cookie for use
-    /// Gets a cookie from the valid collection and moves it to dispatched
+    /// Gets a cookie from the valid collection
     ///
     /// # Returns
     /// * `Result<CookieStatus, ClewdrError>` - A cookie if available, error otherwise
@@ -289,8 +283,7 @@ impl CookieManager {
             .valid
             .pop_front()
             .ok_or(ClewdrError::NoCookieAvailable)?;
-        let instant = Instant::now();
-        self.dispatched.insert(cookie.to_owned(), instant);
+        self.valid.push_back(cookie.to_owned());
         Ok(cookie)
     }
 
@@ -300,32 +293,34 @@ impl CookieManager {
     /// * `cookie` - The cookie being returned
     /// * `reason` - Optional reason for the return that determines how the cookie is processed
     fn collect(&mut self, mut cookie: CookieStatus, reason: Option<Reason>) {
-        let Some(_) = self.dispatched.remove(&cookie) else {
+        let Some(reason) = reason else {
             return;
         };
-        let Some(reason) = reason else {
-            self.valid.push_back(cookie);
-            return;
+        let mut find_remove = |cookie: &CookieStatus| {
+            self.valid.retain(|c| c != cookie);
         };
         match reason {
-            Reason::NormalPro => {
-                self.valid.push_back(cookie);
-            }
+            Reason::NormalPro => {}
             Reason::TooManyRequest(i) => {
+                find_remove(&cookie);
                 cookie.reset_time = Some(i);
                 self.exhausted.insert(cookie);
             }
             Reason::Restricted(i) => {
+                find_remove(&cookie);
                 cookie.reset_time = Some(i);
                 self.exhausted.insert(cookie);
             }
             Reason::NonPro => {
+                find_remove(&cookie);
                 warn!("疑似爆米了, cookie: {}", cookie.cookie.to_string().red());
                 self.invalid
                     .insert(UselessCookie::new(cookie.cookie, reason));
             }
-            r => {
-                self.invalid.insert(UselessCookie::new(cookie.cookie, r));
+            _ => {
+                find_remove(&cookie);
+                self.invalid
+                    .insert(UselessCookie::new(cookie.cookie, reason));
             }
         }
         self.save();
@@ -358,38 +353,9 @@ impl CookieManager {
     fn report(&self) -> CookieStatusInfo {
         CookieStatusInfo {
             valid: self.valid.iter().cloned().collect(),
-            dispatched: self
-                .dispatched
-                .iter()
-                .map(|(cookie, instant)| (cookie.to_owned(), instant.elapsed().as_secs()))
-                .collect(),
             exhausted: self.exhausted.iter().cloned().collect(),
             invalid: self.invalid.iter().cloned().collect(),
         }
-    }
-
-    /// Checks for timed out cookies in the dispatched collection
-    /// Moves expired cookies back to the valid collection
-    fn check_timeout(&mut self) {
-        // Handle timed out cookies
-        let now = Instant::now();
-        let expired: Vec<CookieStatus> = self
-            .dispatched
-            .iter()
-            .filter(|(_, time)| now.duration_since(**time).as_secs() > 5 * 60)
-            .map(|(cookie, _)| cookie.to_owned())
-            .collect();
-
-        if expired.is_empty() {
-            return;
-        }
-        for cookie in expired {
-            warn!("Timing out dispatched cookie: {:?}", cookie);
-            self.dispatched.remove(&cookie);
-            self.valid.push_back(cookie);
-        }
-        self.log();
-        self.reset();
     }
 
     /// Deletes a cookie from all collections
@@ -410,28 +376,17 @@ impl CookieManager {
             }
         });
 
-        if self.dispatched.remove(&cookie).is_some() {
-            found = true;
-        }
-
         if self.exhausted.remove(&cookie) {
             found = true;
         }
-
-        let cookie_info = &cookie.cookie;
-        self.invalid.retain(|c| {
-            if c.cookie == *cookie_info {
-                found = true;
-                false // remove
-            } else {
-                true // keep
-            }
-        });
-
-        // Update config to reflect changes
-        self.save();
+        let useless = UselessCookie::new(cookie.cookie, Reason::Null);
+        if self.invalid.remove(&useless) {
+            found = true;
+        }
 
         if found {
+            // Update config to reflect changes
+            self.save();
             Ok(())
         } else {
             Err(ClewdrError::UnexpectedNone)
@@ -447,7 +402,7 @@ impl CookieManager {
         tokio::spawn(async move {
             loop {
                 interval.tick().await;
-                if event_tx.check_timeout().await.is_err() {
+                if event_tx.check_reset().await.is_err() {
                     break;
                 }
             }
@@ -510,9 +465,9 @@ impl CookieManager {
                             self.accept(cookie);
                             self.log();
                         }
-                        CookieEvent::CheckTimeout => {
+                        CookieEvent::CheckReset => {
                             // 处理超时检查 (中等优先级)
-                            self.check_timeout();
+                            self.reset();
                         }
                         CookieEvent::Request(sender) => {
                             // 处理请求 (最低优先级)
