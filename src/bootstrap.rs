@@ -63,12 +63,14 @@ impl ClientState {
         if !self.is_pro() && CLEWDR_CONFIG.load().skip_non_pro {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
-        println!(
+        let mut w = String::new();
+        writeln!(
+            w,
             "[{}]\nemail: {}\ncapabilities: {}",
             self.cookie.as_ref().unwrap().cookie.ellipse().green(),
             email.blue(),
             self.capabilities.join(", ").blue()
-        );
+        )?;
 
         // Bootstrap complete
         let end_point = format!("{}/api/organizations", self.endpoint);
@@ -98,7 +100,7 @@ impl ClientState {
             })
             .ok_or(ClewdrError::UnexpectedNone)?;
 
-        self.check_flags(acc_info)?;
+        self.check_flags(acc_info, w)?;
 
         let u = acc_info
             .get("uuid")
@@ -120,7 +122,7 @@ impl ClientState {
     ///
     /// # Returns
     /// * `Result<(), ClewdrError>` - Ok if the account can be used, or error with reason
-    fn check_flags(&self, acc_info: &Value) -> Result<(), ClewdrError> {
+    fn check_flags(&self, acc_info: &Value, mut w: String) -> Result<(), ClewdrError> {
         let Some(active_flags) = acc_info.get("active_flags").and_then(|a| a.as_array()) else {
             return Ok(());
         };
@@ -150,13 +152,12 @@ impl ClientState {
         let second = find_flag("second_warning");
         let first = find_flag("first_warning");
 
-        let mut w = String::new();
         for (f, t) in flag_time {
             let hours = t.to_utc() - now;
-            write!(w, "{}: expire in {} hours", f.red(), hours.num_hours())?;
+            writeln!(w, "{}: expire in {} hours", f.red(), hours.num_hours())?;
         }
         if banned {
-            write!(
+            writeln!(
                 w,
                 "{}",
                 "Your account is banned, please use another account.".red()
