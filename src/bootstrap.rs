@@ -162,11 +162,11 @@ impl ClientState {
                 "{}",
                 "Your account is banned, please use another account.".red()
             )?;
-            println!("{}", w);
+            print!("{}", w);
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
         }
         if !w.is_empty() {
-            println!("{}", w);
+            print!("{}", w);
         }
         if let Some((_, expire)) = restricted {
             if CLEWDR_CONFIG.load().skip_restricted {
