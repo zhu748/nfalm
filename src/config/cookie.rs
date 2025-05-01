@@ -111,6 +111,15 @@ impl ClewdrCookie {
         let re = regex::Regex::new(r"^[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();
         re.is_match(&self.inner)
     }
+
+    pub fn ellipse(&self) -> String {
+        let len = self.inner.len();
+        if len > 10 {
+            format!("{}...", &self.inner[..10])
+        } else {
+            self.inner.clone()
+        }
+    }
 }
 
 impl From<&str> for ClewdrCookie {

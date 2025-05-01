@@ -38,8 +38,6 @@ where
         if body.model.ends_with("-thinking") {
             body.model = body.model.trim_end_matches("-thinking").to_string();
             body.thinking = Some(Default::default());
-        } else if body.thinking.is_some() {
-            body.thinking = Some(Default::default());
         }
 
         let format = if uri.contains("chat/completions") {

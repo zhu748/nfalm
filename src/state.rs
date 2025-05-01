@@ -1,6 +1,5 @@
 use axum::http::HeaderValue;
 use base64::{Engine, prelude::BASE64_STANDARD};
-use colored::Colorize;
 use futures::{StreamExt, stream};
 use rquest::{
     Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder,
@@ -104,17 +103,16 @@ impl ClientState {
         // load newest config
         self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
         self.endpoint = CLEWDR_CONFIG.load().endpoint();
-        println!("Cookie: {}", res.cookie.to_string().green());
         Ok(())
     }
 
     /// Returns the current cookie to the cookie manager
     /// Optionally provides a reason for returning the cookie (e.g., invalid, banned)
-    pub async fn return_cookie(&mut self, reason: Option<Reason>) {
+    pub async fn return_cookie(&self, reason: Option<Reason>) {
         // return the cookie to the cookie manager
-        if let Some(cookie) = self.cookie.take() {
+        if let Some(ref cookie) = self.cookie {
             self.event_sender
-                .return_cookie(cookie, reason)
+                .return_cookie(cookie.to_owned(), reason)
                 .await
                 .unwrap_or_else(|e| {
                     error!("Failed to send cookie: {}", e);

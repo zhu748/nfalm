@@ -146,7 +146,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
 
       {/* Cache Settings Section */}
       <ConfigSection title={t("config.sections.cache.title")}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormInput
             id="cache_response"
             name="cache_response"

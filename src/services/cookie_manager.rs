@@ -300,30 +300,45 @@ impl CookieManager {
             self.valid.retain(|c| c != cookie);
         };
         match reason {
-            Reason::NormalPro => {}
+            Reason::NormalPro => {
+                return;
+            }
             Reason::TooManyRequest(i) => {
                 find_remove(&cookie);
                 cookie.reset_time = Some(i);
-                self.exhausted.insert(cookie);
+                if !self.exhausted.insert(cookie) {
+                    return;
+                }
             }
             Reason::Restricted(i) => {
                 find_remove(&cookie);
                 cookie.reset_time = Some(i);
-                self.exhausted.insert(cookie);
+                if !self.exhausted.insert(cookie) {
+                    return;
+                }
             }
             Reason::NonPro => {
                 find_remove(&cookie);
                 warn!("疑似爆米了, cookie: {}", cookie.cookie.to_string().red());
-                self.invalid
-                    .insert(UselessCookie::new(cookie.cookie, reason));
+                if !self
+                    .invalid
+                    .insert(UselessCookie::new(cookie.cookie, reason))
+                {
+                    return;
+                }
             }
             _ => {
                 find_remove(&cookie);
-                self.invalid
-                    .insert(UselessCookie::new(cookie.cookie, reason));
+                if !self
+                    .invalid
+                    .insert(UselessCookie::new(cookie.cookie, reason))
+                {
+                    return;
+                }
             }
         }
         self.save();
+        self.log();
     }
 
     /// Accepts a new cookie into the valid collection
@@ -344,6 +359,7 @@ impl CookieManager {
         }
         self.valid.push_back(cookie.to_owned());
         self.save();
+        self.log();
     }
 
     /// Creates a report of all cookie statuses
@@ -377,6 +393,7 @@ impl CookieManager {
         if found {
             // Update config to reflect changes
             self.save();
+            self.log();
             Ok(())
         } else {
             Err(ClewdrError::UnexpectedNone)
@@ -445,12 +462,10 @@ impl CookieManager {
                 Some(CookieEvent::Return(cookie, reason)) => {
                     // 处理返回的cookie (最高优先级)
                     self.collect(cookie, reason);
-                    self.log();
                 }
                 Some(CookieEvent::Submit(cookie)) => {
                     // 处理提交的新cookie (次高优先级)
                     self.accept(cookie);
-                    self.log();
                 }
                 Some(CookieEvent::CheckReset) => {
                     // 处理超时检查 (中等优先级)
@@ -459,11 +474,9 @@ impl CookieManager {
                 Some(CookieEvent::Request(sender)) => {
                     // 处理请求 (最低优先级)
                     let cookie = self.dispatch();
-                    if let Err(Ok(c)) = sender.send(cookie) {
+                    sender.send(cookie).unwrap_or_else(|_| {
                         error!("Failed to send cookie");
-                        self.valid.push_back(c);
-                    }
-                    self.log();
+                    });
                 }
                 Some(CookieEvent::GetStatus(sender)) => {
                     let status_info = self.report();
@@ -473,10 +486,9 @@ impl CookieManager {
                 }
                 Some(CookieEvent::Delete(cookie, sender)) => {
                     let result = self.delete(cookie);
-                    if sender.send(result).is_err() {
+                    sender.send(result).unwrap_or_else(|_| {
                         error!("Failed to send delete result");
-                    }
-                    self.log();
+                    });
                 }
                 None => {
                     // 如果队列为空，等待通知

@@ -225,7 +225,7 @@ impl RequestKeys {
         if end != 0 {
             self.messages = self.messages[..end].to_vec();
         } else {
-            warn!("remove_last_n_from_hash is too big, no messages will left, skipping");
+            warn!("not_hash_last_n is too big, no messages will left, skipping");
         }
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);

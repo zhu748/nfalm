@@ -202,7 +202,11 @@ impl Display for ClewdrConfig {
         if self.enable_oai {
             writeln!(f, "OpenAI Compatible: {}", "Enabled".green())?;
         }
-        writeln!(f, "Response Caching: {}", self.cache_response)?;
+        writeln!(
+            f,
+            "Response Caching: {}",
+            self.cache_response.to_string().green()
+        )?;
         if let Some(ref proxy) = self.proxy {
             writeln!(f, "Proxy: {}", proxy.to_string().blue())?;
         }

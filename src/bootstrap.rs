@@ -1,6 +1,7 @@
 use colored::Colorize;
 use rquest::Method;
 use serde_json::Value;
+use std::fmt::Write;
 use tracing::warn;
 
 use crate::{
@@ -63,7 +64,8 @@ impl ClientState {
             return Err(ClewdrError::InvalidCookie(Reason::NonPro));
         }
         println!(
-            "email: {}\ncapabilities: {}",
+            "[{}]\nemail: {}\ncapabilities: {}",
+            self.cookie.as_ref().unwrap().cookie.ellipse().green(),
             email.blue(),
             self.capabilities.join(", ").blue()
         );
@@ -148,16 +150,26 @@ impl ClientState {
         let second = find_flag("second_warning");
         let first = find_flag("first_warning");
 
+        let mut w = String::new();
         for (f, t) in flag_time {
             let hours = t.to_utc() - now;
-            println!("{}: expire in {} hours", f.red(), hours.num_hours());
+            write!(w, "{}: expire in {} hours", f.red(), hours.num_hours())?;
         }
         if banned {
-            println!(
+            write!(
+                w,
                 "{}",
                 "Your account is banned, please use another account.".red()
-            );
+            )?;
+            println!("{}", w);
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
+        }
+        if !w.is_empty() {
+            println!(
+                "[{}]\n{}",
+                self.cookie.as_ref().unwrap().cookie.ellipse().green(),
+                w
+            );
         }
         if let Some((_, expire)) = restricted {
             if CLEWDR_CONFIG.load().skip_restricted {

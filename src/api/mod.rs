@@ -167,7 +167,7 @@ impl ClientState {
 
             state.request_cookie().await?;
 
-            let mut defer_clone = state.to_owned();
+            let defer_clone = state.to_owned();
             defer! {
                 // ensure the cookie is returned
                 spawn(async move {
@@ -191,7 +191,11 @@ impl ClientState {
                     if let Err(e) = state.clean_chat().await {
                         warn!("Failed to clean chat: {}", e);
                     }
-                    error!("{}", e);
+                    error!(
+                        "[{}] {}",
+                        state.cookie.as_ref().unwrap().cookie.ellipse().green(),
+                        e
+                    );
                     // 429 error
                     if let ClewdrError::InvalidCookie(ref r) = e {
                         state.return_cookie(Some(r.to_owned())).await;

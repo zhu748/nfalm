@@ -14,6 +14,8 @@ use crate::{config::Reason, services::cookie_manager::CookieEvent};
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
     #[error(transparent)]
+    FmtError(#[from] std::fmt::Error),
+    #[error(transparent)]
     InvalidHeaderValue(#[from] InvalidHeaderValue),
     #[error("Bad request: {0}")]
     BadRequest(String),
