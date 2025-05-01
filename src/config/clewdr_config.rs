@@ -91,7 +91,7 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub preserve_chats: bool,
     #[serde(default)]
-    pub max_cache: usize,
+    pub cache_response: usize,
 
     // Cookie settings, can hot reload
     #[serde(default)]
@@ -153,7 +153,7 @@ impl Default for ClewdrConfig {
             pad_tokens: Arc::new(vec![]),
             pass_params: false,
             preserve_chats: false,
-            max_cache: 0,
+            cache_response: 0,
             skip_first_warning: false,
             skip_second_warning: false,
             skip_restricted: false,

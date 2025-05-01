@@ -1,3 +1,8 @@
+/// API module for handling all external HTTP endpoints and request/response transformations
+/// 
+/// This module serves as the main entry point for all API requests, providing endpoints
+/// for configuration management, message handling, authentication, and OpenAI-compatible
+/// interfaces. It also implements response transformation between different API formats.
 pub mod body;
 mod config;
 mod messages;
@@ -7,19 +12,20 @@ mod openai;
 // Re-exports
 
 use bytes::Bytes;
-// Configuration related endpoints
+/// Configuration related endpoints for retrieving and updating Clewdr settings
 pub use config::{api_get_config, api_post_config};
-// Message handling endpoints
+/// Message handling endpoints for creating and managing chat conversations
 pub use messages::api_messages;
-// Miscellaneous endpoints
+/// Miscellaneous endpoints for authentication, cookies, and version information
 pub use misc::{api_auth, api_delete_cookie, api_get_cookies, api_post_cookie, api_version};
-// OpenAI compatibility endpoints
+/// OpenAI compatibility endpoints for seamless integration with OpenAI clients
 pub use openai::api_completion;
 
 // Internal imports from OpenAI module
 use openai::{NonStreamEventData, transform_stream};
 
 use std::mem;
+
 
 use axum::{
     Json,
@@ -47,6 +53,10 @@ use crate::{
 };
 
 /// Represents the format of the API response
+/// 
+/// This enum defines the available API response formats that Clewdr can use
+/// when communicating with clients. It supports both Claude's native format
+/// and an OpenAI-compatible format for broader compatibility with existing tools.
 #[derive(Display, Clone, Copy)]
 pub enum ApiFormat {
     /// Claude native format
@@ -56,12 +66,23 @@ pub enum ApiFormat {
 }
 
 impl ClientState {
+    /// Attempts to retrieve a response from cache or initiates background caching
+    /// 
+    /// This method tries to find a cached response for the given message parameters.
+    /// If found, it transforms and returns the response. Otherwise, it spawns
+    /// background tasks to generate and cache responses for future use.
+    /// 
+    /// # Arguments
+    /// * `p` - The message parameters to use as a cache key
+    /// 
+    /// # Returns
+    /// * `Option<axum::response::Response>` - The cached response if available, None otherwise
     pub async fn try_from_cache(&self, p: CreateMessageParams) -> Option<axum::response::Response> {
         let key = p.get_hash();
         if let Some(stream) = CACHE.pop(key) {
             return Some(self.transform_response(stream).await);
         }
-        for id in 0..CLEWDR_CONFIG.load().max_cache {
+        for id in 0..CLEWDR_CONFIG.load().cache_response {
             let mut state = self.to_owned();
             state.key = Some((key, id));
             let p = p.to_owned();
@@ -72,11 +93,15 @@ impl ClientState {
 
     /// Converts the response from the Claude Web into Claude API or OpenAI API format
     ///
+    /// This method transforms streams of bytes from Claude's web response into the appropriate
+    /// format based on the client's requested API format (Claude or OpenAI). It handles both
+    /// streaming and non-streaming responses, and manages caching for responses.
+    ///
     /// # Arguments
-    /// * `input` - The response from the Claude Web
+    /// * `input` - The response stream from the Claude Web API
     ///
     /// # Returns
-    /// * `Result<Response, ClewdrError>` - Response from Claude or error
+    /// * `axum::response::Response` - Transformed response in the requested format
     pub async fn transform_response(
         &self,
         input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
@@ -118,6 +143,10 @@ impl ClientState {
     /// - Executing the chat request with automatic retries on failure
     /// - Response transformation according to the specified API format
     /// - Error handling and cleanup
+    ///
+    /// The method implements a sophisticated retry mechanism to handle transient failures,
+    /// and manages conversation cleanup to prevent resource leaks. It also includes
+    /// performance tracking to measure response times.
     ///
     /// # Arguments
     /// * `p` - The client request body containing messages and configuration
@@ -205,6 +234,10 @@ impl ClientState {
     /// - Transforms the client request to the Claude API format
     /// - Handles image uploads if present
     /// - Sends the request to the Claude API endpoint
+    ///
+    /// The method properly manages conversation state, including creating a new conversation,
+    /// configuring its settings, and sending the actual message content. It handles special
+    /// features like thinking mode for Pro accounts and image uploads for multimodal requests.
     ///
     /// # Arguments
     /// * `p` - The client request body containing messages and configuration
