@@ -11,7 +11,7 @@ English | [简体中文](./README-ZH.MD)
 | **Performance** | 3x Faster stream | Slow |
 | **Caching Responses** |  Supported | N/A |
 | **Memory Usage** | < 10MB | High |
-| **Concurrency** | Concurrent requests | Single request |
+| **Concurrency** | Multithreaded concurrent requests | Single-threaded single request |
 | **Deployment** | Docker / Single Binary | Complex setup |
 | **Configuration** | React UI / File / Env | File / Env |
 | **Hot Reload** | Supported | N/A |
