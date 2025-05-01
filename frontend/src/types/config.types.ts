@@ -18,7 +18,11 @@ export interface ConfigData {
   max_retries: number;
   pass_params: boolean;
   preserve_chats: boolean;
+
+  // Cache settings
   cache_response: number;
+  not_hash_last_n: number;
+  not_hash_system: boolean;
 
   // Cookie settings
   skip_first_warning: boolean;

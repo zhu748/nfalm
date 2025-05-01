@@ -57,7 +57,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
 
       {/* App Settings Section */}
       <ConfigSection title={t("config.sections.app.title")}>
-        <div className="space-y-3">
+        <div className="flex space-x-6">
           <ConfigCheckbox
             name="check_update"
             checked={config.check_update}
@@ -127,19 +127,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
             label={t("config.sections.api.maxRetries")}
           />
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-          <FormInput
-            id="cache_response"
-            name="cache_response"
-            type="number"
-            value={config.cache_response.toString()}
-            onChange={onChange}
-            label={t("config.sections.api.cacheResponse")}
-          />
-        </div>
-
-        <div className="space-y-3">
+        <div className="flex space-x-6">
           <ConfigCheckbox
             name="pass_params"
             checked={config.pass_params}
@@ -156,6 +144,35 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
         </div>
       </ConfigSection>
 
+      {/* Cache Settings Section */}
+      <ConfigSection title={t("config.sections.cache.title")}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+          <FormInput
+            id="cache_response"
+            name="cache_response"
+            type="number"
+            value={config.cache_response.toString()}
+            onChange={onChange}
+            label={t("config.sections.cache.cacheResponse")}
+          />
+          <FormInput
+            id="not_hash_last_n"
+            name="not_hash_last_n"
+            type="number"
+            value={config.not_hash_last_n.toString()}
+            onChange={onChange}
+            label={t("config.sections.cache.notHashLastN")}
+          />
+        </div>
+
+        <ConfigCheckbox
+          name="not_hash_system"
+          checked={config.not_hash_system}
+          onChange={onChange}
+          label={t("config.sections.cache.notHashSystem")}
+        />
+      </ConfigSection>
+
       {/* Cookie Settings Section */}
       <ConfigSection title={t("config.sections.cookie.title")}>
         <ConfigCheckbox
@@ -164,43 +181,40 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           onChange={onChange}
           label={t("config.sections.cookie.skipNonPro")}
         />
+        <ConfigCheckbox
+          name="skip_restricted"
+          checked={config.skip_restricted}
+          onChange={onChange}
+          label={t("config.sections.cookie.skipRestricted")}
+        />
 
-        <div className="space-y-3">
-          <ConfigCheckbox
-            name="skip_restricted"
-            checked={config.skip_restricted}
-            onChange={onChange}
-            label={t("config.sections.cookie.skipRestricted")}
-          />
+        <ConfigCheckbox
+          name="skip_second_warning"
+          checked={config.skip_second_warning}
+          onChange={onChange}
+          label={t("config.sections.cookie.skipSecondWarning")}
+        />
 
-          <ConfigCheckbox
-            name="skip_second_warning"
-            checked={config.skip_second_warning}
-            onChange={onChange}
-            label={t("config.sections.cookie.skipSecondWarning")}
-          />
+        <ConfigCheckbox
+          name="skip_first_warning"
+          checked={config.skip_first_warning}
+          onChange={onChange}
+          label={t("config.sections.cookie.skipFirstWarning")}
+        />
 
-          <ConfigCheckbox
-            name="skip_first_warning"
-            checked={config.skip_first_warning}
-            onChange={onChange}
-            label={t("config.sections.cookie.skipFirstWarning")}
-          />
+        <ConfigCheckbox
+          name="skip_normal_pro"
+          checked={config.skip_normal_pro}
+          onChange={onChange}
+          label={t("config.sections.cookie.skipNormalPro")}
+        />
 
-          <ConfigCheckbox
-            name="skip_normal_pro"
-            checked={config.skip_normal_pro}
-            onChange={onChange}
-            label={t("config.sections.cookie.skipNormalPro")}
-          />
-
-          <ConfigCheckbox
-            name="skip_rate_limit"
-            checked={config.skip_rate_limit}
-            onChange={onChange}
-            label={t("config.sections.cookie.skipRateLimit")}
-          />
-        </div>
+        <ConfigCheckbox
+          name="skip_rate_limit"
+          checked={config.skip_rate_limit}
+          onChange={onChange}
+          label={t("config.sections.cookie.skipRateLimit")}
+        />
       </ConfigSection>
 
       {/* Prompt Configurations Section */}

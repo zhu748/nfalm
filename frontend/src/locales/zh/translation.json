@@ -117,8 +117,13 @@
         "title": "API设置",
         "maxRetries": "最大重试次数",
         "passParams": "传递参数",
-        "preserveChats": "保留聊天",
-        "cacheResponse": "缓存响应"
+        "preserveChats": "保留聊天"
+      },
+      "cache": {
+        "title": "缓存设置",
+        "cacheResponse": "缓存响应",
+        "notHashSystem": "不哈希系统消息",
+        "notHashLastN": "不哈希最后N条消息"
       },
       "cookie": {
         "title": "Cookie设置",

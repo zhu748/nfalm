@@ -7,11 +7,11 @@ use std::{
     sync::{Arc, LazyLock, Mutex},
 };
 use tokio::spawn;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
-    types::message::{CreateMessageParams, Message},
+    types::message::{CreateMessageParams, Message, Role},
 };
 
 /// Global cache instance for storing and retrieving API responses
@@ -188,15 +188,15 @@ fn vec_to_stream(bytes: Vec<Bytes>) -> impl Stream<Item = Result<Bytes, rquest::
 /// of a request for caching. It implements Hash to generate consistent hash keys
 /// for the cache.
 #[derive(Hash, Eq, PartialEq, Debug)]
-struct RequestKeys<'a> {
+struct RequestKeys {
     /// Maximum number of tokens to generate
     pub max_tokens: u32,
     /// Input messages for the conversation
-    pub messages: &'a [Message],
+    pub messages: Vec<Message>,
     /// Model to use
     pub model: String,
     /// System prompt
-    pub system: Option<&'a Value>,
+    pub system: Option<Value>,
     /// Custom stop sequences
     pub stop_sequences: Option<Vec<String>>,
     /// Thinking mode configuration
@@ -205,7 +205,7 @@ struct RequestKeys<'a> {
     pub top_k: Option<u32>,
 }
 
-impl RequestKeys<'_> {
+impl RequestKeys {
     /// Generates a hash value for this request key set
     ///
     /// Creates a consistent hash value for the request keys to be used
@@ -213,7 +213,20 @@ impl RequestKeys<'_> {
     ///
     /// # Returns
     /// * `u64` - The hash value for this request
-    fn get_hash(&self) -> u64 {
+    fn get_hash(&mut self) -> u64 {
+        if CLEWDR_CONFIG.load().not_hash_system {
+            self.system = None;
+            self.messages.retain(|m| m.role != Role::System);
+        }
+        let end = self
+            .messages
+            .len()
+            .saturating_sub(CLEWDR_CONFIG.load().not_hash_last_n);
+        if end != 0 {
+            self.messages = self.messages[..end].to_vec();
+        } else {
+            warn!("remove_last_n_from_hash is too big, no messages will left, skipping");
+        }
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
@@ -229,19 +242,19 @@ impl CreateMessageParams {
     /// # Returns
     /// * `u64` - The hash value to use as a cache key
     pub fn get_hash(&self) -> u64 {
-        let keys = RequestKeys::from(self);
+        let mut keys = RequestKeys::from(self);
         keys.get_hash()
     }
 }
 
-impl<'a> From<&'a CreateMessageParams> for RequestKeys<'a> {
+impl From<&CreateMessageParams> for RequestKeys {
     // TODO: handle useless parameters
-    fn from(params: &'a CreateMessageParams) -> Self {
+    fn from(params: &CreateMessageParams) -> Self {
         RequestKeys {
             max_tokens: params.max_tokens,
-            messages: params.messages.as_slice(),
+            messages: params.messages.to_owned(),
             model: params.model.to_owned(),
-            system: params.system.as_ref(),
+            system: params.system.to_owned(),
             stop_sequences: params.stop_sequences.to_owned(),
             thinking: params.thinking.is_some(),
             top_k: params.top_k,

@@ -90,8 +90,14 @@ pub struct ClewdrConfig {
     pub pass_params: bool,
     #[serde(default)]
     pub preserve_chats: bool,
+
+    // Cache settings, can hot reload
     #[serde(default)]
     pub cache_response: usize,
+    #[serde(default)]
+    pub not_hash_system: bool,
+    #[serde(default)]
+    pub not_hash_last_n: usize,
 
     // Cookie settings, can hot reload
     #[serde(default)]
@@ -154,6 +160,8 @@ impl Default for ClewdrConfig {
             pass_params: false,
             preserve_chats: false,
             cache_response: 0,
+            not_hash_system: false,
+            not_hash_last_n: 0,
             skip_first_warning: false,
             skip_second_warning: false,
             skip_restricted: false,
