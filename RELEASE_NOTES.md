@@ -6,6 +6,8 @@
 - Implemented middleware-based response transformation for format-specific outputs
 - Added format detection through request URI path inspection
 - Created format-aware request processing pipeline
+- Add custom hashing config for response caching
+- Add support for send url image in OpenAI format
 
 ## Improvements
 
@@ -13,6 +15,7 @@
 - Moved stream transformation logic to utility module for better reusability
 - Enhanced router configuration with middleware-based format transformations
 - Improved type safety in stream transformation with generic error handling
+- Improve logging for better tracking of cookie in concurrent requests
 
 ## Code Quality
 
