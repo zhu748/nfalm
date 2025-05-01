@@ -8,11 +8,13 @@ use strum::IntoStaticStr;
 use tokio::sync::oneshot;
 use tracing::{debug, error};
 
-use crate::{config::Reason, services::cookie_manager::CookieEvent};
+use crate::{config::Reason, services::cookie_manager::CookieEvent, types::message::Message};
 
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[error("Test Message")]
+    TestMessage,
     #[error(transparent)]
     FmtError(#[from] std::fmt::Error),
     #[error(transparent)]
@@ -72,6 +74,15 @@ impl IntoResponse for ClewdrError {
         let (status, msg) = match self {
             ClewdrError::OtherHttpError(status, inner) => {
                 return (status, Json(JsError { error: inner })).into_response();
+            }
+            ClewdrError::TestMessage => {
+                return (
+                    StatusCode::OK,
+                    Json(Message::from(
+                        "Claude Reverse Proxy is working, please send a real message.".to_string(),
+                    )),
+                )
+                    .into_response();
             }
             ClewdrError::JsonRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::PadtxtTooShort => (StatusCode::BAD_REQUEST, json!(self.to_string())),

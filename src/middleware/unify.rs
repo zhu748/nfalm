@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use axum::{
     Extension, Json,
     extract::{FromRequest, Request},
@@ -6,7 +8,9 @@ use axum::{
 use eventsource_stream::Eventsource;
 
 use crate::{
-    api::ApiFormat, error::ClewdrError, types::message::CreateMessageParams,
+    api::ApiFormat,
+    error::ClewdrError,
+    types::message::{ContentBlock, CreateMessageParams, Message, Role},
     utils::transform_stream,
 };
 
@@ -26,6 +30,18 @@ impl Default for FormatInfo {
     }
 }
 
+/// Exact test message send by SillyTavern
+static TEST_MESSAGE_CLAUDE: LazyLock<Message> = LazyLock::new(|| {
+    Message::new_blocks(
+        Role::User,
+        vec![ContentBlock::Text {
+            text: "Hi".to_string(),
+        }],
+    )
+});
+
+static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
+
 impl<S> FromRequest<S> for UnifiedRequestBody
 where
     S: Sync,
@@ -40,12 +56,19 @@ where
             body.thinking = Some(Default::default());
         }
 
+        if !body.stream.unwrap_or_default()
+            && (body.messages == vec![TEST_MESSAGE_CLAUDE.to_owned()]
+                || body.messages == vec![TEST_MESSAGE_OAI.to_owned()])
+        {
+            // respond with a test message
+            return Err(ClewdrError::TestMessage);
+        }
+        let stream = body.stream.unwrap_or_default();
         let format = if uri.contains("chat/completions") {
             ApiFormat::OpenAI
         } else {
             ApiFormat::Claude
         };
-        let stream = body.stream.unwrap_or_default();
         Ok(Self(
             body,
             Extension(FormatInfo {

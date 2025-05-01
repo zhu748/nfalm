@@ -44,14 +44,22 @@ pub struct RequestBody {
     pub images: Vec<ImageSource>,
 }
 
-/// Transforms a string to a message with assistant role
-/// Used to create response messages for non-streaming API calls
-///
-/// # Arguments
-/// * `str` - The text content for the message
-///
-/// # Returns
-/// * `Message` - A message with assistant role and text content
-pub fn non_stream_message(str: String) -> Message {
-    Message::new_blocks(Role::Assistant, vec![ContentBlock::Text { text: str }])
+impl<S> From<S> for Message
+where
+    S: Into<String>,
+{
+    /// Converts a string into a Message with assistant role
+    ///
+    /// # Arguments
+    /// * `str` - The text content for the message
+    ///
+    /// # Returns
+    /// * `Message` - A message with assistant role and text content
+
+    fn from(str: S) -> Self {
+        Message::new_blocks(
+            Role::Assistant,
+            vec![ContentBlock::Text { text: str.into() }],
+        )
+    }
 }

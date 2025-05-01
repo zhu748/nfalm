@@ -21,7 +21,6 @@ pub use misc::{api_auth, api_delete_cookie, api_get_cookies, api_post_cookie, ap
 use std::mem;
 
 use axum::{Json, body::Body, response::IntoResponse};
-use body::non_stream_message;
 use colored::Colorize;
 use eventsource_stream::Eventsource;
 use futures::{Stream, TryFutureExt};
@@ -37,8 +36,8 @@ use crate::{
     error::{CheckResErr, ClewdrError},
     services::cache::CACHE,
     state::ClientState,
-    types::message::CreateMessageParams,
-    utils::{enabled, print_out_json, print_out_text, text::merge_sse},
+    types::message::{CreateMessageParams, Message},
+    utils::{print_out_json, print_out_text, text::merge_sse},
 };
 
 /// Represents the format of the API response
@@ -107,7 +106,7 @@ impl ClientState {
             let stream = input.eventsource();
             let text = merge_sse(stream).await;
             print_out_text(&text, "non_stream.txt");
-            return Json(non_stream_message(text)).into_response();
+            return Json(Message::from(text)).into_response();
         }
 
         // stream the response
@@ -136,31 +135,9 @@ impl ClientState {
         &mut self,
         p: CreateMessageParams,
     ) -> Result<axum::response::Response, ClewdrError> {
-        let api_format = self.api_format;
-        let stream = p.stream.unwrap_or_default();
-        let format_display = match api_format {
-            ApiFormat::Claude => api_format.to_string().green(),
-            ApiFormat::OpenAI => api_format.to_string().yellow(),
-        };
-        info!(
-            "[REQ] stream: {}, msgs: {}, model: {}, think: {}, format: {}",
-            enabled(stream),
-            p.messages.len().to_string().green(),
-            p.model.green(),
-            enabled(p.thinking.is_some()),
-            format_display
-        );
-        let stopwatch = chrono::Utc::now();
-        defer!(
-            let elapsed = chrono::Utc::now().signed_duration_since(stopwatch);
-            info!(
-                "[FIN] elapsed: {}s",
-                format!("{}", elapsed.num_milliseconds() as f64 / 1000.0).green()
-            );
-        );
         for i in 0..CLEWDR_CONFIG.load().max_retries {
             if i > 0 {
-                info!("[RETRY] attempt: {}", (i + 1).to_string().green());
+                info!("[RETRY] attempt: {}", i.to_string().green());
             }
             let mut state = self.to_owned();
             let p = p.to_owned();

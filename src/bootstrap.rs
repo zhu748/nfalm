@@ -166,11 +166,7 @@ impl ClientState {
             return Err(ClewdrError::InvalidCookie(Reason::Banned));
         }
         if !w.is_empty() {
-            println!(
-                "[{}]\n{}",
-                self.cookie.as_ref().unwrap().cookie.ellipse().green(),
-                w
-            );
+            println!("{}", w);
         }
         if let Some((_, expire)) = restricted {
             if CLEWDR_CONFIG.load().skip_restricted {

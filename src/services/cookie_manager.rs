@@ -319,7 +319,6 @@ impl CookieManager {
             }
             Reason::NonPro => {
                 find_remove(&cookie);
-                warn!("疑似爆米了, cookie: {}", cookie.cookie.to_string().red());
                 if !self
                     .invalid
                     .insert(UselessCookie::new(cookie.cookie, reason))
