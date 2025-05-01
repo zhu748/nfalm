@@ -5,6 +5,7 @@ use axum::{
     routing::{delete, get, post},
 };
 use const_format::formatc;
+use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::{
@@ -53,8 +54,11 @@ impl RouterBuilder {
     fn route_claude_endpoints(mut self) -> Self {
         let router = Router::new()
             .route("/v1/messages", post(api_messages))
-            .route_layer(Extension(FormatInfo::default()))
-            .route_layer(from_extractor::<RequireClaudeAuth>());
+            .layer(
+                ServiceBuilder::new()
+                    .layer(from_extractor::<RequireClaudeAuth>())
+                    .layer(Extension(FormatInfo::default())),
+            );
         self.inner = self.inner.merge(router);
         self
     }
@@ -81,9 +85,12 @@ impl RouterBuilder {
         if CLEWDR_CONFIG.load().enable_oai {
             let router = Router::new()
                 .route("/v1/chat/completions", post(api_messages))
-                .route_layer(map_response(transform_oai_response))
-                .route_layer(Extension(FormatInfo::default()))
-                .route_layer(from_extractor::<RequireOaiAuth>());
+                .layer(
+                    ServiceBuilder::new()
+                        .layer(from_extractor::<RequireOaiAuth>())
+                        .layer(Extension(FormatInfo::default()))
+                        .layer(map_response(transform_oai_response)),
+                );
             self.inner = self.inner.merge(router);
         }
         self
