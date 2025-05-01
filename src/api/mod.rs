@@ -1,5 +1,5 @@
 /// API module for handling all external HTTP endpoints and request/response transformations
-/// 
+///
 /// This module serves as the main entry point for all API requests, providing endpoints
 /// for configuration management, message handling, authentication, and OpenAI-compatible
 /// interfaces. It also implements response transformation between different API formats.
@@ -7,7 +7,6 @@ pub mod body;
 mod config;
 mod messages;
 mod misc;
-mod openai;
 
 // Re-exports
 
@@ -18,20 +17,10 @@ pub use config::{api_get_config, api_post_config};
 pub use messages::api_messages;
 /// Miscellaneous endpoints for authentication, cookies, and version information
 pub use misc::{api_auth, api_delete_cookie, api_get_cookies, api_post_cookie, api_version};
-/// OpenAI compatibility endpoints for seamless integration with OpenAI clients
-pub use openai::api_completion;
-
-// Internal imports from OpenAI module
-use openai::{NonStreamEventData, transform_stream};
 
 use std::mem;
 
-
-use axum::{
-    Json,
-    body::Body,
-    response::{IntoResponse, Sse},
-};
+use axum::{Json, body::Body, response::IntoResponse};
 use body::non_stream_message;
 use colored::Colorize;
 use eventsource_stream::Eventsource;
@@ -53,11 +42,11 @@ use crate::{
 };
 
 /// Represents the format of the API response
-/// 
+///
 /// This enum defines the available API response formats that Clewdr can use
 /// when communicating with clients. It supports both Claude's native format
 /// and an OpenAI-compatible format for broader compatibility with existing tools.
-#[derive(Display, Clone, Copy)]
+#[derive(Display, Clone, Copy, Debug)]
 pub enum ApiFormat {
     /// Claude native format
     Claude,
@@ -67,14 +56,14 @@ pub enum ApiFormat {
 
 impl ClientState {
     /// Attempts to retrieve a response from cache or initiates background caching
-    /// 
+    ///
     /// This method tries to find a cached response for the given message parameters.
     /// If found, it transforms and returns the response. Otherwise, it spawns
     /// background tasks to generate and cache responses for future use.
-    /// 
+    ///
     /// # Arguments
     /// * `p` - The message parameters to use as a cache key
-    /// 
+    ///
     /// # Returns
     /// * `Option<axum::response::Response>` - The cached response if available, None otherwise
     pub async fn try_from_cache(&self, p: CreateMessageParams) -> Option<axum::response::Response> {
@@ -118,21 +107,11 @@ impl ClientState {
             let stream = input.eventsource();
             let text = merge_sse(stream).await;
             print_out_text(&text, "non_stream.txt");
-            match self.api_format {
-                ApiFormat::Claude => return Json(non_stream_message(text)).into_response(),
-                ApiFormat::OpenAI => return Json(NonStreamEventData::new(text)).into_response(),
-            }
+            return Json(non_stream_message(text)).into_response();
         }
 
         // stream the response
-        match self.api_format {
-            ApiFormat::Claude => Body::from_stream(input).into_response(),
-            ApiFormat::OpenAI => {
-                let input_stream = input.eventsource();
-                let output = transform_stream(input_stream);
-                Sse::new(output).into_response()
-            }
-        }
+        Body::from_stream(input).into_response()
     }
 
     /// Attempts to send a chat message to Claude API with retry mechanism

@@ -1,5 +1,4 @@
 use axum::response::sse::Event;
-use eventsource_stream::EventStreamError;
 use futures::{Stream, StreamExt};
 use serde::Serialize;
 
@@ -30,42 +29,11 @@ impl StreamEventData {
     }
 }
 
-/// Represents the data structure for non-streaming responses in OpenAI API format
-/// Contains a choices array with complete messages
-#[derive(Debug, Serialize)]
-pub struct NonStreamEventData {
-    choices: Vec<NonStreamEventMessage>,
-}
-
-impl NonStreamEventData {
-    /// Creates a new NonStreamEventData with the given content
-    ///
-    /// # Arguments
-    /// * `content` - The complete response text
-    ///
-    /// # Returns
-    /// A new NonStreamEventData instance with the content wrapped in choices array
-    pub fn new(content: String) -> Self {
-        Self {
-            choices: vec![NonStreamEventMessage {
-                message: EventContent::Content { content },
-            }],
-        }
-    }
-}
-
 /// Represents a delta update in a streaming response
 /// Contains the content change for the current chunk
 #[derive(Debug, Serialize)]
 struct StreamEventDelta {
     delta: EventContent,
-}
-
-/// Represents a complete message in a non-streaming response
-/// Contains the full message content
-#[derive(Debug, Serialize)]
-struct NonStreamEventMessage {
-    message: EventContent,
 }
 
 /// Content of an event, either regular content or reasoning (thinking mode)
@@ -98,11 +66,12 @@ fn build_event(content: EventContent) -> Event {
 ///
 /// # Returns
 /// A stream of OpenAI-compatible SSE events
-pub fn transform_stream<I>(s: I) -> impl Stream<Item = Result<Event, ClewdrError>> + Send + 'static
+pub fn transform_stream<I, E>(
+    s: I,
+) -> impl Stream<Item = Result<Event, ClewdrError>> + Send + 'static
 where
-    I: Stream<Item = Result<eventsource_stream::Event, EventStreamError<rquest::Error>>>
-        + Send
-        + 'static,
+    I: Stream<Item = Result<eventsource_stream::Event, E>> + Send + 'static,
+    E: Into<ClewdrError> + Send + 'static,
 {
     s.filter_map(async |event| match event {
         Ok(eventsource_stream::Event { data, .. }) => {

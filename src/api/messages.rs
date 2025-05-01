@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use axum::{
-    Json,
+    Extension, Json,
     extract::State,
     response::{IntoResponse, Response},
 };
@@ -9,16 +9,14 @@ use axum::{
 use crate::{
     api::body::non_stream_message,
     error::ClewdrError,
-    middleware::UnifiedRequestBody,
+    middleware::{FormatInfo, UnifiedRequestBody},
     state::ClientState,
     types::message::{ContentBlock, Message, Role},
     utils::print_out_json,
 };
 
-use super::ApiFormat;
-
 /// Exact test message send by SillyTavern
-static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
+static TEST_MESSAGE_CLAUDE: LazyLock<Message> = LazyLock::new(|| {
     Message::new_blocks(
         Role::User,
         vec![ContentBlock::Text {
@@ -26,6 +24,8 @@ static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
         }],
     )
 });
+
+static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
 
 /// Axum handler for the API messages
 /// Main API endpoint for handling message requests to Claude
@@ -40,22 +40,28 @@ static TEST_MESSAGE: LazyLock<Message> = LazyLock::new(|| {
 /// * `Response` - Stream or JSON response from Claude
 pub async fn api_messages(
     State(mut state): State<ClientState>,
-    UnifiedRequestBody(p): UnifiedRequestBody,
-) -> Result<Response, ClewdrError> {
+    UnifiedRequestBody(p, Extension(f)): UnifiedRequestBody,
+) -> (Extension<FormatInfo>, Result<Response, ClewdrError>) {
     // Check if the request is a test message
     let stream = p.stream.unwrap_or_default();
-    if !stream && p.messages == vec![TEST_MESSAGE.to_owned()] {
+    if !stream
+        && (p.messages == vec![TEST_MESSAGE_CLAUDE.to_owned()]
+            || p.messages == vec![TEST_MESSAGE_OAI.to_owned()])
+    {
         // respond with a test message
-        return Ok(Json(non_stream_message(
-            "Claude Reverse Proxy is working, please send a real message.".to_string(),
-        ))
-        .into_response());
+        return (
+            Extension(f),
+            Ok(Json(non_stream_message(
+                "Claude Reverse Proxy is working, please send a real message.".to_string(),
+            ))
+            .into_response()),
+        );
     }
-    print_out_json(&p, "Claude Request.json");
-    state.api_format = ApiFormat::Claude;
+    print_out_json(&p, "client_req.json");
+    state.api_format = f.api_format;
     state.stream = stream;
     if let Some(r) = state.try_from_cache(p.to_owned()).await {
-        return Ok(r);
+        return (Extension(f), Ok(r));
     }
-    state.try_chat(p).await
+    (Extension(f), state.try_chat(p).await)
 }

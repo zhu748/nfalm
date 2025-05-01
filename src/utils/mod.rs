@@ -4,7 +4,9 @@ use tracing::error;
 
 use crate::{IS_DEV, config::LOG_DIR, error::ClewdrError};
 
+mod stream;
 pub mod text;
+pub use stream::transform_stream;
 
 /// Helper function to format a boolean value as "Enabled" or "Disabled"
 pub fn enabled(flag: bool) -> ColoredString {

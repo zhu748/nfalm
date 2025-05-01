@@ -26,7 +26,7 @@ pub enum ClewdrError {
     #[error("Retries exceeded")]
     TooManyRetries,
     #[error(transparent)]
-    EventSourceError(#[from] eventsource_stream::EventStreamError<rquest::Error>),
+    EventSourceError(#[from] eventsource_stream::EventStreamError<axum::Error>),
     #[error(transparent)]
     ZipError(#[from] zip::result::ZipError),
     #[error("Asset Error: {0}")]

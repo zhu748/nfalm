@@ -1,7 +1,7 @@
 use axum::{
-    Router,
+    Extension, Router,
     http::Method,
-    middleware::from_extractor,
+    middleware::{from_extractor, map_response},
     routing::{delete, get, post},
 };
 use const_format::formatc;
@@ -10,11 +10,13 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 use crate::{
     IS_DEBUG,
     api::{
-        api_auth, api_completion, api_delete_cookie, api_get_config, api_get_cookies, api_messages,
+        api_auth, api_delete_cookie, api_get_config, api_get_cookies, api_messages,
         api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
-    middleware::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth},
+    middleware::{
+        FormatInfo, RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, transform_oai_response,
+    },
     state::ClientState,
 };
 
@@ -51,6 +53,7 @@ impl RouterBuilder {
     fn route_claude_endpoints(mut self) -> Self {
         let router = Router::new()
             .route("/v1/messages", post(api_messages))
+            .route_layer(Extension(FormatInfo::default()))
             .route_layer(from_extractor::<RequireClaudeAuth>());
         self.inner = self.inner.merge(router);
         self
@@ -77,7 +80,9 @@ impl RouterBuilder {
     fn route_openai_endpoints(mut self) -> Self {
         if CLEWDR_CONFIG.load().enable_oai {
             let router = Router::new()
-                .route("/v1/chat/completions", post(api_completion))
+                .route("/v1/chat/completions", post(api_messages))
+                .route_layer(map_response(transform_oai_response))
+                .route_layer(Extension(FormatInfo::default()))
                 .route_layer(from_extractor::<RequireOaiAuth>());
             self.inner = self.inner.merge(router);
         }
