@@ -1,20 +1,25 @@
-# v0.7.18
+# v0.8.0
+
+## Features
+
+- Implemented comprehensive response caching system to improve performance
+- Added zero-copy optimization for request hashing
+- Created unified cache structure with configurable capacity and TTL
+- Added cache configuration to frontend interface
+- Fixed issue with empty replies in conversation flow
 
 ## Improvements
 
-- Simplified cookie handling using direct HeaderValue instead of HashMap
-- Replaced manual cookie parsing with built-in cookie store for better reliability
-- Optimized image upload process using stream-based async processing
-- Added support for Claude's thinking mode in message parameters
-- Changed system field to accept JSON values for increased flexibility
-- Improved type consistency (max_tokens_to_sample from u64 to u32)
-- Reduced code complexity throughout the codebase
-- Streamlined HTTP request building process
-- Enhanced image processing with better media type handling
+- Enhanced error handling by passing original errors through the stack
+- Modified config structure for better organization and clarity
+- Optimized request key handling for efficient caching
+- Improved naming conventions for chat functionality
+- Added detailed documentation for cache implementation
 
 ## Code Quality
 
-- Removed redundant data structures and simplified type definitions
-- Improved import organization and removed unused dependencies
-- Added Clone implementations to key data structures for better ergonomics
-- Moved default token functions to more appropriate locations
+- Created well-structured cache with proper concurrency handling
+- Implemented memory-efficient streaming data transformation
+- Added comprehensive documentation for all cache-related functions
+- Improved error reporting and debugging capabilities
+- Enhanced code organization with better type safety
