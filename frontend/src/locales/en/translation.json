@@ -117,7 +117,8 @@
         "title": "API Settings",
         "maxRetries": "Max Retries",
         "passParams": "Pass Parameters",
-        "preserveChats": "Preserve Chats"
+        "preserveChats": "Preserve Chats",
+        "cacheResponse": "Cache Responses"
       },
       "cookie": {
         "title": "Cookie Settings",

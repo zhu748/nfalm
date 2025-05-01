@@ -18,7 +18,7 @@ use crate::{
 ///
 /// This static provides a singleton instance of the ClewdrCache that's accessible
 /// throughout the application. It's initialized lazily when first accessed.
-pub static CACHE: LazyLock<ClewdrCache> = LazyLock::new(|| ClewdrCache::new());
+pub static CACHE: LazyLock<ClewdrCache> = LazyLock::new(ClewdrCache::default);
 
 /// Cache implementation for storing and retrieving API responses
 ///
@@ -30,7 +30,7 @@ pub struct ClewdrCache {
     moka: Cache<u64, Arc<Mutex<CachedResponse>>>,
 }
 
-impl ClewdrCache {
+impl Default for ClewdrCache {
     /// Creates a new ClewdrCache instance with preconfigured settings
     ///
     /// Initializes a Moka cache with a maximum capacity of 100 entries and
@@ -39,7 +39,7 @@ impl ClewdrCache {
     ///
     /// # Returns
     /// * `Self` - A new ClewdrCache instance
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             moka: Cache::builder()
                 .max_capacity(100)
@@ -47,7 +47,9 @@ impl ClewdrCache {
                 .build(),
         }
     }
+}
 
+impl ClewdrCache {
     /// Stores an API response stream in the cache
     ///
     /// This asynchronously consumes the provided stream, converts it to a vector of bytes,
@@ -120,7 +122,7 @@ impl ClewdrCache {
 ///
 /// Stores multiple response bodies as vectors of bytes, allowing for
 /// storage and retrieval of stream-based API responses.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct CachedResponse {
     /// Collection of cached response bodies
     bodies: Vec<Vec<Bytes>>,
@@ -145,11 +147,6 @@ impl CachedResponse {
     /// Adds a new response body to the cache
     pub fn push(&mut self, vec: Vec<Bytes>) {
         self.bodies.push(vec);
-    }
-}
-impl Default for CachedResponse {
-    fn default() -> Self {
-        Self { bodies: Vec::new() }
     }
 }
 
@@ -208,7 +205,7 @@ struct RequestKeys<'a> {
     pub top_k: Option<u32>,
 }
 
-impl<'a> RequestKeys<'a> {
+impl RequestKeys<'_> {
     /// Generates a hash value for this request key set
     ///
     /// Creates a consistent hash value for the request keys to be used

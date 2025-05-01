@@ -22,7 +22,7 @@ use crate::{
 };
 
 /// Placeholder
-static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(|| Client::new());
+static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 /// State of current connection
 #[derive(Clone)]
 pub struct ClientState {

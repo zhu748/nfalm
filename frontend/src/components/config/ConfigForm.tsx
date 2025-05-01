@@ -128,6 +128,17 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           />
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+          <FormInput
+            id="cache_response"
+            name="cache_response"
+            type="number"
+            value={config.cache_response.toString()}
+            onChange={onChange}
+            label={t("config.sections.api.cacheResponse")}
+          />
+        </div>
+
         <div className="space-y-3">
           <ConfigCheckbox
             name="pass_params"

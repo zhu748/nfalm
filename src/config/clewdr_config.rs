@@ -345,12 +345,14 @@ impl ClewdrConfig {
 
     /// Validate the configuration
     pub fn validate(mut self) -> Self {
+        const MAX_CACHE_RESPONSE: usize = 20;
         if self.password.trim().is_empty() {
             self.password = generate_password();
         }
         if self.admin_password.trim().is_empty() {
             self.admin_password = generate_password();
         }
+        self.cache_response = self.cache_response.min(MAX_CACHE_RESPONSE);
         self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
         self.rquest_proxy = self.proxy.to_owned().and_then(|p| {
             Proxy::all(p)
