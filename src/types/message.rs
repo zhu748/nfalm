@@ -163,6 +163,10 @@ pub enum ContentBlock {
     /// Image content
     #[serde(rename = "image")]
     Image { source: ImageSource },
+    #[serde(rename = "image_url")]
+    ImageUrl { 
+        image_url: ImageUrl 
+    },
     /// Tool use content
     #[serde(rename = "tool_use")]
     ToolUse {
@@ -188,6 +192,14 @@ pub struct ImageSource {
     pub media_type: String,
     /// Base64-encoded image data
     pub data: String,
+}
+
+// oai image
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+pub struct ImageUrl {
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 /// Tool definition
