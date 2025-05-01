@@ -9,6 +9,7 @@ English | [简体中文](./README-ZH.MD)
 | Feature | ClewdR | Original Clewd |
 |---------|--------|----------------|
 | **Performance** | 3x Faster stream | Slow |
+| **Caching Responses** |  Supported | N/A |
 | **Memory Usage** | < 10MB | High |
 | **Concurrency** | Concurrent requests | Single request |
 | **Deployment** | Docker / Single Binary | Complex setup |
