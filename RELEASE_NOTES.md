@@ -1,25 +1,22 @@
-# v0.8.0
+# v0.8.1
 
 ## Features
 
-- Implemented comprehensive response caching system to improve performance
-- Added zero-copy optimization for request hashing
-- Created unified cache structure with configurable capacity and TTL
-- Added cache configuration to frontend interface
-- Fixed issue with empty replies in conversation flow
+- Unified API handlers for Claude and OpenAI formats to improve consistency
+- Implemented middleware-based response transformation for format-specific outputs
+- Added format detection through request URI path inspection
+- Created format-aware request processing pipeline
 
 ## Improvements
 
-- Enhanced error handling by passing original errors through the stack
-- Modified config structure for better organization and clarity
-- Optimized request key handling for efficient caching
-- Improved naming conventions for chat functionality
-- Added detailed documentation for cache implementation
+- Eliminated duplicate code between Claude and OpenAI handlers
+- Moved stream transformation logic to utility module for better reusability
+- Enhanced router configuration with middleware-based format transformations
+- Improved type safety in stream transformation with generic error handling
 
 ## Code Quality
 
-- Created well-structured cache with proper concurrency handling
-- Implemented memory-efficient streaming data transformation
-- Added comprehensive documentation for all cache-related functions
-- Improved error reporting and debugging capabilities
-- Enhanced code organization with better type safety
+- Reduced codebase size by consolidating duplicate handlers
+- Leveraged Axum's extension system to track format information through request pipeline
+- Implemented more generic stream transformation with improved type parameters
+- Enhanced maintainability by centralizing format-specific logic in middleware

@@ -46,7 +46,7 @@ use crate::{
 /// This enum defines the available API response formats that Clewdr can use
 /// when communicating with clients. It supports both Claude's native format
 /// and an OpenAI-compatible format for broader compatibility with existing tools.
-#[derive(Display, Clone, Copy, Debug)]
+#[derive(Display, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ApiFormat {
     /// Claude native format
     Claude,

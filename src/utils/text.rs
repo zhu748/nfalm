@@ -125,14 +125,14 @@ impl ClientState {
                                 // push image to the list
                                 imgs.push(source);
                                 None
-                            },
+                            }
                             ContentBlock::ImageUrl { image_url } => {
                                 // oai image
                                 if let Some(source) = extract_image_from_url(&image_url.url) {
                                     imgs.push(source);
                                 }
                                 None
-                            },
+                            }
                             _ => None,
                         })
                         .collect::<Vec<_>>()
@@ -290,24 +290,13 @@ fn extract_image_from_url(url: &str) -> Option<ImageSource> {
     if !url.starts_with("data:") {
         return None; // only support data URI
     }
-    
-    let parts: Vec<&str> = url.splitn(2, ',').collect();
-    if parts.len() != 2 {
-        return None;
-    }
-    
-    let metadata = parts[0];
-    let base64_data = parts[1].to_string();
-    
-    let media_type = metadata
-        .strip_prefix("data:")?
-        .split(';')
-        .next()?
-        .to_string();
-    
+    let (metadata, base64_data) = url.split_once(',')?;
+
+    let (media_type, type_) = metadata.strip_prefix("data:")?.split_once(';')?;
+
     Some(ImageSource {
-        type_: "base64".to_string(),
-        media_type,
-        data: base64_data,
+        type_: type_.to_string(),
+        media_type: media_type.to_string(),
+        data: base64_data.to_owned(),
     })
 }

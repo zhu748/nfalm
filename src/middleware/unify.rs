@@ -62,13 +62,7 @@ pub async fn transform_oai_response(resp: Response) -> Response {
     let Some(f) = resp.extensions().get::<FormatInfo>() else {
         return resp;
     };
-    if !f.stream {
-        return resp;
-    }
-    if let ApiFormat::Claude = f.api_format {
-        return resp;
-    }
-    if resp.status() != 200 {
+    if ApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
         return resp;
     }
     let body = resp.into_body();

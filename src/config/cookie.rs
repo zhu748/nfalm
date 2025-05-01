@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
+    ops::Deref,
 };
 use tracing::{info, warn};
 
@@ -81,6 +82,14 @@ impl CookieStatus {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClewdrCookie {
     inner: String,
+}
+
+impl Deref for ClewdrCookie {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Default for ClewdrCookie {
