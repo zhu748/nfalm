@@ -69,7 +69,7 @@ CLEWDR_PASSWORD=your_secure_password
 CLEWDR_ADMIN_PASSWORD=your_admin_password
 ```
 
-由于此cookie多个添加方法有些不同，可以使用js来批量处理，可处理多行和`,`分割的格式
+由于此cookie多个添加方法有些不同，可以使用js来批量处理(浏览器F12控制台运行)，可处理多行和`,`分割的格式
 ```
 (async function() {
   const raw = `
