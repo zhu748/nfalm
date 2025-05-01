@@ -38,10 +38,9 @@ pub async fn api_completion(
         ))
         .into_response());
     }
-    let key = p.get_hash();
     state.api_format = ApiFormat::OpenAI;
     state.stream = stream;
-    if let Some(r) = state.try_from_cache(p.to_owned(), key).await {
+    if let Some(r) = state.try_from_cache(p.to_owned()).await {
         return Ok(r);
     }
     state.try_chat(p).await

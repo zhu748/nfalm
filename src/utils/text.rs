@@ -169,7 +169,7 @@ impl ClientState {
                 Role::User => format!("{}: ", h),
                 Role::Assistant => format!("{}: ", a),
             };
-            write!(w, "{}{}{}", line_breaks, prefix, text).unwrap();
+            write!(w, "{}{}{}", line_breaks, prefix, text).ok()?;
         }
         print_out_text(w.as_str(), "paste.txt");
 
