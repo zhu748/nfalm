@@ -69,6 +69,28 @@ CLEWDR_PASSWORD=your_secure_password
 CLEWDR_ADMIN_PASSWORD=your_admin_password
 ```
 
+由于此cookie多个添加方法有些不同，可以使用js来批量处理，可处理多行和`,`分割的格式
+```
+(async function() {
+  const raw = `
+sk-ant-sid01-CV27
+sk-ant-sid01-XYZ9
+`.trim(); // ← 替换为你的 cookie 原始输入
+
+  const cookies = raw
+    .split('\n')
+    .flatMap(line => line.split(','))
+    .map(c => c.trim())
+    .filter(Boolean)
+    .map(c => [c]);
+
+  const json = JSON.stringify(cookies);
+  await navigator.clipboard.writeText(json);
+  console.log("已处理并复制到剪贴板：", json);
+})();
+
+```
+
 完整默认配置文件
 
 ```env
