@@ -164,6 +164,7 @@ impl ClientState {
                 let file_name = match img.media_type.to_lowercase().as_str() {
                     "image/png" => "image.png",
                     "image/jpeg" => "image.jpg",
+                    "image/jpg" => "image.jpg",
                     "image/gif" => "image.gif",
                     "image/webp" => "image.webp",
                     "application/pdf" => "document.pdf",
