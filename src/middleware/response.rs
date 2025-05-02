@@ -10,6 +10,24 @@ use crate::{
 
 use super::FormatInfo;
 
+/// Transforms responses to ensure compatibility with the OpenAI API format
+///
+/// This middleware function analyzes responses and transforms them when necessary
+/// to ensure compatibility between Claude and OpenAI API formats, particularly
+/// for streaming responses. If the response is:
+///
+/// - From the Claude API format: No transformation needed
+/// - Not streaming: No transformation needed
+/// - Has a non-200 status code: No transformation needed
+/// - OpenAI format and streaming: Transforms the stream to match OpenAI event format
+///
+/// # Arguments
+///
+/// * `resp` - The original response to be potentially transformed
+///
+/// # Returns
+///
+/// The original or transformed response as appropriate
 pub async fn transform_oai_response(resp: Response) -> impl IntoResponse {
     let Some(f) = resp.extensions().get::<FormatInfo>() else {
         return resp;
@@ -77,13 +95,20 @@ fn build_event(content: EventContent) -> Event {
 }
 
 /// Transforms a Claude.ai event stream into an OpenAI-compatible event stream
-/// Extracts content from Claude events and reformats them to match OpenAI's streaming format
+///
+/// Extracts content from Claude events and reformats them to match OpenAI's streaming format.
+/// This function processes each event in the stream, identifying the delta content type
+/// (text or thinking), and converting it to the appropriate OpenAI-compatible event format.
 ///
 /// # Arguments
 /// * `s` - The input stream of Claude.ai events
 ///
 /// # Returns
 /// A stream of OpenAI-compatible SSE events
+///
+/// # Type Parameters
+/// * `I` - The input stream type
+/// * `E` - The error type for the stream
 pub fn transform_stream<I, E>(s: I) -> impl Stream<Item = Result<Event, E>> + Send
 where
     I: Stream<Item = Result<eventsource_stream::Event, E>> + Send,
