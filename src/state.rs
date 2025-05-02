@@ -67,15 +67,10 @@ impl ClientState {
             .client
             .request(method, url)
             .header_append(ORIGIN, ENDPOINT);
-        let req = if let Some(uuid) = self.conv_uuid.to_owned() {
+        if let Some(uuid) = self.conv_uuid.to_owned() {
             req.header_append(REFERER, format!("{}/chat/{}", ENDPOINT, uuid))
         } else {
             req.header_append(REFERER, format!("{}/new", ENDPOINT))
-        };
-        if let Some(proxy) = self.proxy.to_owned() {
-            req.proxy(proxy)
-        } else {
-            req
         }
     }
 
@@ -95,10 +90,13 @@ impl ClientState {
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
         let res = self.event_sender.request().await?;
         self.cookie = Some(res.to_owned());
-        self.client = ClientBuilder::new()
+        let mut client = ClientBuilder::new()
             .cookie_store(true)
-            .emulation(Emulation::Chrome135)
-            .build()?;
+            .emulation(Emulation::Chrome135);
+        if let Some(ref proxy) = self.proxy {
+            client = client.proxy(proxy.to_owned());
+        }
+        self.client = client.build()?;
         self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
         // load newest config
         self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
