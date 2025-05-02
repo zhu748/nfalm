@@ -1,25 +1,45 @@
-# v0.8.1
+# v0.8.2
 
-## Features
+## Highlights
 
-- Unified API handlers for Claude and OpenAI formats to improve consistency
-- Implemented middleware-based response transformation for format-specific outputs
-- Added format detection through request URI path inspection
-- Created format-aware request processing pipeline
-- Add custom hashing config for response caching
-- Add support for send url image in OpenAI format
+- Refactored middleware architecture for improved API format compatibility
+- Enhanced cookie validation and management
+- Improved configuration options
+- Better error handling and response processing
+- Added web search functionality
 
-## Improvements
+## Changes
 
-- Eliminated duplicate code between Claude and OpenAI handlers
-- Moved stream transformation logic to utility module for better reusability
-- Enhanced router configuration with middleware-based format transformations
-- Improved type safety in stream transformation with generic error handling
-- Improve logging for better tracking of cookie in concurrent requests
+### New Features
 
-## Code Quality
+- **Web Search**: Added web search capability for enhanced contextual responses
 
-- Reduced codebase size by consolidating duplicate handlers
-- Leveraged Axum's extension system to track format information through request pipeline
-- Implemented more generic stream transformation with improved type parameters
-- Enhanced maintainability by centralizing format-specific logic in middleware
+### Middleware Improvements
+
+- **New Request Processor**: Added request preprocessing middleware to unify different API formats (Claude and OpenAI)
+- **Response Transformation**: Enhanced streaming response handling to ensure compatibility between Claude and OpenAI formats
+- **Test Message Detection**: Added automatic detection and handling of test messages from client applications
+
+### Cookie Management
+
+- **Improved Validation**: Enhanced cookie format validation and error reporting
+- **Better Display**: Added ellipsis cookie display for improved UI readability
+- **Reset Handling**: Refined cookie reset time management
+
+### Configuration
+
+- **Organized Settings**: Better structured configuration options with improved documentation
+- **Cache Settings**: Enhanced cache configuration with system message and last N message options
+- **Prompt Settings**: Refined prompt configuration options
+
+### Frontend
+
+- **Updated Translations**: Improved English and Chinese localization
+- **Config UI**: Enhanced configuration form with better organization and tooltips
+- **Status Display**: Improved cookie status display
+
+### Other Improvements
+
+- **Error Handling**: More robust error handling throughout the application
+- **Performance**: Optimized response processing and streaming
+- **Package Management**: Added pnpm workspace configuration
