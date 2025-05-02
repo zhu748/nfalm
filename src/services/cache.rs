@@ -188,15 +188,15 @@ fn vec_to_stream(bytes: Vec<Bytes>) -> impl Stream<Item = Result<Bytes, rquest::
 /// of a request for caching. It implements Hash to generate consistent hash keys
 /// for the cache.
 #[derive(Hash, Eq, PartialEq, Debug)]
-struct RequestKeys {
+struct RequestKeys<'a> {
     /// Maximum number of tokens to generate
     pub max_tokens: u32,
     /// Input messages for the conversation
-    pub messages: Vec<Message>,
+    pub messages: Vec<&'a Message>,
     /// Model to use
     pub model: String,
     /// System prompt
-    pub system: Option<Value>,
+    pub system: Option<&'a Value>,
     /// Custom stop sequences
     pub stop_sequences: Option<Vec<String>>,
     /// Thinking mode configuration
@@ -205,7 +205,7 @@ struct RequestKeys {
     pub top_k: Option<u32>,
 }
 
-impl RequestKeys {
+impl RequestKeys<'_> {
     /// Generates a hash value for this request key set
     ///
     /// Creates a consistent hash value for the request keys to be used
@@ -247,14 +247,14 @@ impl CreateMessageParams {
     }
 }
 
-impl From<&CreateMessageParams> for RequestKeys {
+impl<'a> From<&'a CreateMessageParams> for RequestKeys<'a> {
     // TODO: handle useless parameters
-    fn from(params: &CreateMessageParams) -> Self {
+    fn from(params: &'a CreateMessageParams) -> Self {
         RequestKeys {
             max_tokens: params.max_tokens,
-            messages: params.messages.to_owned(),
+            messages: params.messages.iter().collect(),
             model: params.model.to_owned(),
-            system: params.system.to_owned(),
+            system: params.system.as_ref(),
             stop_sequences: params.stop_sequences.to_owned(),
             thinking: params.thinking.is_some(),
             top_k: params.top_k,

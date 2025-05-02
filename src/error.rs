@@ -82,7 +82,7 @@ impl IntoResponse for ClewdrError {
                 return (
                     StatusCode::OK,
                     Json(Message::from(
-                        "Claude Reverse Proxy is working, please send a real message.".to_string(),
+                        "Claude Reverse Proxy is working, please send a real message.",
                     )),
                 )
                     .into_response();
