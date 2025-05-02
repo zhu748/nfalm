@@ -76,9 +76,7 @@ where
         parts: &mut axum::http::request::Parts,
         _: &S,
     ) -> Result<Self, Self::Rejection> {
-        let XApiKey(key) = XApiKey::from_request_parts(parts, &())
-            .await
-            .map_err(|_| ClewdrError::InvalidKey)?;
+        let XApiKey(key) = XApiKey::from_request_parts(parts, &()).await?;
         if !CLEWDR_CONFIG.load().v1_auth(&key) {
             warn!("Invalid Claude key: {}", key);
             return Err(ClewdrError::InvalidKey);
