@@ -7,7 +7,7 @@ use crate::{
     VERSION_INFO,
     config::{CLEWDR_CONFIG, CookieStatus},
     services::cookie_manager::CookieStatusInfo,
-    state::ClientState,
+    context::RequestContext,
 };
 
 /// API endpoint to submit a new cookie
@@ -21,7 +21,7 @@ use crate::{
 /// # Returns
 /// * `StatusCode` - HTTP status code indicating success or failure
 pub async fn api_post_cookie(
-    State(s): State<ClientState>,
+    State(s): State<RequestContext>,
     AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {
@@ -56,7 +56,7 @@ pub async fn api_post_cookie(
 /// # Returns
 /// * `Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)>` - Cookie status info or error
 pub async fn api_get_cookies(
-    State(s): State<ClientState>,
+    State(s): State<RequestContext>,
     AuthBearer(t): AuthBearer,
 ) -> Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)> {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
@@ -90,7 +90,7 @@ pub async fn api_get_cookies(
 /// # Returns
 /// * `Result<StatusCode, (StatusCode, Json<serde_json::Value>)>` - Success status or error
 pub async fn api_delete_cookie(
-    State(s): State<ClientState>,
+    State(s): State<RequestContext>,
     AuthBearer(t): AuthBearer,
     Json(c): Json<CookieStatus>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {

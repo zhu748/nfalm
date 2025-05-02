@@ -4,15 +4,15 @@ use clap::Parser;
 use figlet_rs::FIGfont;
 
 pub mod api;
-pub mod bootstrap;
+pub mod body;
 pub mod config;
 pub mod error;
+pub mod middleware;
 pub mod router;
 pub mod services;
-pub mod state;
+pub mod context;
 pub mod types;
 pub mod utils;
-pub mod middleware;
 
 pub const IS_DEBUG: bool = cfg!(debug_assertions);
 pub static IS_DEV: LazyLock<bool> = LazyLock::new(|| std::env::var("CARGO_MANIFEST_DIR").is_ok());

@@ -3,7 +3,7 @@ use clewdr::{
     config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
     services::cookie_manager::CookieManager,
-    state::ClientState,
+    context::RequestContext,
 };
 use colored::Colorize;
 use tracing::warn;
@@ -63,7 +63,7 @@ async fn main() -> Result<(), ClewdrError> {
 
     // initialize the application state
     let tx = CookieManager::start();
-    let state = ClientState::new(tx);
+    let state = RequestContext::new(tx);
     // build axum router
     // create a TCP listener
     let addr = CLEWDR_CONFIG.load().address();

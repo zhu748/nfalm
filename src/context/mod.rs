@@ -1,13 +1,10 @@
 use axum::http::HeaderValue;
-use base64::{Engine, prelude::BASE64_STANDARD};
-use futures::{StreamExt, stream};
 use rquest::{
     Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder,
     header::{ORIGIN, REFERER},
-    multipart::{Form, Part},
 };
 use rquest_util::Emulation;
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 use url::Url;
 
 use std::sync::LazyLock;
@@ -17,14 +14,15 @@ use crate::{
     config::{CLEWDR_CONFIG, CookieStatus, ENDPOINT, Reason},
     error::ClewdrError,
     services::cookie_manager::CookieEventSender,
-    types::message::ImageSource,
 };
 
+pub mod bootstrap;
+pub mod chat;
 /// Placeholder
 static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 /// State of current connection
 #[derive(Clone)]
-pub struct ClientState {
+pub struct RequestContext {
     pub cookie: Option<CookieStatus>,
     cookie_header_value: HeaderValue,
     pub event_sender: CookieEventSender,
@@ -39,10 +37,10 @@ pub struct ClientState {
     pub key: Option<(u64, usize)>,
 }
 
-impl ClientState {
+impl RequestContext {
     /// Create a new AppState instance
     pub fn new(event_sender: CookieEventSender) -> Self {
-        ClientState {
+        RequestContext {
             event_sender,
             cookie: None,
             org_uuid: None,
@@ -137,65 +135,5 @@ impl ClientState {
         debug!("Deleting chat: {}", conv_uuid);
         let _ = self.build_request(Method::DELETE, endpoint).send().await?;
         Ok(())
-    }
-
-    /// Upload images to the Claude.ai
-    pub async fn upload_images(&self, imgs: Vec<ImageSource>) -> Vec<String> {
-        // upload images
-        stream::iter(imgs)
-            .filter_map(async |img| {
-                // check if the image is base64
-                if img.type_ != "base64" {
-                    warn!("Image type is not base64");
-                    return None;
-                }
-                // decode the image
-                let bytes = BASE64_STANDARD
-                    .decode(img.data)
-                    .inspect_err(|e| {
-                        warn!("Failed to decode image: {}", e);
-                    })
-                    .ok()?;
-                // choose the file name based on the media type
-                let file_name = match img.media_type.to_lowercase().as_str() {
-                    "image/png" => "image.png",
-                    "image/jpeg" => "image.jpg",
-                    "image/jpg" => "image.jpg",
-                    "image/gif" => "image.gif",
-                    "image/webp" => "image.webp",
-                    "application/pdf" => "document.pdf",
-                    _ => "file",
-                };
-                // create the part and form
-                let part = Part::bytes(bytes).file_name(file_name);
-                let form = Form::new().part("file", part);
-                let endpoint = format!("{}/api/{}/upload", self.endpoint, self.org_uuid.as_ref()?);
-                // send the request into future
-                let res = self
-                    .build_request(Method::POST, endpoint)
-                    .multipart(form)
-                    .send()
-                    .await
-                    .inspect_err(|e| {
-                        warn!("Failed to upload image: {}", e);
-                    })
-                    .ok()?;
-                #[derive(serde::Deserialize)]
-                struct UploadResponse {
-                    file_uuid: String,
-                }
-                // get the response json
-                let json = res
-                    .json::<UploadResponse>()
-                    .await
-                    .inspect_err(|e| {
-                        warn!("Failed to parse image response: {}", e);
-                    })
-                    .ok()?;
-                // extract the file_uuid
-                Some(json.file_uuid)
-            })
-            .collect::<Vec<_>>()
-            .await
     }
 }

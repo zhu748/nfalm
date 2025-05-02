@@ -1,6 +1,9 @@
+pub mod request;
+pub mod response;
+
 use serde::{Deserialize, Serialize};
 
-use crate::types::message::{ContentBlock, ImageSource, Message, Role};
+use crate::types::message::ImageSource;
 
 /// Claude.ai attachment
 #[derive(Deserialize, Serialize, Debug)]
@@ -58,24 +61,5 @@ impl Tool {
             name: "web_search".to_string(),
             type_: "web_search_v0".to_string(),
         }
-    }
-}
-
-impl<S> From<S> for Message
-where
-    S: Into<String>,
-{
-    /// Converts a string into a Message with assistant role
-    ///
-    /// # Arguments
-    /// * `str` - The text content for the message
-    ///
-    /// # Returns
-    /// * `Message` - A message with assistant role and text content
-    fn from(str: S) -> Self {
-        Message::new_blocks(
-            Role::Assistant,
-            vec![ContentBlock::Text { text: str.into() }],
-        )
     }
 }

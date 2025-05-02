@@ -7,11 +7,11 @@ use tracing::warn;
 use crate::{
     config::{CLEWDR_CONFIG, Reason},
     error::{CheckResErr, ClewdrError},
-    state::ClientState,
+    context::RequestContext,
     utils::print_out_json,
 };
 
-impl ClientState {
+impl RequestContext {
     /// Bootstraps the application state by initializing connections to Claude.ai
     ///
     /// This function performs the following operations:
