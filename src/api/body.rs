@@ -55,7 +55,6 @@ where
     ///
     /// # Returns
     /// * `Message` - A message with assistant role and text content
-
     fn from(str: S) -> Self {
         Message::new_blocks(
             Role::Assistant,

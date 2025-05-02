@@ -6,7 +6,7 @@ use tracing::info;
 use crate::{
     api::ApiFormat,
     error::ClewdrError,
-    middleware::{FormatInfo, UnifiedRequestBody},
+    middleware::{FormatInfo, Preprocess},
     state::ClientState,
     utils::{enabled, print_out_json},
 };
@@ -23,7 +23,7 @@ use crate::{
 /// * `Response` - Stream or JSON response from Claude
 pub async fn api_messages(
     State(mut state): State<ClientState>,
-    UnifiedRequestBody(p, Extension(f)): UnifiedRequestBody,
+    Preprocess(p, Extension(f)): Preprocess,
 ) -> (Extension<FormatInfo>, Result<Response, ClewdrError>) {
     // Check if the request is a test message
     let stream = p.stream.unwrap_or_default();
@@ -50,8 +50,5 @@ pub async fn api_messages(
             format!("{}", elapsed.num_milliseconds() as f64 / 1000.0).green()
         );
     );
-    if let Some(r) = state.try_from_cache(p.to_owned()).await {
-        return (Extension(f), Ok(r));
-    }
     (Extension(f), state.try_chat(p).await)
 }

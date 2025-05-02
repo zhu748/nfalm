@@ -13,6 +13,8 @@ use crate::{config::Reason, services::cookie_manager::CookieEvent, types::messag
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[error("Cache found")]
+    CacheFound(axum::response::Response),
     #[error("Test Message")]
     TestMessage,
     #[error(transparent)]
@@ -75,6 +77,7 @@ impl IntoResponse for ClewdrError {
             ClewdrError::OtherHttpError(status, inner) => {
                 return (status, Json(JsError { error: inner })).into_response();
             }
+            ClewdrError::CacheFound(res) => return (StatusCode::OK, res).into_response(),
             ClewdrError::TestMessage => {
                 return (
                     StatusCode::OK,

@@ -1,11 +1,29 @@
-use axum::response::sse::Event;
+use axum::response::{IntoResponse, Response, Sse, sse::Event};
+use eventsource_stream::Eventsource;
 use futures::{Stream, StreamExt};
 use serde::Serialize;
 
 use crate::{
-    error::ClewdrError,
+    api::ApiFormat,
     types::message::{ContentBlockDelta, StreamEvent},
 };
+
+use super::FormatInfo;
+
+pub async fn transform_oai_response(resp: Response) -> impl IntoResponse {
+    let Some(f) = resp.extensions().get::<FormatInfo>() else {
+        return resp;
+    };
+    if ApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
+        return resp;
+    }
+    let body = resp.into_body();
+    let stream = body.into_data_stream().eventsource();
+    let stream = transform_stream(stream);
+    Sse::new(stream)
+        .keep_alive(Default::default())
+        .into_response()
+}
 
 /// Represents the data structure for streaming events in OpenAI API format
 /// Contains a choices array with deltas of content
@@ -66,12 +84,10 @@ fn build_event(content: EventContent) -> Event {
 ///
 /// # Returns
 /// A stream of OpenAI-compatible SSE events
-pub fn transform_stream<I, E>(
-    s: I,
-) -> impl Stream<Item = Result<Event, ClewdrError>> + Send + 'static
+pub fn transform_stream<I, E>(s: I) -> impl Stream<Item = Result<Event, E>> + Send
 where
-    I: Stream<Item = Result<eventsource_stream::Event, E>> + Send + 'static,
-    E: Into<ClewdrError> + Send + 'static,
+    I: Stream<Item = Result<eventsource_stream::Event, E>> + Send,
+    E: Send,
 {
     s.filter_map(async |event| match event {
         Ok(eventsource_stream::Event { data, .. }) => {
@@ -91,6 +107,6 @@ where
                 _ => None,
             }
         }
-        Err(e) => Some(Err(e.into())),
+        Err(e) => Some(Err(e)),
     })
 }

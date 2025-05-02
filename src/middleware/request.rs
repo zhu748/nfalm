@@ -3,31 +3,24 @@ use std::sync::LazyLock;
 use axum::{
     Extension, Json,
     extract::{FromRequest, Request},
-    response::{IntoResponse, Response, Sse},
+    response::IntoResponse,
 };
-use eventsource_stream::Eventsource;
 
 use crate::{
     api::ApiFormat,
     error::ClewdrError,
+    state::ClientState,
     types::message::{ContentBlock, CreateMessageParams, Message, Role},
-    utils::transform_stream,
 };
 
+use super::transform_oai_response;
+
 /// A custom extractor that unify different api formats
-pub struct UnifiedRequestBody(pub CreateMessageParams, pub Extension<FormatInfo>);
+pub struct Preprocess(pub CreateMessageParams, pub Extension<FormatInfo>);
 #[derive(Debug, Clone)]
 pub struct FormatInfo {
     pub stream: bool,
     pub api_format: ApiFormat,
-}
-impl Default for FormatInfo {
-    fn default() -> Self {
-        Self {
-            stream: false,
-            api_format: ApiFormat::Claude,
-        }
-    }
 }
 
 /// Exact test message send by SillyTavern
@@ -42,13 +35,10 @@ static TEST_MESSAGE_CLAUDE: LazyLock<Message> = LazyLock::new(|| {
 
 static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
 
-impl<S> FromRequest<S> for UnifiedRequestBody
-where
-    S: Sync,
-{
+impl FromRequest<ClientState> for Preprocess {
     type Rejection = ClewdrError;
 
-    async fn from_request(req: Request, _: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, state: &ClientState) -> Result<Self, Self::Rejection> {
         let uri = req.uri().to_string();
         let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
         if body.model.ends_with("-thinking") {
@@ -69,27 +59,18 @@ where
         } else {
             ApiFormat::Claude
         };
-        Ok(Self(
-            body,
-            Extension(FormatInfo {
-                stream,
-                api_format: format,
-            }),
-        ))
+        let mut state = state.clone();
+        state.api_format = format;
+        state.stream = stream;
+        let info = FormatInfo {
+            stream,
+            api_format: format,
+        };
+        if let Some(mut r) = state.try_from_cache(body.to_owned()).await {
+            r.extensions_mut().insert(info.to_owned());
+            let r = transform_oai_response(r).await.into_response();
+            return Err(ClewdrError::CacheFound(r));
+        }
+        Ok(Self(body, Extension(info)))
     }
-}
-
-pub async fn transform_oai_response(resp: Response) -> Response {
-    let Some(f) = resp.extensions().get::<FormatInfo>() else {
-        return resp;
-    };
-    if ApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
-        return resp;
-    }
-    let body = resp.into_body();
-    let stream = body.into_data_stream().eventsource();
-    let stream = transform_stream(stream);
-    Sse::new(stream)
-        .keep_alive(Default::default())
-        .into_response()
 }

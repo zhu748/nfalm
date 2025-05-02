@@ -1,5 +1,5 @@
 use axum::{
-    Extension, Router,
+    Router,
     http::Method,
     middleware::{from_extractor, map_response},
     routing::{delete, get, post},
@@ -15,9 +15,7 @@ use crate::{
         api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
-    middleware::{
-        FormatInfo, RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, transform_oai_response,
-    },
+    middleware::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, transform_oai_response},
     state::ClientState,
 };
 
@@ -54,11 +52,7 @@ impl RouterBuilder {
     fn route_claude_endpoints(mut self) -> Self {
         let router = Router::new()
             .route("/v1/messages", post(api_messages))
-            .layer(
-                ServiceBuilder::new()
-                    .layer(from_extractor::<RequireClaudeAuth>())
-                    .layer(Extension(FormatInfo::default())),
-            );
+            .layer(from_extractor::<RequireClaudeAuth>());
         self.inner = self.inner.merge(router);
         self
     }
@@ -88,7 +82,6 @@ impl RouterBuilder {
                 .layer(
                     ServiceBuilder::new()
                         .layer(from_extractor::<RequireOaiAuth>())
-                        .layer(Extension(FormatInfo::default()))
                         .layer(map_response(transform_oai_response)),
                 );
             self.inner = self.inner.merge(router);
