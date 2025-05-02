@@ -67,7 +67,7 @@ impl FromRequest<ClientState> for Preprocess {
     async fn from_request(req: Request, state: &ClientState) -> Result<Self, Self::Rejection> {
         let uri = req.uri().to_string();
         let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
-        
+
         // Handle thinking mode by modifying the model name
         if body.model.ends_with("-thinking") {
             body.model = body.model.trim_end_matches("-thinking").to_string();
@@ -82,7 +82,7 @@ impl FromRequest<ClientState> for Preprocess {
             // Respond with a test message
             return Err(ClewdrError::TestMessage);
         }
-        
+
         // Determine streaming status and API format
         let stream = body.stream.unwrap_or_default();
         let format = if uri.contains("chat/completions") {
@@ -90,7 +90,7 @@ impl FromRequest<ClientState> for Preprocess {
         } else {
             ApiFormat::Claude
         };
-        
+
         // Update state with format information
         let mut state = state.clone();
         state.api_format = format;
@@ -99,14 +99,14 @@ impl FromRequest<ClientState> for Preprocess {
             stream,
             api_format: format,
         };
-        
+
         // Try to retrieve from cache before processing
-        if let Some(mut r) = state.try_from_cache(body.to_owned()).await {
+        if let Some(mut r) = state.try_from_cache(&body).await {
             r.extensions_mut().insert(info.to_owned());
             let r = transform_oai_response(r).await.into_response();
             return Err(ClewdrError::CacheFound(r));
         }
-        
+
         Ok(Self(body, Extension(info)))
     }
 }

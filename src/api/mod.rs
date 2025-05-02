@@ -65,7 +65,10 @@ impl ClientState {
     ///
     /// # Returns
     /// * `Option<axum::response::Response>` - The cached response if available, None otherwise
-    pub async fn try_from_cache(&self, p: CreateMessageParams) -> Option<axum::response::Response> {
+    pub async fn try_from_cache(
+        &self,
+        p: &CreateMessageParams,
+    ) -> Option<axum::response::Response> {
         let key = p.get_hash();
         if let Some(stream) = CACHE.pop(key) {
             return Some(self.transform_response(stream).await);
