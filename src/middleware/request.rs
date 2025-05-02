@@ -92,7 +92,7 @@ impl FromRequest<ClientState> for Preprocess {
         };
 
         // Update state with format information
-        let mut state = state.clone();
+        let mut state = state.to_owned();
         state.api_format = format;
         state.stream = stream;
         let info = FormatInfo {

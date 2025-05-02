@@ -53,7 +53,7 @@ impl ClientState {
             proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
             api_format: ApiFormat::Claude,
             stream: false,
-            client: SUPER_CLIENT.clone(),
+            client: SUPER_CLIENT.to_owned(),
             key: None,
         }
     }

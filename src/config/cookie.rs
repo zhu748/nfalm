@@ -117,7 +117,7 @@ impl ClewdrCookie {
         if len > 10 {
             format!("{}...", &self.inner[..10])
         } else {
-            self.inner.clone()
+            self.inner.to_owned()
         }
     }
 }
