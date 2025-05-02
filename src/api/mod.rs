@@ -29,7 +29,7 @@ use scopeguard::defer;
 use serde_json::json;
 use strum::Display;
 use tokio::spawn;
-use tracing::{debug, error, info, warn};
+use tracing::{Instrument, Level, debug, error, info, span, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
@@ -71,13 +71,15 @@ impl ClientState {
     ) -> Option<axum::response::Response> {
         let key = p.get_hash();
         if let Some(stream) = CACHE.pop(key) {
+            info!("[CACHE] found response for key: {}", key);
             return Some(self.transform_response(stream).await);
         }
         for id in 0..CLEWDR_CONFIG.load().cache_response {
             let mut state = self.to_owned();
             state.key = Some((key, id));
             let p = p.to_owned();
-            spawn(async move { state.try_chat(p).await });
+            let cache_span = span!(Level::ERROR, "cache");
+            spawn(async move { state.try_chat(p).instrument(cache_span).await });
         }
         None
     }

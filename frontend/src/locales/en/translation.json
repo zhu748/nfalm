@@ -118,7 +118,7 @@
         "maxRetries": "Max Retries",
         "passParams": "Pass Parameters",
         "preserveChats": "Preserve Chats",
-        "cacheResponse": "Cache Responses"
+        "webSearch": "Web Search"
       },
       "cache": {
         "title": "Cache Settings",

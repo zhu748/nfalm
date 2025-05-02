@@ -90,6 +90,8 @@ pub struct ClewdrConfig {
     pub pass_params: bool,
     #[serde(default)]
     pub preserve_chats: bool,
+    #[serde(default)]
+    pub web_search: bool,
 
     // Cache settings, can hot reload
     #[serde(default)]
@@ -159,6 +161,7 @@ impl Default for ClewdrConfig {
             pad_tokens: Arc::new(vec![]),
             pass_params: false,
             preserve_chats: false,
+            web_search: false,
             cache_response: 0,
             not_hash_system: false,
             not_hash_last_n: 0,

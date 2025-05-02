@@ -117,7 +117,8 @@
         "title": "API设置",
         "maxRetries": "最大重试次数",
         "passParams": "传递参数",
-        "preserveChats": "保留聊天"
+        "preserveChats": "保留聊天",
+        "webSearch": "网页搜索"
       },
       "cache": {
         "title": "缓存设置",

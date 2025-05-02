@@ -11,7 +11,7 @@ use tracing::warn;
 use crate::{
     api::{
         ApiFormat,
-        body::{Attachment, RequestBody},
+        body::{Attachment, RequestBody, Tool},
     },
     config::CLEWDR_CONFIG,
     state::ClientState,
@@ -53,6 +53,10 @@ impl ClientState {
                 (value, merged)
             }
         };
+        let mut tools = vec![];
+        if CLEWDR_CONFIG.load().web_search {
+            tools.push(Tool::web_search());
+        }
         Some(RequestBody {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
@@ -70,6 +74,7 @@ impl ClientState {
             prompt: merged.prompt,
             timezone: TIME_ZONE.to_string(),
             images: merged.images,
+            tools,
         })
     }
 

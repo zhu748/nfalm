@@ -141,6 +141,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
             onChange={onChange}
             label={t("config.sections.api.preserveChats")}
           />
+
+          <ConfigCheckbox
+            name="web_search"
+            checked={config.web_search}
+            onChange={onChange}
+            label={t("config.sections.api.webSearch")}
+          />
         </div>
       </ConfigSection>
 

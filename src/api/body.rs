@@ -42,6 +42,23 @@ pub struct RequestBody {
     pub timezone: String,
     #[serde(skip)]
     pub images: Vec<ImageSource>,
+    pub tools: Vec<Tool>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Tool {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub type_: String,
+}
+
+impl Tool {
+    pub fn web_search() -> Self {
+        Tool {
+            name: "web_search".to_string(),
+            type_: "web_search_v0".to_string(),
+        }
+    }
 }
 
 impl<S> From<S> for Message

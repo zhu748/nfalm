@@ -113,7 +113,6 @@ impl ClewdrCache {
             self.moka.invalidate(&key);
         }
         let vec = vec?;
-        info!("Cache hit for key: {}", key);
         Some(vec_to_stream(vec))
     }
 }
