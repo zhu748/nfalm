@@ -2,7 +2,6 @@ use async_stream::try_stream;
 use axum::response::{IntoResponse, Response, Sse, sse::Event};
 use eventsource_stream::Eventsource;
 use futures::Stream;
-use trie_rs::inc_search::{IncSearch, Position};
 
 use crate::types::message::{ContentBlockDelta, MessageDeltaContent, StreamEvent};
 
@@ -18,12 +17,8 @@ where
     >,
 {
     let trie = trie_rs::map::Trie::from_iter(sequences.iter().cloned().map(|s| (s.to_owned(), s)));
-    let searches = vec![trie.inc_search()];
-    let mut positions = searches
-        .into_iter()
-        .map(Position::from)
-        .collect::<Vec<Position>>();
     try_stream! {
+        let mut searches = vec![trie.inc_search()];
         for await event in stream {
             let eventsource_stream::Event { data, .. } = event?;
             let Ok(parsed) = serde_json::from_str::<StreamEvent>(&data) else {
@@ -42,8 +37,8 @@ where
                 yield event;
                 continue;
             };
-            let mut searches = positions.iter().map(|p| IncSearch::resume(&trie, *p))
-                .collect::<Vec<_>>();
+            // let mut searches = positions.iter().map(|p| IncSearch::resume(&trie, *p))
+            //     .collect::<Vec<_>>();
             let input = text.as_bytes();
             for i in 0..input.len() {
                 let mut next_searches = vec![];
@@ -76,7 +71,7 @@ where
                                 let event = event.json_data(e).unwrap();
                                 yield event;
                             }
-                            break;
+                            return;
                         }
                         _ => {
                             next_searches.push(s.to_owned());
@@ -85,11 +80,6 @@ where
                     }
                 }
                 searches = next_searches;
-                positions = searches
-                    .iter()
-                    .cloned()
-                    .map(Position::from)
-                    .collect::<Vec<_>>();
             }
         }
     }
