@@ -3,21 +3,21 @@ use axum::response::{IntoResponse, Response, Sse, sse::Event};
 use eventsource_stream::Eventsource;
 use futures::Stream;
 
-use crate::types::message::{ContentBlockDelta, MessageDeltaContent, StreamEvent};
+use crate::types::message::{ContentBlockDelta, MessageDeltaContent, StopReason, StreamEvent};
 
 use super::ExtraContext;
+
+type EventResult<T> = Result<T, eventsource_stream::EventStreamError<axum::Error>>;
 
 fn stop_stream<S>(
     sequences: Vec<String>,
     stream: S,
-) -> impl Stream<Item = Result<Event, eventsource_stream::EventStreamError<axum::Error>>>
+) -> impl Stream<Item = EventResult<Event>> + Send
 where
-    S: Stream<
-        Item = Result<eventsource_stream::Event, eventsource_stream::EventStreamError<axum::Error>>,
-    >,
+    S: Stream<Item = EventResult<eventsource_stream::Event>> + Send + 'static,
 {
-    let trie = trie_rs::map::Trie::from_iter(sequences.iter().cloned().map(|s| (s.to_owned(), s)));
-    try_stream! {
+    let trie = trie_rs::map::Trie::from_iter(sequences.into_iter().map(|s| (s.to_owned(), s)));
+    try_stream!({
         let mut searches = vec![trie.inc_search()];
         for await event in stream {
             let eventsource_stream::Event { data, .. } = event?;
@@ -37,15 +37,15 @@ where
                 yield event;
                 continue;
             };
-            // let mut searches = positions.iter().map(|p| IncSearch::resume(&trie, *p))
-            //     .collect::<Vec<_>>();
             let input = text.as_bytes();
             for i in 0..input.len() {
                 let mut next_searches = vec![];
                 for s in searches.iter_mut() {
                     let prev = s.to_owned();
                     match s.query(&input[i]) {
+                        // no match, start from the beginning
                         None => next_searches.push(s.to_owned()),
+                        // match found, return
                         Some(a) if a.is_match() => {
                             let seq = s.value().unwrap();
                             // stop sequence found
@@ -57,32 +57,29 @@ where
                             let content_block_stop = StreamEvent::ContentBlockStop { index };
                             let message_delta = StreamEvent::MessageDelta {
                                 delta: MessageDeltaContent {
-                                    stop_reason: Some(
-                                        crate::types::message::StopReason::StopSequence,
-                                    ),
+                                    stop_reason: Some(StopReason::StopSequence),
                                     stop_sequence: Some(seq.to_string()),
                                 },
                                 usage: None,
                             };
                             let message_stop = StreamEvent::MessageStop;
 
-                            for e in  [event, content_block_stop, message_delta, message_stop] {
+                            for e in [event, content_block_stop, message_delta, message_stop] {
                                 let event = Event::default();
                                 let event = event.json_data(e).unwrap();
                                 yield event;
                             }
                             return;
                         }
-                        _ => {
-                            next_searches.push(s.to_owned());
-                            next_searches.push(prev);
-                        }
+                        // prefix found, add it to the next searches
+                        _ => next_searches.extend([prev, s.to_owned()]),
                     }
                 }
                 searches = next_searches;
             }
+            yield event;
         }
-    }
+    })
 }
 
 pub async fn apply_stop_sequences(resp: Response) -> Response {
