@@ -9,12 +9,9 @@ use super::ExtraContext;
 
 type EventResult<T> = Result<T, eventsource_stream::EventStreamError<axum::Error>>;
 
-fn stop_stream<S>(
-    sequences: Vec<String>,
-    stream: S,
-) -> impl Stream<Item = EventResult<Event>> + Send
+fn stop_stream<S>(sequences: Vec<String>, stream: S) -> impl Stream<Item = EventResult<Event>>
 where
-    S: Stream<Item = EventResult<eventsource_stream::Event>> + Send + 'static,
+    S: Stream<Item = EventResult<eventsource_stream::Event>>,
 {
     let trie = trie_rs::map::Trie::from_iter(sequences.into_iter().map(|s| (s.to_owned(), s)));
     try_stream!({
