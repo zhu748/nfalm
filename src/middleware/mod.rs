@@ -13,5 +13,5 @@ mod stop_sequences;
 
 pub use auth::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth};
 pub use request::{ExtraContext, Preprocess};
-pub use response::transform_oai_response;
-pub use stop_sequences::stop;
+pub use response::to_oai;
+pub use stop_sequences::apply_stop_sequences;

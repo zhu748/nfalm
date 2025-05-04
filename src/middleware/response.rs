@@ -28,7 +28,7 @@ use super::ExtraContext;
 /// # Returns
 ///
 /// The original or transformed response as appropriate
-pub async fn transform_oai_response(resp: Response) -> impl IntoResponse {
+pub async fn to_oai(resp: Response) -> impl IntoResponse {
     let Some(f) = resp.extensions().get::<ExtraContext>() else {
         return resp;
     };

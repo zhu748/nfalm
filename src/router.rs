@@ -17,7 +17,7 @@ use crate::{
     config::CLEWDR_CONFIG,
     context::RequestContext,
     middleware::{
-        RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, stop, transform_oai_response,
+        RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, apply_stop_sequences, to_oai,
     },
 };
 
@@ -57,7 +57,7 @@ impl RouterBuilder {
             .layer(
                 ServiceBuilder::new()
                     .layer(from_extractor::<RequireClaudeAuth>())
-                    .layer(map_response(stop)),
+                    .layer(map_response(apply_stop_sequences)),
             );
         self.inner = self.inner.merge(router);
         self
@@ -88,8 +88,8 @@ impl RouterBuilder {
                 .layer(
                     ServiceBuilder::new()
                         .layer(from_extractor::<RequireOaiAuth>())
-                        .layer(map_response(transform_oai_response))
-                        .layer(map_response(stop)),
+                        .layer(map_response(to_oai))
+                        .layer(map_response(apply_stop_sequences)),
                 );
             self.inner = self.inner.merge(router);
         }

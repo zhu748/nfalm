@@ -13,7 +13,7 @@ use crate::{
     types::message::{ContentBlock, CreateMessageParams, Message, Role},
 };
 
-use super::transform_oai_response;
+use super::to_oai;
 
 /// A custom extractor that unifies different API formats
 ///
@@ -108,7 +108,7 @@ impl FromRequest<RequestContext> for Preprocess {
         // Try to retrieve from cache before processing
         if let Some(mut r) = state.try_from_cache(&body).await {
             r.extensions_mut().insert(info.to_owned());
-            let r = transform_oai_response(r).await.into_response();
+            let r = to_oai(r).await.into_response();
             return Err(ClewdrError::CacheFound(r));
         }
 

@@ -7,7 +7,7 @@ use crate::types::message::{ContentBlockDelta, MessageDeltaContent, StreamEvent}
 
 use super::ExtraContext;
 
-pub async fn stop(resp: Response) -> Response {
+pub async fn apply_stop_sequences(resp: Response) -> Response {
     let Some(f) = resp.extensions().get::<ExtraContext>().cloned() else {
         return resp;
     };
@@ -59,7 +59,7 @@ pub async fn stop(resp: Response) -> Response {
                         delta: ContentBlockDelta::TextDelta { text: result },
                         index,
                     };
-                    let content_block_stop = StreamEvent::ContentBlockStop { index: index + 1 };
+                    let content_block_stop = StreamEvent::ContentBlockStop { index };
                     let message_delta = StreamEvent::MessageDelta {
                         delta: MessageDeltaContent {
                             stop_reason: Some(crate::types::message::StopReason::StopSequence),
@@ -69,7 +69,7 @@ pub async fn stop(resp: Response) -> Response {
                     };
                     let message_stop = StreamEvent::MessageStop;
 
-                    res = vec![event, content_block_stop, message_delta, message_stop]
+                    res = [event, content_block_stop, message_delta, message_stop]
                         .iter()
                         .map(|e| {
                             let event = Event::default();
