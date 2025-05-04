@@ -1,10 +1,7 @@
 use axum::response::{IntoResponse, Response, Sse, sse::Event};
-use eventsource_stream::{EventStreamError, Eventsource};
+use eventsource_stream::Eventsource;
 use futures::{StreamExt, stream};
-use trie_rs::{
-    Trie,
-    inc_search::{IncSearch, Position},
-};
+use trie_rs::inc_search::{IncSearch, Position};
 
 use crate::types::message::{ContentBlockDelta, MessageDeltaContent, StreamEvent};
 
@@ -22,7 +19,8 @@ pub async fn stop(resp: Response) -> impl IntoResponse {
     }
 
     let stream = resp.into_body().into_data_stream().eventsource();
-    let trie = Trie::from_iter(f.stop_sequences);
+    let trie =
+        trie_rs::map::Trie::from_iter(f.stop_sequences.iter().cloned().map(|s| (s.to_owned(), s)));
     let search = trie.inc_search();
     let mut position = Position::from(search);
     let mut stop = false;
@@ -30,7 +28,7 @@ pub async fn stop(resp: Response) -> impl IntoResponse {
         if stop {
             return stream::iter(vec![]);
         }
-        let mut search = IncSearch::resume(&trie.0, position);
+        let mut search = IncSearch::resume(&trie, position);
         match event {
             Ok(eventsource_stream::Event { data, .. }) => {
                 let Ok(parsed) = serde_json::from_str::<StreamEvent>(&data) else {
@@ -38,26 +36,25 @@ pub async fn stop(resp: Response) -> impl IntoResponse {
                     let event = event.data(data);
                     return stream::iter(vec![Ok(event)]);
                 };
-                let StreamEvent::ContentBlockDelta { ref delta, index } = parsed else {
-                    let event = Event::default();
-                    let event = event.json_data(&parsed).unwrap();
-                    return stream::iter(vec![Ok(event)]);
-                };
                 let event = Event::default();
                 let event = event.json_data(&parsed).unwrap();
+                let StreamEvent::ContentBlockDelta { ref delta, index } = parsed else {
+                    return stream::iter(vec![Ok(event)]);
+                };
                 let ContentBlockDelta::TextDelta { text } = delta else {
                     return stream::iter(vec![Ok(event)]);
                 };
                 let input = text.as_bytes();
-                let mut res: Vec<Result<Event, EventStreamError<axum::Error>>> = vec![Ok(event)];
+                let mut res = vec![Ok(event)];
                 for i in 0..input.len() {
                     match search.query(&input[i]) {
                         None => {
                             search.reset();
                         }
                         Some(a) if a.is_match() => {
+                            let seq = search.value().unwrap();
                             // stop sequence found
-                            let result = String::from_utf8_lossy(&input[..i]).to_string();
+                            let result = String::from_utf8_lossy(&input[..i + 1]).to_string();
                             stop = true;
                             let event = StreamEvent::ContentBlockDelta {
                                 delta: ContentBlockDelta::TextDelta { text: result },
@@ -70,7 +67,7 @@ pub async fn stop(resp: Response) -> impl IntoResponse {
                                     stop_reason: Some(
                                         crate::types::message::StopReason::StopSequence,
                                     ),
-                                    stop_sequence: None, // TODO: add stop sequence
+                                    stop_sequence: Some(seq.to_string()),
                                 },
                                 usage: None,
                             };
