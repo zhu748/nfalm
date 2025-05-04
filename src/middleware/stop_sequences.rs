@@ -7,7 +7,7 @@ use crate::types::message::{ContentBlockDelta, MessageDeltaContent, StreamEvent}
 
 use super::FormatInfo;
 
-pub async fn stop(resp: Response) -> impl IntoResponse {
+pub async fn stop(resp: Response) -> Response {
     let Some(f) = resp.extensions().get::<FormatInfo>().cloned() else {
         return resp;
     };

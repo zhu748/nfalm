@@ -15,8 +15,10 @@ use crate::{
         api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
-    middleware::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, transform_oai_response},
     context::RequestContext,
+    middleware::{
+        RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, stop, transform_oai_response,
+    },
 };
 
 /// RouterBuilder for the application
@@ -52,7 +54,11 @@ impl RouterBuilder {
     fn route_claude_endpoints(mut self) -> Self {
         let router = Router::new()
             .route("/v1/messages", post(api_messages))
-            .layer(from_extractor::<RequireClaudeAuth>());
+            .layer(
+                ServiceBuilder::new()
+                    .layer(from_extractor::<RequireClaudeAuth>())
+                    .layer(map_response(stop)),
+            );
         self.inner = self.inner.merge(router);
         self
     }
@@ -82,7 +88,8 @@ impl RouterBuilder {
                 .layer(
                     ServiceBuilder::new()
                         .layer(from_extractor::<RequireOaiAuth>())
-                        .layer(map_response(transform_oai_response)),
+                        .layer(map_response(transform_oai_response))
+                        .layer(map_response(stop)),
                 );
             self.inner = self.inner.merge(router);
         }
