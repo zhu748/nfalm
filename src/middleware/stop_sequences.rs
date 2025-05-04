@@ -54,7 +54,8 @@ pub async fn stop(resp: Response) -> Response {
                         Some(a) if a.is_match() => {
                             let seq = search.value().unwrap();
                             // stop sequence found
-                            let result = String::from_utf8_lossy(&input[..i + 1]).to_string();
+                            let result =
+                                String::from_utf8_lossy(&input[..i + 1 - seq.len()]).to_string();
                             stop = true;
                             let event = StreamEvent::ContentBlockDelta {
                                 delta: ContentBlockDelta::TextDelta { text: result },
