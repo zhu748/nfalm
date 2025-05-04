@@ -39,12 +39,9 @@ where
             };
             let input = text.as_bytes();
             for i in 0..input.len() {
-                let mut next_searches = vec![];
-                for s in searches.iter_mut() {
-                    let prev = s.to_owned();
+                let mut next_searches = vec![trie.inc_search()];
+                for mut s in searches.into_iter() {
                     match s.query(&input[i]) {
-                        // no match, start from the beginning
-                        None => next_searches.push(s.to_owned()),
                         // match found, return
                         Some(a) if a.is_match() => {
                             let seq = s.value().unwrap();
@@ -72,7 +69,8 @@ where
                             return;
                         }
                         // prefix found, add it to the next searches
-                        _ => next_searches.extend([prev, s.to_owned()]),
+                        Some(a) if a.is_prefix() => next_searches.push(s),
+                        _ => (),
                     }
                 }
                 searches = next_searches;
