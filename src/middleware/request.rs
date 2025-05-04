@@ -29,7 +29,7 @@ use super::transform_oai_response;
 /// - Identifies test messages and handles them appropriately
 /// - Attempts to retrieve responses from cache before processing requests
 /// - Provides format information via the FormatInfo extension
-pub struct Preprocess(pub CreateMessageParams, pub Extension<FormatInfo>);
+pub struct Preprocess(pub CreateMessageParams, pub Extension<ExtraContext>);
 
 /// Contains information about the API format and streaming status
 ///
@@ -37,7 +37,7 @@ pub struct Preprocess(pub CreateMessageParams, pub Extension<FormatInfo>);
 /// handlers and response processors about the API format being used
 /// and whether the response should be streamed.
 #[derive(Debug, Clone)]
-pub struct FormatInfo {
+pub struct ExtraContext {
     /// Whether the response should be streamed
     pub stream: bool,
     /// The API format being used (Claude or OpenAI)
@@ -97,10 +97,12 @@ impl FromRequest<RequestContext> for Preprocess {
         let mut state = state.to_owned();
         state.api_format = format;
         state.stream = stream;
-        let info = FormatInfo {
+        let mut stop = body.stop_sequences.to_owned().unwrap_or_default();
+        stop.extend_from_slice(body.stop.to_owned().unwrap_or_default().as_slice());
+        let info = ExtraContext {
             stream,
             api_format: format,
-            stop_sequences: body.stop_sequences.to_owned().unwrap_or_default(),
+            stop_sequences: stop,
         };
 
         // Try to retrieve from cache before processing

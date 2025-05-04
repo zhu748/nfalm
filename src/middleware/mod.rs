@@ -12,6 +12,6 @@ mod response;
 mod stop_sequences;
 
 pub use auth::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth};
-pub use request::{FormatInfo, Preprocess};
+pub use request::{ExtraContext, Preprocess};
 pub use response::transform_oai_response;
 pub use stop_sequences::stop;

@@ -6,7 +6,7 @@ use tracing::info;
 use crate::{
     api::ApiFormat,
     error::ClewdrError,
-    middleware::{FormatInfo, Preprocess},
+    middleware::{ExtraContext, Preprocess},
     context::RequestContext,
     utils::{enabled, print_out_json},
 };
@@ -24,7 +24,7 @@ use crate::{
 pub async fn api_messages(
     State(mut state): State<RequestContext>,
     Preprocess(p, Extension(f)): Preprocess,
-) -> (Extension<FormatInfo>, Result<Response, ClewdrError>) {
+) -> (Extension<ExtraContext>, Result<Response, ClewdrError>) {
     // Check if the request is a test message
     let stream = p.stream.unwrap_or_default();
     print_out_json(&p, "client_req.json");
