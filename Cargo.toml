@@ -59,8 +59,8 @@ strum = { version = "0.27", features = ["derive"] }
 moka = { version = "0.12", features = ["sync"] }
 tower = "0.5"
 bytes = "1"
-trie-rs = "0.4.2"
-async-stream = "0.3.6"
+trie-rs = "0.4"
+async-stream = "0.3"
 
 [features]
 no_fs = []
