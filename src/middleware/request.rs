@@ -99,6 +99,8 @@ impl FromRequest<RequestContext> for Preprocess {
         state.stream = stream;
         let mut stop = body.stop_sequences.to_owned().unwrap_or_default();
         stop.extend_from_slice(body.stop.to_owned().unwrap_or_default().as_slice());
+        stop.sort();
+        stop.dedup();
         let info = ExtraContext {
             stream,
             api_format: format,
