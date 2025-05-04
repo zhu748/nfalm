@@ -1,6 +1,6 @@
 use async_stream::try_stream;
 use axum::response::{IntoResponse, Response, Sse, sse::Event};
-use eventsource_stream::Eventsource;
+use eventsource_stream::{Event as SourceEvent, Eventsource};
 use futures::Stream;
 
 use crate::types::message::{ContentBlockDelta, MessageDeltaContent, StopReason, StreamEvent};
@@ -9,10 +9,10 @@ use super::ExtraContext;
 
 type EventResult<T> = Result<T, eventsource_stream::EventStreamError<axum::Error>>;
 
-fn stop_stream<S>(sequences: Vec<String>, stream: S) -> impl Stream<Item = EventResult<Event>>
-where
-    S: Stream<Item = EventResult<eventsource_stream::Event>>,
-{
+fn stop_stream(
+    sequences: Vec<String>,
+    stream: impl Stream<Item = EventResult<SourceEvent>>,
+) -> impl Stream<Item = EventResult<Event>> {
     let trie = trie_rs::map::Trie::from_iter(sequences.into_iter().map(|s| (s.to_owned(), s)));
     try_stream!({
         let mut searches = vec![trie.inc_search()];
