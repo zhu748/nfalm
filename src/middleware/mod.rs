@@ -9,6 +9,7 @@
 mod auth;
 mod request;
 mod response;
+mod stop_sequences;
 
 pub use auth::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth};
 pub use request::{FormatInfo, Preprocess};

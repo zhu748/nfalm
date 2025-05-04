@@ -8,8 +8,8 @@ use axum::{
 
 use crate::{
     api::ApiFormat,
-    error::ClewdrError,
     context::RequestContext,
+    error::ClewdrError,
     types::message::{ContentBlock, CreateMessageParams, Message, Role},
 };
 
@@ -42,6 +42,8 @@ pub struct FormatInfo {
     pub stream: bool,
     /// The API format being used (Claude or OpenAI)
     pub api_format: ApiFormat,
+    /// The stop sequence used for the request
+    pub stop_sequences: Vec<String>,
 }
 
 /// Predefined test message in Claude format for connection testing
@@ -98,6 +100,7 @@ impl FromRequest<RequestContext> for Preprocess {
         let info = FormatInfo {
             stream,
             api_format: format,
+            stop_sequences: body.stop_sequences.to_owned().unwrap_or_default(),
         };
 
         // Try to retrieve from cache before processing

@@ -76,7 +76,7 @@ struct StreamEventDelta {
 /// Uses untagged enum to handle different response formats
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
-enum EventContent {
+pub enum EventContent {
     Content { content: String },
     Reasoning { reasoning_content: String },
 }
@@ -88,7 +88,7 @@ enum EventContent {
 ///
 /// # Returns
 /// A formatted SSE Event ready to be sent to the client
-fn build_event(content: EventContent) -> Event {
+pub fn build_event(content: EventContent) -> Event {
     let event = Event::default();
     let data = StreamEventData::new(content);
     event.json_data(data).unwrap()
