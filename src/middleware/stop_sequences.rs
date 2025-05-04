@@ -29,7 +29,7 @@ where
             };
             let event = Event::default();
             let event = event.json_data(&parsed).unwrap();
-            let StreamEvent::ContentBlockDelta { ref delta, index } = parsed else {
+            let StreamEvent::ContentBlockDelta { delta, index } = parsed else {
                 yield event;
                 continue;
             };
@@ -37,7 +37,7 @@ where
                 yield event;
                 continue;
             };
-            let input = text.as_bytes();
+            let input = text.into_bytes();
             for i in 0..input.len() {
                 let mut next_searches = vec![trie.inc_search()];
                 for mut s in searches.into_iter() {
