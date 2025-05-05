@@ -1,9 +1,9 @@
 use clewdr::{
     self, BANNER,
     config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
+    context::RequestContext,
     error::ClewdrError,
     services::cookie_manager::CookieManager,
-    context::RequestContext,
 };
 use colored::Colorize;
 use tracing::warn;
@@ -72,5 +72,11 @@ async fn main() -> Result<(), ClewdrError> {
         .with_default_setup()
         .build();
     // serve the application
-    Ok(axum::serve(listener, router).await?)
+    Ok(axum::serve(listener, router)
+        .with_graceful_shutdown(async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Failed to install Ctrl-C handler");
+        })
+        .await?)
 }
