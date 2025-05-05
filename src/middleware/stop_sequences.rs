@@ -18,14 +18,12 @@ fn stop_stream(
         let mut searches = vec![trie.inc_search()];
         for await event in stream {
             let eventsource_stream::Event { data, .. } = event?;
+            let event = Event::default();
+            let event = event.data(&data);
             let Ok(parsed) = serde_json::from_str::<StreamEvent>(&data) else {
-                let event = Event::default();
-                let event = event.data(data);
                 yield event;
                 continue;
             };
-            let event = Event::default();
-            let event = event.json_data(&parsed).unwrap();
             let StreamEvent::ContentBlockDelta { delta, index } = parsed else {
                 yield event;
                 continue;
