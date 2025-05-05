@@ -15,9 +15,9 @@ use crate::{
     utils::print_out_json,
 };
 
-use super::RequestContext;
+use super::ClewdrState;
 
-impl RequestContext {
+impl ClewdrState {
     /// Attempts to retrieve a response from cache or initiates background caching
     ///
     /// This method tries to find a cached response for the given message parameters.

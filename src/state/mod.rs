@@ -22,7 +22,7 @@ pub mod chat;
 static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 /// State of current connection
 #[derive(Clone)]
-pub struct RequestContext {
+pub struct ClewdrState {
     pub cookie: Option<CookieStatus>,
     cookie_header_value: HeaderValue,
     pub event_sender: CookieEventSender,
@@ -37,10 +37,10 @@ pub struct RequestContext {
     pub key: Option<(u64, usize)>,
 }
 
-impl RequestContext {
+impl ClewdrState {
     /// Create a new AppState instance
     pub fn new(event_sender: CookieEventSender) -> Self {
-        RequestContext {
+        ClewdrState {
             event_sender,
             cookie: None,
             org_uuid: None,

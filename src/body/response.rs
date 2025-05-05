@@ -5,8 +5,8 @@ use futures::{Stream, StreamExt, pin_mut};
 use serde::Deserialize;
 
 use crate::{
+    state::ClewdrState,
     services::cache::CACHE,
-    context::RequestContext,
     types::message::{ContentBlock, Message, Role},
     utils::print_out_text,
 };
@@ -60,7 +60,7 @@ where
     }
 }
 
-impl RequestContext {
+impl ClewdrState {
     /// Converts the response from the Claude Web into Claude API or OpenAI API format
     ///
     /// This method transforms streams of bytes from Claude's web response into the appropriate

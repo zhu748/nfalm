@@ -1,7 +1,7 @@
 use clewdr::{
     self, BANNER,
     config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
-    context::RequestContext,
+    state::ClewdrState,
     error::ClewdrError,
     services::cookie_manager::CookieManager,
 };
@@ -63,7 +63,7 @@ async fn main() -> Result<(), ClewdrError> {
 
     // initialize the application state
     let tx = CookieManager::start();
-    let state = RequestContext::new(tx);
+    let state = ClewdrState::new(tx);
     // build axum router
     // create a TCP listener
     let addr = CLEWDR_CONFIG.load().address();

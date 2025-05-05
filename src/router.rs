@@ -15,14 +15,14 @@ use crate::{
         api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
-    context::RequestContext,
+    state::ClewdrState,
     middleware::{
         RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, apply_stop_sequences, to_oai,
     },
 };
 
 /// RouterBuilder for the application
-pub struct RouterBuilder<S = RequestContext> {
+pub struct RouterBuilder<S = ClewdrState> {
     state: S,
     inner: Router<S>,
 }
@@ -33,7 +33,7 @@ impl RouterBuilder {
     ///
     /// # Arguments
     /// * `state` - The application state containing client information
-    pub fn new(state: RequestContext) -> Self {
+    pub fn new(state: ClewdrState) -> Self {
         RouterBuilder {
             state,
             inner: Router::new(),

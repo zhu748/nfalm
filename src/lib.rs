@@ -6,11 +6,11 @@ use figlet_rs::FIGfont;
 pub mod api;
 pub mod body;
 pub mod config;
+pub mod state;
 pub mod error;
 pub mod middleware;
 pub mod router;
 pub mod services;
-pub mod context;
 pub mod types;
 pub mod utils;
 
