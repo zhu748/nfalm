@@ -6,6 +6,10 @@ use clewdr::{
     services::cookie_manager::CookieManager,
 };
 use colored::Colorize;
+use tokio::{
+    select,
+    signal::unix::{SignalKind, signal},
+};
 use tracing::warn;
 use tracing_subscriber::{
     Registry,
@@ -74,9 +78,20 @@ async fn main() -> Result<(), ClewdrError> {
     // serve the application
     Ok(axum::serve(listener, router)
         .with_graceful_shutdown(async {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("Failed to install Ctrl-C handler");
+            let mut sigterm = signal(SignalKind::terminate()).unwrap();
+            let mut sigint = signal(SignalKind::interrupt()).unwrap();
+            let ctrl_c = tokio::signal::ctrl_c();
+            select! {
+                _ = sigterm.recv() => {
+                    println!("Received SIGTERM, shutting down...");
+                }
+                _ = sigint.recv() => {
+                    println!("Received SIGINT, shutting down...");
+                }
+                _ = ctrl_c => {
+                    println!("Received Ctrl+C, shutting down...");
+                }
+            }
         })
         .await?)
 }
