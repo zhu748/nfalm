@@ -11,7 +11,10 @@ use tracing::{debug, info, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
-    types::claude_message::{CreateMessageParams, Message, Role},
+    types::{
+        claude_message::{CreateMessageParams, Message, Role},
+        gemini::request::{Chat, GeminiRequestBody, SystemInstruction, Tool},
+    },
 };
 
 /// Global cache instance for storing and retrieving API responses
@@ -187,7 +190,7 @@ fn vec_to_stream(bytes: Vec<Bytes>) -> impl Stream<Item = Result<Bytes, rquest::
 /// of a request for caching. It implements Hash to generate consistent hash keys
 /// for the cache.
 #[derive(Hash, Eq, PartialEq, Debug)]
-struct RequestKeys<'a> {
+struct ClaudeRequestKeys<'a> {
     /// Maximum number of tokens to generate
     pub max_tokens: u32,
     /// Input messages for the conversation
@@ -204,7 +207,69 @@ struct RequestKeys<'a> {
     pub top_k: Option<u32>,
 }
 
-impl RequestKeys<'_> {
+#[derive(Hash, Debug)]
+pub struct GeminiRequestKeys<'a> {
+    pub system_instruction: Option<&'a SystemInstruction>,
+    pub tools: Option<&'a [Tool]>,
+    pub contents: Vec<&'a Chat>,
+    pub generation_config: Option<&'a Value>,
+    pub path: &'a str,
+}
+
+impl GeminiRequestKeys<'_> {
+    /// Generates a hash value for this request key set
+    ///
+    /// Creates a consistent hash value for the request keys to be used
+    /// as a cache key.
+    ///
+    /// # Returns
+    /// * `u64` - The hash value for this request
+    fn get_hash(&mut self) -> u64 {
+        if CLEWDR_CONFIG.load().not_hash_system {
+            self.system_instruction = None;
+        }
+        let end = self
+            .contents
+            .len()
+            .saturating_sub(CLEWDR_CONFIG.load().not_hash_last_n);
+        if end != 0 {
+            self.contents = self.contents[..end].to_vec();
+        } else {
+            warn!("not_hash_last_n is too big, no messages will left, skipping");
+        }
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+}
+
+impl<'a> GeminiRequestBody {
+    fn to_keys(&'a self, path: &'a str) -> GeminiRequestKeys<'a> {
+        GeminiRequestKeys {
+            system_instruction: self.system_instruction.as_ref(),
+            tools: self.tools.as_deref(),
+            contents: self.contents.iter().collect(),
+            generation_config: self.generation_config.as_ref(),
+            path,
+        }
+    }
+}
+
+impl GeminiRequestBody {
+    /// Generates a cache key hash from request parameters
+    ///
+    /// Converts the request parameters to RequestKeys and computes a hash
+    /// value for use as a cache key.
+    ///
+    /// # Returns
+    /// * `u64` - The hash value to use as a cache key
+    pub fn get_hash(&self, path: &str) -> u64 {
+        let mut keys = self.to_keys(path);
+        keys.get_hash()
+    }
+}
+
+impl ClaudeRequestKeys<'_> {
     /// Generates a hash value for this request key set
     ///
     /// Creates a consistent hash value for the request keys to be used
@@ -241,15 +306,15 @@ impl CreateMessageParams {
     /// # Returns
     /// * `u64` - The hash value to use as a cache key
     pub fn get_hash(&self) -> u64 {
-        let mut keys = RequestKeys::from(self);
+        let mut keys = ClaudeRequestKeys::from(self);
         keys.get_hash()
     }
 }
 
-impl<'a> From<&'a CreateMessageParams> for RequestKeys<'a> {
+impl<'a> From<&'a CreateMessageParams> for ClaudeRequestKeys<'a> {
     // TODO: handle useless parameters
     fn from(params: &'a CreateMessageParams) -> Self {
-        RequestKeys {
+        ClaudeRequestKeys {
             max_tokens: params.max_tokens,
             messages: params.messages.iter().collect(),
             model: params.model.to_owned(),
