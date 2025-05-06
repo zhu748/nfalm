@@ -14,7 +14,7 @@ use crate::{
     api::ApiFormat,
     body::{Attachment, RequestBody, Tool},
     config::CLEWDR_CONFIG,
-    state::ClewdrState,
+    state::ClaudeState,
     types::message::{
         ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
     },
@@ -29,7 +29,7 @@ struct Merged {
     pub images: Vec<ImageSource>,
 }
 
-impl ClewdrState {
+impl ClaudeState {
     pub fn transform_request(&self, mut value: CreateMessageParams) -> Option<RequestBody> {
         let (value, merged) = match self.api_format {
             ApiFormat::Claude => {

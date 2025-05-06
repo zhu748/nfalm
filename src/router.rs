@@ -15,16 +15,18 @@ use crate::{
         api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
-    state::ClewdrState,
     middleware::{
         RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, apply_stop_sequences, to_oai,
     },
+    services::cookie_manager::CookieEventSender,
+    state::ClaudeState,
 };
 
 /// RouterBuilder for the application
-pub struct RouterBuilder<S = ClewdrState> {
-    state: S,
-    inner: Router<S>,
+pub struct RouterBuilder {
+    cookie_event_sender: CookieEventSender,
+    claude_state: ClaudeState,
+    inner: Router,
 }
 
 impl RouterBuilder {
@@ -33,9 +35,10 @@ impl RouterBuilder {
     ///
     /// # Arguments
     /// * `state` - The application state containing client information
-    pub fn new(state: ClewdrState) -> Self {
+    pub fn new(state: ClaudeState) -> Self {
         RouterBuilder {
-            state,
+            cookie_event_sender: state.event_sender.to_owned(),
+            claude_state: state,
             inner: Router::new(),
         }
     }
@@ -58,22 +61,27 @@ impl RouterBuilder {
                 ServiceBuilder::new()
                     .layer(from_extractor::<RequireClaudeAuth>())
                     .layer(map_response(apply_stop_sequences)),
-            );
+            )
+            .with_state(self.claude_state.to_owned().with_claude_format());
         self.inner = self.inner.merge(router);
         self
     }
 
     /// Sets up routes for API endpoints
     fn route_api_endpoints(mut self) -> Self {
+        let cookie_router = Router::new()
+            .route("/cookies", get(api_get_cookies))
+            .route("/cookie", delete(api_delete_cookie).post(api_post_cookie))
+            .with_state(self.cookie_event_sender.to_owned());
+        let admin_router = Router::new()
+            .route("/auth", get(api_auth))
+            .route("/config", get(api_get_config).put(api_post_config));
         let router = Router::new()
             .nest(
                 "/api",
-                Router::new()
-                    .route("/cookies", get(api_get_cookies))
-                    .route("/cookie", delete(api_delete_cookie).post(api_post_cookie))
-                    .route("/auth", get(api_auth))
-                    .route("/config", get(api_get_config).put(api_post_config))
-                    .route_layer(from_extractor::<RequireAdminAuth>()),
+                cookie_router
+                    .merge(admin_router)
+                    .layer(from_extractor::<RequireAdminAuth>()),
             )
             .route("/api/version", get(api_version));
         self.inner = self.inner.merge(router);
@@ -90,7 +98,8 @@ impl RouterBuilder {
                         .layer(from_extractor::<RequireOaiAuth>())
                         .layer(map_response(to_oai))
                         .layer(map_response(apply_stop_sequences)),
-                );
+                )
+                .with_state(self.claude_state.to_owned().with_openai_format());
             self.inner = self.inner.merge(router);
         }
         self
@@ -130,6 +139,6 @@ impl RouterBuilder {
     /// Returns the configured router
     /// Finalizes the router configuration for use with axum
     pub fn build(self) -> Router {
-        self.inner.with_state(self.state)
+        self.inner
     }
 }

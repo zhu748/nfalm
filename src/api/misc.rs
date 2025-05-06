@@ -6,8 +6,7 @@ use tracing::{error, info, warn};
 use crate::{
     VERSION_INFO,
     config::{CLEWDR_CONFIG, CookieStatus},
-    state::ClewdrState,
-    services::cookie_manager::CookieStatusInfo,
+    services::cookie_manager::{CookieEventSender, CookieStatusInfo},
 };
 
 /// API endpoint to submit a new cookie
@@ -21,7 +20,7 @@ use crate::{
 /// # Returns
 /// * `StatusCode` - HTTP status code indicating success or failure
 pub async fn api_post_cookie(
-    State(s): State<ClewdrState>,
+    State(s): State<CookieEventSender>,
     AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {
@@ -34,7 +33,7 @@ pub async fn api_post_cookie(
     }
     c.reset_time = None;
     info!("Cookie accepted: {}", c.cookie);
-    match s.event_sender.submit(c).await {
+    match s.submit(c).await {
         Ok(_) => {
             info!("Cookie submitted successfully");
             StatusCode::OK
@@ -56,7 +55,7 @@ pub async fn api_post_cookie(
 /// # Returns
 /// * `Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)>` - Cookie status info or error
 pub async fn api_get_cookies(
-    State(s): State<ClewdrState>,
+    State(s): State<CookieEventSender>,
     AuthBearer(t): AuthBearer,
 ) -> Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)> {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
@@ -68,7 +67,7 @@ pub async fn api_get_cookies(
         ));
     }
 
-    match s.event_sender.get_status().await {
+    match s.get_status().await {
         Ok(status) => Ok(Json(status)),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -90,7 +89,7 @@ pub async fn api_get_cookies(
 /// # Returns
 /// * `Result<StatusCode, (StatusCode, Json<serde_json::Value>)>` - Success status or error
 pub async fn api_delete_cookie(
-    State(s): State<ClewdrState>,
+    State(s): State<CookieEventSender>,
     AuthBearer(t): AuthBearer,
     Json(c): Json<CookieStatus>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
@@ -114,7 +113,7 @@ pub async fn api_delete_cookie(
         ));
     }
 
-    match s.event_sender.delete_cookie(c.to_owned()).await {
+    match s.delete_cookie(c.to_owned()).await {
         Ok(_) => {
             info!("Cookie deleted successfully: {}", c.cookie);
             Ok(StatusCode::NO_CONTENT)

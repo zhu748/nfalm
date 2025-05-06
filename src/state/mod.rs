@@ -22,7 +22,7 @@ pub mod chat;
 static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 /// State of current connection
 #[derive(Clone)]
-pub struct ClewdrState {
+pub struct ClaudeState {
     pub cookie: Option<CookieStatus>,
     cookie_header_value: HeaderValue,
     pub event_sender: CookieEventSender,
@@ -37,10 +37,10 @@ pub struct ClewdrState {
     pub key: Option<(u64, usize)>,
 }
 
-impl ClewdrState {
+impl ClaudeState {
     /// Create a new AppState instance
     pub fn new(event_sender: CookieEventSender) -> Self {
-        ClewdrState {
+        ClaudeState {
             event_sender,
             cookie: None,
             org_uuid: None,
@@ -54,6 +54,16 @@ impl ClewdrState {
             client: SUPER_CLIENT.to_owned(),
             key: None,
         }
+    }
+
+    pub fn with_claude_format(mut self) -> Self {
+        self.api_format = ApiFormat::Claude;
+        self
+    }
+
+    pub fn with_openai_format(mut self) -> Self {
+        self.api_format = ApiFormat::OpenAI;
+        self
     }
 
     /// Build a request with the current cookie and proxy settings

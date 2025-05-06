@@ -5,7 +5,7 @@ use tracing::info;
 
 use crate::{
     api::ApiFormat,
-    state::ClewdrState,
+    state::ClaudeState,
     error::ClewdrError,
     middleware::{ExtraContext, Preprocess},
     utils::{enabled, print_out_json},
@@ -22,7 +22,7 @@ use crate::{
 /// # Returns
 /// * `Response` - Stream or JSON response from Claude
 pub async fn api_messages(
-    State(mut state): State<ClewdrState>,
+    State(mut state): State<ClaudeState>,
     Preprocess(p, Extension(f)): Preprocess,
 ) -> (Extension<ExtraContext>, Result<Response, ClewdrError>) {
     // Check if the request is a test message
