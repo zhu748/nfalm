@@ -84,7 +84,7 @@ impl GeminiState {
     ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
     {
         self.request_key().await?;
-        let Some(key) = self.key.clone() else {
+        let Some(key) = self.key.to_owned() else {
             return Err(ClewdrError::UnexpectedNone);
         };
         let key = key.key.to_string();
