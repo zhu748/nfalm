@@ -1,45 +1,33 @@
-# v0.8.2
+# v0.9.0
 
-## Highlights
+## New Features
+- **Google Gemini Integration**: Added support for Google Gemini API, enabling proxying of Gemini AI model requests
+- **API Key Management System**: Implemented a comprehensive system for managing API keys
+  - Added key rotation and validation mechanisms
+  - Created dedicated KeyManager service for handling key operations
+- **Enhanced Frontend Components**: 
+  - New Key Management UI with visualization, submission form, and deletion capabilities
+  - Updated Key API endpoints and TypeScript interfaces
+- **Multi-model Support**: Clewdr now supports multiple AI models through a unified interface
+  - Claude (Anthropic)
+  - Gemini (Google)
+  - OpenAI-compatible format for Claude
 
-- Refactored middleware architecture for improved API format compatibility
-- Enhanced cookie validation and management
-- Improved configuration options
-- Better error handling and response processing
-- Added web search functionality
+## Improvements
+- **Caching System**: Implemented response caching for better performance and reduced API usage
+- **Error Handling**: Enhanced error handling and retry mechanisms across all API integrations
+- **Internationalization**: Added additional language support with translations for key management UI
+- **State Management**: Redesigned state management with dedicated state handlers for each AI model integration
 
-## Changes
+## Technical Changes
+- Restructured project with separate modules for each AI model integration
+- Added middleware for Gemini request preprocessing and context handling
+- Implemented API format transformations between different provider formats
+- Updated router with Gemini API endpoints
 
-### New Features
+## Bug Fixes
+- Fixed issues with streaming responses in non-streaming contexts
+- Resolved authentication handling edge cases
+- Improved error reporting and logging
 
-- **Web Search**: Added web search capability for enhanced contextual responses
-
-### Middleware Improvements
-
-- **New Request Processor**: Added request preprocessing middleware to unify different API formats (Claude and OpenAI)
-- **Response Transformation**: Enhanced streaming response handling to ensure compatibility between Claude and OpenAI formats
-- **Test Message Detection**: Added automatic detection and handling of test messages from client applications
-
-### Cookie Management
-
-- **Improved Validation**: Enhanced cookie format validation and error reporting
-- **Better Display**: Added ellipsis cookie display for improved UI readability
-- **Reset Handling**: Refined cookie reset time management
-
-### Configuration
-
-- **Organized Settings**: Better structured configuration options with improved documentation
-- **Cache Settings**: Enhanced cache configuration with system message and last N message options
-- **Prompt Settings**: Refined prompt configuration options
-
-### Frontend
-
-- **Updated Translations**: Improved English and Chinese localization
-- **Config UI**: Enhanced configuration form with better organization and tooltips
-- **Status Display**: Improved cookie status display
-
-### Other Improvements
-
-- **Error Handling**: More robust error handling throughout the application
-- **Performance**: Optimized response processing and streaming
-- **Package Management**: Added pnpm workspace configuration
+# v0.8.3

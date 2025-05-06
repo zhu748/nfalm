@@ -36,6 +36,12 @@ pub struct RouterBuilder {
     inner: Router,
 }
 
+impl Default for RouterBuilder {
+    fn default() -> Self {
+        RouterBuilder::new()
+    }
+}
+
 impl RouterBuilder {
     /// Creates a blank RouterBuilder instance
     /// Initializes the router with the provided application state
@@ -48,10 +54,10 @@ impl RouterBuilder {
         let key_tx = KeyManager::start();
         let gemini_state = GeminiState::new(key_tx.to_owned());
         RouterBuilder {
-            claude_state: claude_state,
+            claude_state,
             cookie_event_sender: cookie_tx,
             key_event_sender: key_tx,
-            gemini_state: gemini_state,
+            gemini_state,
             inner: Router::new(),
         }
     }

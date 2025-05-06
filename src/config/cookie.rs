@@ -151,10 +151,10 @@ where
     }
 }
 
-impl Into<String> for ClewdrCookie {
+impl From<ClewdrCookie> for String {
     /// Convert the cookie to a string
-    fn into(self) -> String {
-        self.to_string()
+    fn from(cookie: ClewdrCookie) -> Self {
+        cookie.to_string()
     }
 }
 

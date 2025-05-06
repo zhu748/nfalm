@@ -101,7 +101,7 @@ pub struct SystemInstruction {
     parts: Vec<Part>,
 }
 impl SystemInstruction {
-    pub fn from_str(prompt: impl Into<String>) -> Self {
+    pub fn from_string(prompt: impl Into<String>) -> Self {
         Self {
             parts: vec![Part::text(prompt.into())],
         }

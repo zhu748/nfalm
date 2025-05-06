@@ -57,10 +57,10 @@ where
         key
     }
 }
-impl Into<String> for GeminiKey {
+impl From<GeminiKey> for String {
     /// Convert the key to a string
-    fn into(self) -> String {
-        self.to_string()
+    fn from(key: GeminiKey) -> Self {
+        key.to_string()
     }
 }
 
