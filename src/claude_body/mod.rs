@@ -3,7 +3,7 @@ pub mod response;
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::message::ImageSource;
+use crate::types::claude_message::ImageSource;
 
 /// Claude.ai attachment
 #[derive(Deserialize, Serialize, Debug)]

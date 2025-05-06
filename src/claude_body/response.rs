@@ -5,9 +5,9 @@ use futures::{Stream, StreamExt, pin_mut};
 use serde::Deserialize;
 
 use crate::{
-    state::ClaudeState,
+    claude_state::ClaudeState,
     services::cache::CACHE,
-    types::message::{ContentBlock, Message, Role},
+    types::claude_message::{ContentBlock, Message, Role},
     utils::print_out_text,
 };
 

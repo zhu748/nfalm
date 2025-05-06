@@ -6,7 +6,7 @@ use tracing::warn;
 
 use crate::{
     config::{CLEWDR_CONFIG, Reason},
-    state::ClaudeState,
+    claude_state::ClaudeState,
     error::{CheckResErr, ClewdrError},
     utils::print_out_json,
 };

@@ -8,7 +8,7 @@ use strum::IntoStaticStr;
 use tokio::sync::oneshot;
 use tracing::{debug, error};
 
-use crate::{config::Reason, services::cookie_manager::CookieEvent, types::message::Message};
+use crate::{config::Reason, services::cookie_manager::CookieEvent, types::claude_message::Message};
 
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]

@@ -12,10 +12,10 @@ use tracing::warn;
 
 use crate::{
     api::ApiFormat,
-    body::{Attachment, RequestBody, Tool},
+    claude_body::{Attachment, RequestBody, Tool},
+    claude_state::ClaudeState,
     config::CLEWDR_CONFIG,
-    state::ClaudeState,
-    types::message::{
+    types::claude_message::{
         ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
     },
     utils::{TIME_ZONE, print_out_text},

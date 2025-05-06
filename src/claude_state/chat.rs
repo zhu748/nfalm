@@ -11,7 +11,7 @@ use crate::{
     config::CLEWDR_CONFIG,
     error::{CheckResErr, ClewdrError},
     services::cache::CACHE,
-    types::message::CreateMessageParams,
+    types::claude_message::CreateMessageParams,
     utils::print_out_json,
 };
 

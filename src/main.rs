@@ -1,7 +1,7 @@
 use clewdr::{
     self, BANNER,
     config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
-    state::ClaudeState,
+    claude_state::ClaudeState,
     error::ClewdrError,
     services::cookie_manager::CookieManager,
 };

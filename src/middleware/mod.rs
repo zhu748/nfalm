@@ -7,11 +7,7 @@
 /// - Request preprocessing: Normalize requests from different API formats
 /// - Response transformation: Convert between different response formats and handle streaming
 mod auth;
-mod request;
-mod response;
-mod stop_sequences;
+pub mod claude;
+mod gemini;
 
 pub use auth::{RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth};
-pub use request::{ExtraContext, Preprocess};
-pub use response::to_oai;
-pub use stop_sequences::apply_stop_sequences;

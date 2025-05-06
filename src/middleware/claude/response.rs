@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::{
     api::ApiFormat,
-    types::message::{ContentBlockDelta, StreamEvent},
+    types::claude_message::{ContentBlockDelta, StreamEvent},
 };
 
 use super::ExtraContext;

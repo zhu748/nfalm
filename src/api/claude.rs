@@ -5,9 +5,9 @@ use tracing::info;
 
 use crate::{
     api::ApiFormat,
-    state::ClaudeState,
     error::ClewdrError,
-    middleware::{ExtraContext, Preprocess},
+    middleware::claude::{ExtraContext, Preprocess},
+    claude_state::ClaudeState,
     utils::{enabled, print_out_json},
 };
 /// Axum handler for the API messages
@@ -21,7 +21,7 @@ use crate::{
 ///
 /// # Returns
 /// * `Response` - Stream or JSON response from Claude
-pub async fn api_messages(
+pub async fn api_claude(
     State(mut state): State<ClaudeState>,
     Preprocess(p, Extension(f)): Preprocess,
 ) -> (Extension<ExtraContext>, Result<Response, ClewdrError>) {

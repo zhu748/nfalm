@@ -11,15 +11,16 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 use crate::{
     IS_DEBUG,
     api::{
-        api_auth, api_delete_cookie, api_get_config, api_get_cookies, api_messages,
+        api_auth, api_delete_cookie, api_get_config, api_get_cookies, api_claude,
         api_post_config, api_post_cookie, api_version,
     },
     config::CLEWDR_CONFIG,
     middleware::{
-        RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth, apply_stop_sequences, to_oai,
+        RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth,
+        claude::{apply_stop_sequences, to_oai},
     },
     services::cookie_manager::CookieEventSender,
-    state::ClaudeState,
+    claude_state::ClaudeState,
 };
 
 /// RouterBuilder for the application
@@ -56,7 +57,7 @@ impl RouterBuilder {
     /// Sets up routes for v1 endpoints
     fn route_claude_endpoints(mut self) -> Self {
         let router = Router::new()
-            .route("/v1/messages", post(api_messages))
+            .route("/v1/messages", post(api_claude))
             .layer(
                 ServiceBuilder::new()
                     .layer(from_extractor::<RequireClaudeAuth>())
@@ -92,7 +93,7 @@ impl RouterBuilder {
     fn route_openai_endpoints(mut self) -> Self {
         if CLEWDR_CONFIG.load().enable_oai {
             let router = Router::new()
-                .route("/v1/chat/completions", post(api_messages))
+                .route("/v1/chat/completions", post(api_claude))
                 .layer(
                     ServiceBuilder::new()
                         .layer(from_extractor::<RequireOaiAuth>())

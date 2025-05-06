@@ -4,9 +4,9 @@ use clap::Parser;
 use figlet_rs::FIGfont;
 
 pub mod api;
-pub mod body;
+pub mod claude_body;
 pub mod config;
-pub mod state;
+pub mod claude_state;
 pub mod error;
 pub mod middleware;
 pub mod router;

@@ -11,7 +11,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
-    types::message::{CreateMessageParams, Message, Role},
+    types::claude_message::{CreateMessageParams, Message, Role},
 };
 
 /// Global cache instance for storing and retrieving API responses

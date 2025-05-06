@@ -8,9 +8,9 @@ use axum::{
 
 use crate::{
     api::ApiFormat,
-    state::ClaudeState,
+    claude_state::ClaudeState,
     error::ClewdrError,
-    types::message::{ContentBlock, CreateMessageParams, Message, Role},
+    types::claude_message::{ContentBlock, CreateMessageParams, Message, Role},
 };
 
 use super::to_oai;

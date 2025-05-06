@@ -4,13 +4,13 @@
 /// for configuration management, message handling, authentication, and OpenAI-compatible
 /// interfaces. It also implements response transformation between different API formats.
 mod config;
-mod messages;
+mod claude;
 mod misc;
 
 /// Configuration related endpoints for retrieving and updating Clewdr settings
 pub use config::{api_get_config, api_post_config};
 /// Message handling endpoints for creating and managing chat conversations
-pub use messages::api_messages;
+pub use claude::api_claude;
 /// Miscellaneous endpoints for authentication, cookies, and version information
 pub use misc::{api_auth, api_delete_cookie, api_get_cookies, api_post_cookie, api_version};
 use strum::Display;
