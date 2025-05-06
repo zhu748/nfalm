@@ -2,11 +2,10 @@ use colored::Colorize;
 use rquest::Method;
 use serde_json::Value;
 use std::fmt::Write;
-use tracing::warn;
 
 use crate::{
-    config::{CLEWDR_CONFIG, Reason},
     claude_state::ClaudeState,
+    config::{CLEWDR_CONFIG, Reason},
     error::{CheckResErr, ClewdrError},
     utils::print_out_json,
 };
@@ -170,27 +169,23 @@ impl ClaudeState {
         }
         if let Some((_, expire)) = restricted {
             if CLEWDR_CONFIG.load().skip_restricted {
-                warn!("Skipping restricted account");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     expire.timestamp(),
                 )));
             }
         } else if let Some((_, expire)) = second {
             if CLEWDR_CONFIG.load().skip_second_warning {
-                warn!("Skipping warned account");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     expire.timestamp(),
                 )));
             }
         } else if let Some((_, expire)) = first {
             if CLEWDR_CONFIG.load().skip_first_warning {
-                warn!("Skipping warned account");
                 return Err(ClewdrError::InvalidCookie(Reason::Restricted(
                     expire.timestamp(),
                 )));
             }
         } else if CLEWDR_CONFIG.load().skip_normal_pro {
-            warn!("Skipping normal pro account");
             return Err(ClewdrError::InvalidCookie(Reason::NormalPro));
         }
         Ok(())
