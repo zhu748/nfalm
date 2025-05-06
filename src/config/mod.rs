@@ -3,6 +3,7 @@ mod clewdr_config;
 mod constants;
 mod cookie;
 mod reason;
+mod key;
 
 pub use clewdr_config::*;
 pub use constants::*;

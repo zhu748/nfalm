@@ -1,13 +1,8 @@
 use colored::Colorize;
 use serde::Serialize;
-use std::{
-    cmp::Ordering,
-    collections::{BinaryHeap, HashSet, VecDeque},
-    sync::{Arc, Mutex},
-};
+use std::collections::{HashSet, VecDeque};
 use tokio::{
     spawn,
-    sync::Notify,
     sync::{mpsc, oneshot},
     time::Interval,
 };
@@ -43,52 +38,12 @@ pub enum CookieEvent {
     /// Delete a Cookie
     Delete(CookieStatus, oneshot::Sender<Result<(), ClewdrError>>),
 }
-
-/// Implements comparison trait for CookieEvent, used for priority ordering
-impl PartialEq for CookieEvent {
-    fn eq(&self, other: &Self) -> bool {
-        self.priority_value() == other.priority_value()
-    }
-}
-
-impl Eq for CookieEvent {}
-
-impl PartialOrd for CookieEvent {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for CookieEvent {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.priority_value().cmp(&other.priority_value())
-    }
-}
-
-impl CookieEvent {
-    /// Gets the priority value of the event
-    ///
-    /// # Returns
-    /// * `u8` - The priority value (lower is higher priority)
-    fn priority_value(&self) -> u8 {
-        match self {
-            CookieEvent::Return(_, _) => 5,
-            CookieEvent::Submit(_) => 4,
-            CookieEvent::Delete(_, _) => 3,
-            CookieEvent::CheckReset => 2,
-            CookieEvent::Request(_) => 1,
-            CookieEvent::GetStatus(_) => 0,
-        }
-    }
-}
-
 /// Cookie manager that handles cookie distribution, collection, and status tracking
 pub struct CookieManager {
     valid: VecDeque<CookieStatus>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
-    event_queue: Arc<Mutex<BinaryHeap<CookieEvent>>>,
-    event_notify: Arc<Notify>, // Notification mechanism
+    event_rx: mpsc::Receiver<CookieEvent>, // Event receiver for incoming events
 }
 
 /// Event sender interface provided for external components to interact with the cookie manager
@@ -201,22 +156,16 @@ impl CookieManager {
         // 创建事件通道
         let (event_tx, event_rx) = mpsc::channel(100);
 
-        // 创建优先级队列
-        let event_queue = Arc::new(Mutex::new(BinaryHeap::new()));
-
-        // 创建通知器
-        let event_notify = Arc::new(Notify::new());
         let sender = CookieEventSender { sender: event_tx };
 
         let manager = Self {
             valid,
             exhausted: exhaust,
             invalid,
-            event_queue,
-            event_notify,
+            event_rx,
         };
         // 启动事件处理器
-        spawn(manager.run(event_rx, sender.to_owned()));
+        spawn(manager.run(sender.to_owned()));
 
         sender
     }
@@ -415,83 +364,53 @@ impl CookieManager {
         });
     }
 
-    /// Spawns a task to receive events and add them to the priority queue
-    ///
-    /// # Arguments
-    /// * `event_rx` - Event receiver to get incoming events
-    fn spawn_event_enqueuer(&self, mut event_rx: mpsc::Receiver<CookieEvent>) {
-        let event_queue = self.event_queue.to_owned();
-        let event_notify = self.event_notify.to_owned();
-
-        tokio::spawn(async move {
-            while let Some(event) = event_rx.recv().await {
-                // 将事件添加到优先级队列
-                {
-                    event_queue.lock().unwrap().push(event);
-                }
-                // 通知主循环有新事件
-                event_notify.notify_one();
-            }
-        });
-    }
-
     /// Main event processing loop
     /// Starts event receivers and processes events based on priority
     ///
     /// # Arguments
     /// * `event_rx` - Event receiver for incoming events
     /// * `event_sender` - Event sender for timeout checking
-    async fn run(mut self, event_rx: mpsc::Receiver<CookieEvent>, event_sender: CookieEventSender) {
-        // 启动事件接收器
-        self.spawn_event_enqueuer(event_rx);
+    async fn run(mut self, event_sender: CookieEventSender) {
         // 启动超时检查协程
         let interval = tokio::time::interval(tokio::time::Duration::from_secs(INTERVAL));
         Self::spawn_timeout_checker(interval, event_sender);
 
         // 事件处理主循环
         self.log();
-        loop {
+        while let Some(res) = self.event_rx.recv().await {
             // 尝试从队列中获取事件
-            let res = {
-                let mut event_queue = self.event_queue.lock().unwrap();
-                event_queue.pop()
-            };
             match res {
                 // 处理事件
-                Some(CookieEvent::Return(cookie, reason)) => {
+                CookieEvent::Return(cookie, reason) => {
                     // 处理返回的cookie (最高优先级)
                     self.collect(cookie, reason);
                 }
-                Some(CookieEvent::Submit(cookie)) => {
+                CookieEvent::Submit(cookie) => {
                     // 处理提交的新cookie (次高优先级)
                     self.accept(cookie);
                 }
-                Some(CookieEvent::CheckReset) => {
+                CookieEvent::CheckReset => {
                     // 处理超时检查 (中等优先级)
                     self.reset();
                 }
-                Some(CookieEvent::Request(sender)) => {
+                CookieEvent::Request(sender) => {
                     // 处理请求 (最低优先级)
                     let cookie = self.dispatch();
                     sender.send(cookie).unwrap_or_else(|_| {
                         error!("Failed to send cookie");
                     });
                 }
-                Some(CookieEvent::GetStatus(sender)) => {
+                CookieEvent::GetStatus(sender) => {
                     let status_info = self.report();
                     sender.send(status_info).unwrap_or_else(|_| {
                         error!("Failed to send status info");
                     });
                 }
-                Some(CookieEvent::Delete(cookie, sender)) => {
+                CookieEvent::Delete(cookie, sender) => {
                     let result = self.delete(cookie);
                     sender.send(result).unwrap_or_else(|_| {
                         error!("Failed to send delete result");
                     });
-                }
-                None => {
-                    // 如果队列为空，等待通知
-                    self.event_notify.notified().await;
                 }
             }
         }

@@ -61,6 +61,7 @@ tower = "0.5"
 bytes = "1"
 trie-rs = "0.4"
 async-stream = "0.3"
+struct_iterable = "0.1"
 
 [features]
 no_fs = []

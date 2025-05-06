@@ -8,11 +8,15 @@ use strum::IntoStaticStr;
 use tokio::sync::oneshot;
 use tracing::{debug, error};
 
-use crate::{config::Reason, services::cookie_manager::CookieEvent, types::claude_message::Message};
+use crate::{
+    config::Reason, services::cookie_manager::CookieEvent, types::claude_message::Message,
+};
 
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[error(transparent)]
+    QueryRejection(#[from] axum::extract::rejection::QueryRejection),
     #[error("Cache found")]
     CacheFound(axum::response::Response),
     #[error("Test Message")]
@@ -74,6 +78,7 @@ pub enum ClewdrError {
 impl IntoResponse for ClewdrError {
     fn into_response(self) -> axum::response::Response {
         let (status, msg) = match self {
+            ClewdrError::QueryRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::OtherHttpError(status, inner) => {
                 return (status, Json(JsError { error: inner })).into_response();
             }

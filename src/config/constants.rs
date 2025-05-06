@@ -11,10 +11,11 @@ use url::Url;
 use crate::{config::ClewdrConfig, utils::set_clewdr_dir};
 
 pub const CONFIG_NAME: &str = "clewdr.toml";
-pub const ENDPOINT: &str = "https://claude.ai";
+pub const CLAUDE_ENDPOINT: &str = "https://claude.ai";
+pub const GEMINI_ENDPOINT: &str = "https://generativelanguage.googleapis.com";
 pub static ENDPOINT_URL: LazyLock<Url> = LazyLock::new(|| {
-    Url::parse(ENDPOINT).unwrap_or_else(|_| {
-        panic!("Failed to parse endpoint URL: {}", ENDPOINT);
+    Url::parse(CLAUDE_ENDPOINT).unwrap_or_else(|_| {
+        panic!("Failed to parse endpoint URL: {}", CLAUDE_ENDPOINT);
     })
 });
 pub const LOG_DIR: &str = "log";

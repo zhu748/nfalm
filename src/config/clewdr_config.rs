@@ -40,7 +40,7 @@ fn generate_password() -> String {
         numbers: true,
         lowercase_letters: true,
         uppercase_letters: true,
-        symbols: true,
+        symbols: false,
         spaces: false,
         exclude_similar_characters: true,
         strict: true,
@@ -242,7 +242,7 @@ impl Display for ClewdrConfig {
 }
 
 impl ClewdrConfig {
-    pub fn v1_auth(&self, key: &str) -> bool {
+    pub fn user_auth(&self, key: &str) -> bool {
         key == self.password
     }
 

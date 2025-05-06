@@ -9,6 +9,13 @@ use tracing::{info, warn};
 
 use crate::config::PLACEHOLDER_COOKIE;
 
+/// A struct representing a cookie
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(transparent)]
+pub struct ClewdrCookie {
+    inner: String,
+}
+
 /// A struct representing a cookie with its information
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CookieStatus {
@@ -76,12 +83,6 @@ impl CookieStatus {
         }
         self
     }
-}
-
-/// A struct representing a cookie
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ClewdrCookie {
-    inner: String,
 }
 
 impl Deref for ClewdrCookie {
@@ -152,25 +153,5 @@ impl Display for ClewdrCookie {
 impl Debug for ClewdrCookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "sessionKey=sk-ant-sid01-{}", self.inner)
-    }
-}
-
-impl Serialize for ClewdrCookie {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let str = self.to_string();
-        serializer.serialize_str(&str)
-    }
-}
-
-impl<'de> Deserialize<'de> for ClewdrCookie {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        Ok(ClewdrCookie::from(s.as_str()))
     }
 }

@@ -11,9 +11,8 @@ use std::{fmt::Write, mem};
 use tracing::warn;
 
 use crate::{
-    api::ApiFormat,
     claude_body::{Attachment, RequestBody, Tool},
-    claude_state::ClaudeState,
+    claude_state::{ClaudeApiFormat, ClaudeState},
     config::CLEWDR_CONFIG,
     types::claude_message::{
         ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
@@ -32,14 +31,14 @@ struct Merged {
 impl ClaudeState {
     pub fn transform_request(&self, mut value: CreateMessageParams) -> Option<RequestBody> {
         let (value, merged) = match self.api_format {
-            ApiFormat::Claude => {
+            ClaudeApiFormat::Claude => {
                 let system = value.system.take();
                 let msgs = mem::take(&mut value.messages);
                 let system = merge_system(system.unwrap_or_default());
                 let merged = merge_messages(msgs, system)?;
                 (value, merged)
             }
-            ApiFormat::OpenAI => {
+            ClaudeApiFormat::OpenAI => {
                 let mut msgs = mem::take(&mut value.messages);
                 let mut role = msgs.first().map(|m| m.role)?;
                 for msg in msgs.iter_mut() {

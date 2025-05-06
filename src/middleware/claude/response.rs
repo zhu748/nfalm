@@ -4,7 +4,7 @@ use futures::{Stream, StreamExt};
 use serde::Serialize;
 
 use crate::{
-    api::ApiFormat,
+    claude_state::ClaudeApiFormat,
     types::claude_message::{ContentBlockDelta, StreamEvent},
 };
 
@@ -32,7 +32,7 @@ pub async fn to_oai(resp: Response) -> impl IntoResponse {
     let Some(f) = resp.extensions().get::<ExtraContext>() else {
         return resp;
     };
-    if ApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
+    if ClaudeApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
         return resp;
     }
     let body = resp.into_body();

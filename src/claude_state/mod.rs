@@ -4,14 +4,14 @@ use rquest::{
     header::{ORIGIN, REFERER},
 };
 use rquest_util::Emulation;
+use strum::Display;
 use tracing::{debug, error};
 use url::Url;
 
 use std::sync::LazyLock;
 
 use crate::{
-    api::ApiFormat,
-    config::{CLEWDR_CONFIG, CookieStatus, ENDPOINT, Reason},
+    config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},
     error::ClewdrError,
     services::cookie_manager::CookieEventSender,
 };
@@ -20,6 +20,20 @@ pub mod bootstrap;
 pub mod chat;
 /// Placeholder
 static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
+
+/// Represents the format of the API response
+///
+/// This enum defines the available API response formats that Clewdr can use
+/// when communicating with clients. It supports both Claude's native format
+/// and an OpenAI-compatible format for broader compatibility with existing tools.
+#[derive(Display, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClaudeApiFormat {
+    /// Claude native format
+    Claude,
+    /// OpenAI compatible format
+    OpenAI,
+}
+
 /// State of current connection
 #[derive(Clone)]
 pub struct ClaudeState {
@@ -31,7 +45,7 @@ pub struct ClaudeState {
     pub capabilities: Vec<String>,
     pub endpoint: Url,
     pub proxy: Option<Proxy>,
-    pub api_format: ApiFormat,
+    pub api_format: ClaudeApiFormat,
     pub stream: bool,
     pub client: Client,
     pub key: Option<(u64, usize)>,
@@ -49,7 +63,7 @@ impl ClaudeState {
             capabilities: Vec::new(),
             endpoint: CLEWDR_CONFIG.load().endpoint(),
             proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
-            api_format: ApiFormat::Claude,
+            api_format: ClaudeApiFormat::Claude,
             stream: false,
             client: SUPER_CLIENT.to_owned(),
             key: None,
@@ -57,12 +71,12 @@ impl ClaudeState {
     }
 
     pub fn with_claude_format(mut self) -> Self {
-        self.api_format = ApiFormat::Claude;
+        self.api_format = ClaudeApiFormat::Claude;
         self
     }
 
     pub fn with_openai_format(mut self) -> Self {
-        self.api_format = ApiFormat::OpenAI;
+        self.api_format = ClaudeApiFormat::OpenAI;
         self
     }
 
@@ -74,11 +88,11 @@ impl ClaudeState {
         let req = self
             .client
             .request(method, url)
-            .header_append(ORIGIN, ENDPOINT);
+            .header(ORIGIN, CLAUDE_ENDPOINT);
         if let Some(uuid) = self.conv_uuid.to_owned() {
-            req.header_append(REFERER, format!("{}/chat/{}", ENDPOINT, uuid))
+            req.header(REFERER, format!("{}/chat/{}", CLAUDE_ENDPOINT, uuid))
         } else {
-            req.header_append(REFERER, format!("{}/new", ENDPOINT))
+            req.header(REFERER, format!("{}/new", CLAUDE_ENDPOINT))
         }
     }
 

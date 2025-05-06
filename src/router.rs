@@ -11,16 +11,16 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 use crate::{
     IS_DEBUG,
     api::{
-        api_auth, api_delete_cookie, api_get_config, api_get_cookies, api_claude,
-        api_post_config, api_post_cookie, api_version,
+        api_auth, api_claude, api_delete_cookie, api_get_config, api_get_cookies, api_post_config,
+        api_post_cookie, api_post_gemini, api_version,
     },
+    claude_state::ClaudeState,
     config::CLEWDR_CONFIG,
     middleware::{
-        RequireAdminAuth, RequireClaudeAuth, RequireOaiAuth,
+        RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth,
         claude::{apply_stop_sequences, to_oai},
     },
     services::cookie_manager::CookieEventSender,
-    claude_state::ClaudeState,
 };
 
 /// RouterBuilder for the application
@@ -49,9 +49,18 @@ impl RouterBuilder {
     pub fn with_default_setup(self) -> Self {
         self.route_claude_endpoints()
             .route_api_endpoints()
-            .route_openai_endpoints()
+            .route_oai_comp_claude_endpoints()
+            .route_gemini_endpoints()
             .setup_static_serving()
             .with_cors()
+    }
+
+    fn route_gemini_endpoints(mut self) -> Self {
+        let router = Router::new()
+            .route("/v1/v1beta/{*path}", post(api_post_gemini))
+            .layer(from_extractor::<RequireQueryKeyAuth>());
+        self.inner = self.inner.merge(router);
+        self
     }
 
     /// Sets up routes for v1 endpoints
@@ -60,7 +69,7 @@ impl RouterBuilder {
             .route("/v1/messages", post(api_claude))
             .layer(
                 ServiceBuilder::new()
-                    .layer(from_extractor::<RequireClaudeAuth>())
+                    .layer(from_extractor::<RequireXApiKeyAuth>())
                     .layer(map_response(apply_stop_sequences)),
             )
             .with_state(self.claude_state.to_owned().with_claude_format());
@@ -90,13 +99,13 @@ impl RouterBuilder {
     }
 
     /// Optionally sets up routes for OpenAI compatible endpoints
-    fn route_openai_endpoints(mut self) -> Self {
+    fn route_oai_comp_claude_endpoints(mut self) -> Self {
         if CLEWDR_CONFIG.load().enable_oai {
             let router = Router::new()
                 .route("/v1/chat/completions", post(api_claude))
                 .layer(
                     ServiceBuilder::new()
-                        .layer(from_extractor::<RequireOaiAuth>())
+                        .layer(from_extractor::<RequireBearerAuth>())
                         .layer(map_response(to_oai))
                         .layer(map_response(apply_stop_sequences)),
                 )

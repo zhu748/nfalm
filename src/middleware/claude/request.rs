@@ -7,8 +7,7 @@ use axum::{
 };
 
 use crate::{
-    api::ApiFormat,
-    claude_state::ClaudeState,
+    claude_state::{ClaudeApiFormat, ClaudeState},
     error::ClewdrError,
     types::claude_message::{ContentBlock, CreateMessageParams, Message, Role},
 };
@@ -41,7 +40,7 @@ pub struct ExtraContext {
     /// Whether the response should be streamed
     pub stream: bool,
     /// The API format being used (Claude or OpenAI)
-    pub api_format: ApiFormat,
+    pub api_format: ClaudeApiFormat,
     /// The stop sequence used for the request
     pub stop_sequences: Vec<String>,
 }
@@ -88,9 +87,9 @@ impl FromRequest<ClaudeState> for Preprocess {
         // Determine streaming status and API format
         let stream = body.stream.unwrap_or_default();
         let format = if uri.contains("chat/completions") {
-            ApiFormat::OpenAI
+            ClaudeApiFormat::OpenAI
         } else {
-            ApiFormat::Claude
+            ClaudeApiFormat::Claude
         };
 
         // Update state with format information

@@ -4,10 +4,9 @@ use scopeguard::defer;
 use tracing::info;
 
 use crate::{
-    api::ApiFormat,
+    claude_state::{ClaudeApiFormat, ClaudeState},
     error::ClewdrError,
     middleware::claude::{ExtraContext, Preprocess},
-    claude_state::ClaudeState,
     utils::{enabled, print_out_json},
 };
 /// Axum handler for the API messages
@@ -31,8 +30,8 @@ pub async fn api_claude(
     state.api_format = f.api_format;
     state.stream = stream;
     let format_display = match f.api_format {
-        ApiFormat::Claude => f.api_format.to_string().green(),
-        ApiFormat::OpenAI => f.api_format.to_string().yellow(),
+        ClaudeApiFormat::Claude => f.api_format.to_string().green(),
+        ClaudeApiFormat::OpenAI => f.api_format.to_string().yellow(),
     };
     info!(
         "[REQ] stream: {}, msgs: {}, model: {}, think: {}, format: {}",
