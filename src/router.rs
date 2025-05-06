@@ -12,7 +12,7 @@ use crate::{
     IS_DEBUG,
     api::{
         api_auth, api_claude, api_delete_cookie, api_delete_key, api_get_config, api_get_cookies,
-        api_post_config, api_post_cookie, api_post_gemini, api_post_key, api_version,
+        api_get_keys, api_post_config, api_post_cookie, api_post_gemini, api_post_key, api_version,
     },
     claude_state::ClaudeState,
     config::CLEWDR_CONFIG,
@@ -98,7 +98,7 @@ impl RouterBuilder {
             .with_state(self.cookie_event_sender.to_owned());
         let key_router = Router::new()
             .route("/key", post(api_post_key).delete(api_delete_key))
-            .layer(from_extractor::<RequireBearerAuth>())
+            .route("/keys", get(api_get_keys))
             .with_state(self.key_event_sender.to_owned());
         let admin_router = Router::new()
             .route("/auth", get(api_auth))

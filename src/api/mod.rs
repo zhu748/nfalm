@@ -15,6 +15,6 @@ pub use config::{api_get_config, api_post_config};
 pub use gemini::api_post_gemini;
 /// Miscellaneous endpoints for authentication, cookies, and version information
 pub use misc::{
-    api_auth, api_delete_cookie, api_delete_key, api_get_cookies, api_post_cookie, api_post_key,
-    api_version,
+    api_auth, api_delete_cookie, api_delete_key, api_get_cookies, api_get_keys, api_post_cookie,
+    api_post_key, api_version,
 };

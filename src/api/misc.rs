@@ -8,7 +8,7 @@ use crate::{
     config::{CLEWDR_CONFIG, CookieStatus, KeyStatus},
     services::{
         cookie_manager::{CookieEventSender, CookieStatusInfo},
-        key_manager::KeyEventSender,
+        key_manager::{KeyEventSender, KeyStatusInfo},
     },
 };
 
@@ -97,6 +97,30 @@ pub async fn api_get_cookies(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
                 "error": format!("Failed to get cookie status: {}", e)
+            })),
+        )),
+    }
+}
+
+pub async fn api_get_keys(
+    State(s): State<KeyEventSender>,
+    AuthBearer(t): AuthBearer,
+) -> Result<Json<KeyStatusInfo>, (StatusCode, Json<serde_json::Value>)> {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Unauthorized"
+            })),
+        ));
+    }
+
+    match s.get_status().await {
+        Ok(status) => Ok(Json(status)),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("Failed to get keys status: {}", e)
             })),
         )),
     }
