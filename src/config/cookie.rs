@@ -11,7 +11,8 @@ use crate::config::PLACEHOLDER_COOKIE;
 
 /// A struct representing a cookie
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[serde(transparent)]
+#[serde(from = "&str")]
+#[serde(into = "String")]
 pub struct ClewdrCookie {
     inner: String,
 }
@@ -123,11 +124,17 @@ impl ClewdrCookie {
     }
 }
 
-impl From<&str> for ClewdrCookie {
+impl<S> From<S> for ClewdrCookie
+where
+    S: AsRef<str>,
+{
     /// Create a new cookie from a string
-    fn from(original: &str) -> Self {
+    fn from(original: S) -> Self {
         // split off first '@' to keep compatibility with clewd
-        let cookie = original.split_once('@').map_or(original, |(_, c)| c);
+        let cookie = original
+            .as_ref()
+            .split_once('@')
+            .map_or(original.as_ref(), |(_, c)| c);
         // only keep '=' '_' '-' and alphanumeric characters
         let cookie = cookie
             .chars()
@@ -138,9 +145,16 @@ impl From<&str> for ClewdrCookie {
             .to_string();
         let cookie = Self { inner: cookie };
         if !cookie.validate() {
-            warn!("Invalid cookie format: {}", original);
+            warn!("Invalid cookie format: {}", original.as_ref());
         }
         cookie
+    }
+}
+
+impl Into<String> for ClewdrCookie {
+    /// Convert the cookie to a string
+    fn into(self) -> String {
+        self.to_string()
     }
 }
 
