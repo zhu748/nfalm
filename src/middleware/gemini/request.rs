@@ -4,7 +4,8 @@ use axum::{
 };
 
 use crate::{
-    error::ClewdrError, gemini_body::GeminiQuery, types::gemini::request::GeminiRequestBody,
+    error::ClewdrError, gemini_body::GeminiQuery, gemini_state::GeminiState,
+    types::gemini::request::GeminiRequestBody,
 };
 
 pub struct GeminiContext {
@@ -15,13 +16,10 @@ pub struct GeminiContext {
 
 pub struct GeminiPreprocess(pub GeminiRequestBody, pub GeminiContext);
 
-impl<S> FromRequest<S> for GeminiPreprocess
-where
-    S: Send + Sync,
-{
+impl FromRequest<GeminiState> for GeminiPreprocess {
     type Rejection = ClewdrError;
 
-    async fn from_request(mut req: Request, _: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(mut req: Request, state: &GeminiState) -> Result<Self, Self::Rejection> {
         let Path(path) = req.extract_parts::<Path<String>>().await?;
         let uri = req.uri().to_string();
         let query = req.extract_parts::<GeminiQuery>().await?;
@@ -31,7 +29,11 @@ where
             query,
         };
         let Json(body) = Json::<GeminiRequestBody>::from_request(req, &()).await?;
-        // body.hash(&mut hasher);
+        let mut state = state.clone();
+        state.update_from_ctx(&ctx);
+        if let Some(res) = state.try_from_cache(&body).await {
+            return Err(ClewdrError::CacheFound(res));
+        }
         Ok(GeminiPreprocess(body, ctx))
     }
 }

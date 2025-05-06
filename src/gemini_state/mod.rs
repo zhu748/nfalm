@@ -4,16 +4,19 @@ use axum::{
     body::Body,
     response::{IntoResponse, Response},
 };
+use bytes::{BufMut, Bytes, BytesMut};
 use colored::Colorize;
+use futures::{Stream, StreamExt, pin_mut};
 use rquest::{Client, ClientBuilder, Proxy};
-use tracing::{error, info};
+use tokio::spawn;
+use tracing::{Instrument, Level, error, info, span};
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
     error::ClewdrError,
     gemini_body::GeminiQuery,
     middleware::gemini::GeminiContext,
-    services::key_manager::KeyEventSender,
+    services::{cache::CACHE, key_manager::KeyEventSender},
     types::gemini::request::GeminiRequestBody,
 };
 
@@ -75,7 +78,11 @@ impl GeminiState {
         self.query = ctx.query.to_owned();
     }
 
-    pub async fn send_chat(&mut self, p: GeminiRequestBody) -> Result<Response, ClewdrError> {
+    pub async fn send_chat(
+        &mut self,
+        p: GeminiRequestBody,
+    ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
+    {
         self.request_key().await?;
         let Some(key) = self.key.clone() else {
             return Err(ClewdrError::UnexpectedNone);
@@ -91,14 +98,7 @@ impl GeminiState {
             .send()
             .await?;
         let res = res.error_for_status()?;
-        let body = if self.stream {
-            let stream = res.bytes_stream();
-            Body::from_stream(stream)
-        } else {
-            let bytes = res.bytes().await?;
-            Body::from(bytes)
-        };
-        Ok(body.into_response())
+        Ok(res.bytes_stream())
     }
 
     pub async fn try_chat(&mut self, p: GeminiRequestBody) -> Result<Response, ClewdrError> {
@@ -112,7 +112,8 @@ impl GeminiState {
             // check if request is successful
             match state.send_chat(p).await {
                 Ok(b) => {
-                    return Ok(b);
+                    let res = state.transform_response(b).await;
+                    return Ok(res);
                 }
                 Err(e) => {
                     error!("{}", e);
@@ -121,5 +122,51 @@ impl GeminiState {
         }
         error!("Max retries exceeded");
         Err(ClewdrError::TooManyRetries)
+    }
+
+    pub async fn try_from_cache(&self, p: &GeminiRequestBody) -> Option<axum::response::Response> {
+        let key = p.get_hash(self.path.as_str());
+        if let Some(stream) = CACHE.pop(key) {
+            info!("[CACHE] found response for key: {}", key);
+            return Some(self.transform_response(stream).await);
+        }
+        for id in 0..CLEWDR_CONFIG.load().cache_response {
+            let mut state = self.to_owned();
+            state.cache_key = Some((key, id));
+            let p = p.to_owned();
+            let cache_span = span!(Level::ERROR, "cache");
+            spawn(async move { state.try_chat(p).instrument(cache_span).await });
+        }
+        None
+    }
+
+    pub async fn transform_response(
+        &self,
+        input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
+    ) -> axum::response::Response {
+        // response is used for caching
+        if let Some((key, id)) = self.cache_key {
+            CACHE.push(input, key, id);
+            // return whatever, not used
+            return Body::empty().into_response();
+        }
+        // response is used for returning
+        // not streaming
+        if !self.stream {
+            let mut bytes = BytesMut::new();
+            let stream = input;
+            pin_mut!(stream);
+            while let Some(item) = stream.next().await {
+                match item {
+                    Ok(data) => bytes.put(data),
+                    Err(_) => continue,
+                }
+            }
+            let body = Body::from(bytes.freeze());
+            return body.into_response();
+        }
+
+        // stream the response
+        Body::from_stream(input).into_response()
     }
 }
