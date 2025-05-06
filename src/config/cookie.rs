@@ -11,7 +11,7 @@ use crate::config::PLACEHOLDER_COOKIE;
 
 /// A struct representing a cookie
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[serde(from = "&str")]
+#[serde(from = "String")]
 #[serde(into = "String")]
 pub struct ClewdrCookie {
     inner: String,
