@@ -25,6 +25,7 @@
   "tabs": {
     "cookie": "Cookie",
     "config": "配置",
+    "keys": "密钥",
     "auth": "认证"
   },
   "cookieTab": {
@@ -148,6 +149,48 @@
   },
   "common": {
     "loading": "加载中...",
-    "error": "错误：{{message}}"
+    "error": "错误：{{message}}",
+    "reveal": "显示",
+    "hide": "隐藏",
+    "copy": "复制到剪贴板"
+  },
+  "keyTab": {
+    "submit": "提交密钥",
+    "status": "密钥状态"
+  },
+  "keySubmit": {
+    "value": "密钥值",
+    "placeholder": "在此粘贴您的密钥...",
+    "placeholderMulti": "在此粘贴您的密钥（每行一个）...",
+    "description": "输入完整的密钥字符串。",
+    "descriptionMulti": "输入多个密钥，每行一个。每个密钥将被单独处理。",
+    "submitting": "提交中...",
+    "submitButton": "提交密钥",
+    "success": "密钥提交成功！",
+    "allSuccess": "所有{{count}}个密钥提交成功！",
+    "allFailed": "所有{{count}}个密钥提交失败。",
+    "partialSuccess": "{{total}}个密钥中的{{successCount}}个提交成功（{{errorCount}}个失败）。",
+    "resultDetails": "提交详情",
+    "error": {
+      "empty": "请输入至少一个密钥",
+      "auth": "认证失败。请设置有效的认证令牌。",
+      "server": "服务器错误。"
+    }
+  },
+  "keyStatus": {
+    "title": "密钥状态",
+    "total": "总计：{{count}}个密钥",
+    "refresh": "刷新",
+    "refreshing": "刷新中...",
+    "sections": {
+      "valid": "有效密钥"
+    },
+    "status": {
+      "active": "活跃"
+    },
+    "noKeys": "未找到密钥",
+    "emptyHelp": "您尚未添加任何密钥。使用\"提交密钥\"选项卡添加密钥。",
+    "deleteConfirm": "您确定要删除此密钥吗？",
+    "delete": "删除"
   }
 }

@@ -56,6 +56,10 @@ pub async fn api_post_key(
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return StatusCode::UNAUTHORIZED;
     }
+    if !c.key.validate() {
+        warn!("Invalid key: {}", c.key);
+        return StatusCode::BAD_REQUEST;
+    }
     info!("Key accepted: {}", c.key);
     match s.submit(c).await {
         Ok(_) => {
@@ -188,6 +192,15 @@ pub async fn api_delete_key(
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
                 "error": "Unauthorized"
+            })),
+        ));
+    }
+    if !c.key.validate() {
+        warn!("Invalid key: {}", c.key);
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Invalid key"
             })),
         ));
     }

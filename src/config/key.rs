@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, ops::Deref};
+use tracing::warn;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-#[serde(transparent)]
+#[serde(from = "String")]
+#[serde(into = "String")]
 pub struct GeminiKey {
     pub inner: String,
 }
@@ -16,6 +18,10 @@ impl Deref for GeminiKey {
 }
 
 impl GeminiKey {
+    pub fn validate(&self) -> bool {
+        let re = regex::Regex::new(r"^AIzaSy[A-Za-z0-9_-]{33}$").unwrap();
+        re.is_match(&self.inner)
+    }
     pub fn ellipse(&self) -> String {
         let len = self.inner.len();
         if len > 10 {
@@ -32,8 +38,40 @@ impl Display for GeminiKey {
     }
 }
 
+impl<S> From<S> for GeminiKey
+where
+    S: AsRef<str>,
+{
+    /// Create a new key from a string
+    fn from(original: S) -> Self {
+        let original = original.as_ref();
+        // only keep '=' '_' '-' and alphanumeric characters
+        let original = original
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '=' || *c == '_' || *c == '-')
+            .collect::<String>();
+        let key = Self { inner: original };
+        if !key.validate() {
+            warn!("Invalid key format: {}", key);
+        }
+        key
+    }
+}
+impl Into<String> for GeminiKey {
+    /// Convert the key to a string
+    fn into(self) -> String {
+        self.to_string()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct KeyStatus {
     pub key: GeminiKey,
     // TODO: add more fields
+}
+
+impl KeyStatus {
+    pub fn validate(&self) -> bool {
+        self.key.validate()
+    }
 }
