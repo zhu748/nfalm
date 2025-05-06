@@ -3,7 +3,7 @@ use axum::extract::{FromRequestParts, Query};
 use serde::Deserialize;
 use struct_iterable::Iterable;
 
-#[derive(Debug, Clone, Deserialize, Iterable)]
+#[derive(Debug, Clone, Deserialize, Iterable, Default)]
 pub struct GeminiQuery {
     pub key: String,
     pub alt: Option<String>,

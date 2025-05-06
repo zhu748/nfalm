@@ -9,7 +9,7 @@ use tracing::{Instrument, Level, debug, error, info, span, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
-    error::{CheckResErr, ClewdrError},
+    error::{CheckClaudeErr, ClewdrError},
     services::cache::CACHE,
     types::claude_message::CreateMessageParams,
     utils::print_out_json,
@@ -70,7 +70,7 @@ impl ClaudeState {
         &mut self,
         p: CreateMessageParams,
     ) -> Result<axum::response::Response, ClewdrError> {
-        for i in 0..CLEWDR_CONFIG.load().max_retries {
+        for i in 0..CLEWDR_CONFIG.load().max_retries + 1 {
             if i > 0 {
                 info!("[RETRY] attempt: {}", i.to_string().green());
             }
@@ -165,7 +165,7 @@ impl ClaudeState {
             .json(&body)
             .send()
             .await?
-            .check()
+            .check_claude()
             .await?;
         self.conv_uuid = Some(new_uuid.to_string());
         debug!("New conversation created: {}", new_uuid);
@@ -195,7 +195,7 @@ impl ClaudeState {
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await?
-            .check()
+            .check_claude()
             .await
     }
 }

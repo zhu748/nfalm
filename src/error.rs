@@ -18,6 +18,8 @@ use crate::{
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
     #[error(transparent)]
+    PathRejection(#[from] axum::extract::rejection::PathRejection),
+    #[error(transparent)]
     QueryRejection(#[from] axum::extract::rejection::QueryRejection),
     #[error("Cache found")]
     CacheFound(axum::response::Response),
@@ -84,6 +86,7 @@ pub enum ClewdrError {
 impl IntoResponse for ClewdrError {
     fn into_response(self) -> axum::response::Response {
         let (status, msg) = match self {
+            ClewdrError::PathRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::QueryRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::OtherHttpError(status, inner) => {
                 return (status, Json(JsError { error: inner })).into_response();
@@ -173,14 +176,14 @@ impl Display for JsErrorBody {
     }
 }
 
-pub trait CheckResErr
+pub trait CheckClaudeErr
 where
     Self: Sized,
 {
-    fn check(self) -> impl Future<Output = Result<Self, ClewdrError>>;
+    fn check_claude(self) -> impl Future<Output = Result<Self, ClewdrError>>;
 }
 
-impl CheckResErr for Response {
+impl CheckClaudeErr for Response {
     /// Checks response from Claude Web API for errors
     /// Validates HTTP status codes and parses error messages from responses
     ///
@@ -190,7 +193,7 @@ impl CheckResErr for Response {
     /// # Returns
     /// * `Ok(Response)` if the request was successful
     /// * `Err(ClewdrError)` if the request failed, with details about the failure
-    async fn check(self) -> Result<Self, ClewdrError> {
+    async fn check_claude(self) -> Result<Self, ClewdrError> {
         let status = self.status();
         if status.is_success() {
             return Ok(self);

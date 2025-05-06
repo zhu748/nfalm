@@ -8,7 +8,7 @@ use crate::{
     types::claude_message::{ContentBlockDelta, StreamEvent},
 };
 
-use super::ExtraContext;
+use super::ClaudeContext;
 
 /// Transforms responses to ensure compatibility with the OpenAI API format
 ///
@@ -29,7 +29,7 @@ use super::ExtraContext;
 ///
 /// The original or transformed response as appropriate
 pub async fn to_oai(resp: Response) -> impl IntoResponse {
-    let Some(f) = resp.extensions().get::<ExtraContext>() else {
+    let Some(f) = resp.extensions().get::<ClaudeContext>() else {
         return resp;
     };
     if ClaudeApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {

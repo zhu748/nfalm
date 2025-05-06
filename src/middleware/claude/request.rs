@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use axum::{
-    Extension, Json,
+    Json,
     extract::{FromRequest, Request},
     response::IntoResponse,
 };
@@ -28,7 +28,7 @@ use super::to_oai;
 /// - Identifies test messages and handles them appropriately
 /// - Attempts to retrieve responses from cache before processing requests
 /// - Provides format information via the FormatInfo extension
-pub struct Preprocess(pub CreateMessageParams, pub Extension<ExtraContext>);
+pub struct ClaudePreprocess(pub CreateMessageParams, pub ClaudeContext);
 
 /// Contains information about the API format and streaming status
 ///
@@ -36,7 +36,7 @@ pub struct Preprocess(pub CreateMessageParams, pub Extension<ExtraContext>);
 /// handlers and response processors about the API format being used
 /// and whether the response should be streamed.
 #[derive(Debug, Clone)]
-pub struct ExtraContext {
+pub struct ClaudeContext {
     /// Whether the response should be streamed
     pub stream: bool,
     /// The API format being used (Claude or OpenAI)
@@ -62,7 +62,7 @@ static TEST_MESSAGE_CLAUDE: LazyLock<Message> = LazyLock::new(|| {
 /// Predefined test message in OpenAI format for connection testing
 static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
 
-impl FromRequest<ClaudeState> for Preprocess {
+impl FromRequest<ClaudeState> for ClaudePreprocess {
     type Rejection = ClewdrError;
 
     async fn from_request(req: Request, state: &ClaudeState) -> Result<Self, Self::Rejection> {
@@ -100,7 +100,7 @@ impl FromRequest<ClaudeState> for Preprocess {
         stop.extend_from_slice(body.stop.to_owned().unwrap_or_default().as_slice());
         stop.sort();
         stop.dedup();
-        let info = ExtraContext {
+        let info = ClaudeContext {
             stream,
             api_format: format,
             stop_sequences: stop,
@@ -113,6 +113,6 @@ impl FromRequest<ClaudeState> for Preprocess {
             return Err(ClewdrError::CacheFound(r));
         }
 
-        Ok(Self(body, Extension(info)))
+        Ok(Self(body, info))
     }
 }

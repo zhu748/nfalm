@@ -8,6 +8,6 @@
 /// - Response transformation: Convert between different response formats and handle streaming
 mod auth;
 pub mod claude;
-mod gemini;
+pub mod gemini;
 
 pub use auth::{RequireAdminAuth, RequireXApiKeyAuth, RequireBearerAuth, RequireQueryKeyAuth};

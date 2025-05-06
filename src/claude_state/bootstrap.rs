@@ -6,7 +6,7 @@ use std::fmt::Write;
 use crate::{
     claude_state::ClaudeState,
     config::{CLEWDR_CONFIG, Reason},
-    error::{CheckResErr, ClewdrError},
+    error::{CheckClaudeErr, ClewdrError},
     utils::print_out_json,
 };
 
@@ -28,7 +28,7 @@ impl ClaudeState {
             .build_request(Method::GET, end_point)
             .send()
             .await?
-            .check()
+            .check_claude()
             .await?;
         let bootstrap = res.json::<Value>().await?;
         print_out_json(&bootstrap, "bootstrap_res.json");
@@ -77,7 +77,7 @@ impl ClaudeState {
             .build_request(Method::GET, end_point)
             .send()
             .await?
-            .check()
+            .check_claude()
             .await?;
         let ret_json = res.json::<Value>().await?;
         print_out_json(&ret_json, "org.json");
