@@ -1,9 +1,7 @@
 use clewdr::{
     self, BANNER,
     config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
-    claude_state::ClaudeState,
     error::ClewdrError,
-    services::cookie_manager::CookieManager,
 };
 use colored::Colorize;
 use tracing::warn;
@@ -61,14 +59,11 @@ async fn main() -> Result<(), ClewdrError> {
     println!("Config dir: {}", CONFIG_PATH.display().to_string().blue());
     println!("{}", *CLEWDR_CONFIG);
 
-    // initialize the application state
-    let tx = CookieManager::start();
-    let state = ClaudeState::new(tx);
     // build axum router
     // create a TCP listener
     let addr = CLEWDR_CONFIG.load().address();
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    let router = clewdr::router::RouterBuilder::new(state)
+    let router = clewdr::router::RouterBuilder::new()
         .with_default_setup()
         .build();
     // serve the application

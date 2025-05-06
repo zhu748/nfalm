@@ -16,17 +16,22 @@ use crate::{
     },
     claude_state::ClaudeState,
     config::CLEWDR_CONFIG,
+    gemini_state::GeminiState,
     middleware::{
         RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth,
         claude::{apply_stop_sequences, to_oai},
     },
-    services::cookie_manager::CookieEventSender,
+    services::{
+        cookie_manager::{CookieEventSender, CookieManager},
+        key_manager::KeyManager,
+    },
 };
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
-    cookie_event_sender: CookieEventSender,
     claude_state: ClaudeState,
+    cookie_event_sender: CookieEventSender,
+    gemini_state: GeminiState,
     inner: Router,
 }
 
@@ -36,10 +41,15 @@ impl RouterBuilder {
     ///
     /// # Arguments
     /// * `state` - The application state containing client information
-    pub fn new(state: ClaudeState) -> Self {
+    pub fn new() -> Self {
+        let cookie_tx = CookieManager::start();
+        let claude_state = ClaudeState::new(cookie_tx.to_owned());
+        let key_tx = KeyManager::start();
+        let gemini_state = GeminiState::new(key_tx);
         RouterBuilder {
-            cookie_event_sender: state.event_sender.to_owned(),
-            claude_state: state,
+            claude_state: claude_state,
+            cookie_event_sender: cookie_tx,
+            gemini_state: gemini_state,
             inner: Router::new(),
         }
     }
@@ -58,7 +68,8 @@ impl RouterBuilder {
     fn route_gemini_endpoints(mut self) -> Self {
         let router = Router::new()
             .route("/v1/v1beta/{*path}", post(api_post_gemini))
-            .layer(from_extractor::<RequireQueryKeyAuth>());
+            .layer(from_extractor::<RequireQueryKeyAuth>())
+            .with_state(self.gemini_state.to_owned());
         self.inner = self.inner.merge(router);
         self
     }

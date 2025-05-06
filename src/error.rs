@@ -9,7 +9,9 @@ use tokio::sync::oneshot;
 use tracing::{debug, error};
 
 use crate::{
-    config::Reason, services::cookie_manager::CookieEvent, types::claude_message::Message,
+    config::Reason,
+    services::{cookie_manager::CookieEvent, key_manager::KeyEvent},
+    types::claude_message::Message,
 };
 
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
@@ -32,7 +34,9 @@ pub enum ClewdrError {
     #[error(transparent)]
     FigmentError(#[from] figment::Error),
     #[error(transparent)]
-    MpscSendError(#[from] tokio::sync::mpsc::error::SendError<CookieEvent>),
+    KeySendError(#[from] tokio::sync::mpsc::error::SendError<KeyEvent>),
+    #[error(transparent)]
+    CookieSendError(#[from] tokio::sync::mpsc::error::SendError<CookieEvent>),
     #[error("Retries exceeded")]
     TooManyRetries,
     #[error(transparent)]
@@ -49,6 +53,8 @@ pub enum ClewdrError {
     CookieDispatchError(#[from] oneshot::error::RecvError),
     #[error("No cookie available")]
     NoCookieAvailable,
+    #[error("No key available")]
+    NoKeyAvailable,
     #[error("Invalid Cookie: {0}")]
     InvalidCookie(Reason),
     #[error(transparent)]
