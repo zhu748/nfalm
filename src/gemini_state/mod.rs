@@ -4,9 +4,9 @@ use axum::{
     body::Body,
     response::{IntoResponse, Response},
 };
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::Bytes;
 use colored::Colorize;
-use futures::{Stream, StreamExt, pin_mut};
+use futures::Stream;
 use rquest::{Client, ClientBuilder, Proxy};
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span};
@@ -156,20 +156,6 @@ impl GeminiState {
         }
         // response is used for returning
         // not streaming
-        if !self.stream {
-            let mut bytes = BytesMut::new();
-            let stream = input;
-            pin_mut!(stream);
-            while let Some(item) = stream.next().await {
-                match item {
-                    Ok(data) => bytes.put(data),
-                    Err(_) => continue,
-                }
-            }
-            let body = Body::from(bytes.freeze());
-            return body.into_response();
-        }
-
         // stream the response
         Body::from_stream(input).into_response()
     }
