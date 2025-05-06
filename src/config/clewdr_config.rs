@@ -27,7 +27,9 @@ use crate::{
     utils::enabled,
 };
 
-use super::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH, ClewdrCookie, ENDPOINT_URL};
+use super::{
+    ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH, ClewdrCookie, ENDPOINT_URL, key::KeyStatus,
+};
 
 /// Generates a random password for authentication
 /// Creates a secure 64-character password with mixed character types
@@ -58,6 +60,8 @@ pub struct ClewdrConfig {
     pub cookie_array: HashSet<CookieStatus>,
     #[serde(default)]
     pub wasted_cookie: HashSet<UselessCookie>,
+    #[serde(default)]
+    pub gemini_keys: HashSet<KeyStatus>,
 
     // Server settings, cannot hot reload
     #[serde(default = "default_ip")]
@@ -145,6 +149,7 @@ impl Default for ClewdrConfig {
             auto_update: false,
             cookie_array: HashSet::new(),
             wasted_cookie: HashSet::new(),
+            gemini_keys: HashSet::new(),
             password: String::new(),
             admin_password: String::new(),
             proxy: None,
