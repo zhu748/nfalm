@@ -116,7 +116,11 @@ impl GeminiState {
                     return Ok(res);
                 }
                 Err(e) => {
-                    error!("{}", e);
+                    if let Some(key) = state.key.to_owned() {
+                        error!("[{}] {}", key.key.ellipse().green(), e);
+                    } else {
+                        error!("{}", e);
+                    }
                 }
             }
         }
