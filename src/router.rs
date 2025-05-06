@@ -11,8 +11,8 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 use crate::{
     IS_DEBUG,
     api::{
-        api_auth, api_claude, api_delete_cookie, api_get_config, api_get_cookies, api_post_config,
-        api_post_cookie, api_post_gemini, api_version,
+        api_auth, api_claude, api_delete_cookie, api_delete_key, api_get_config, api_get_cookies,
+        api_post_config, api_post_cookie, api_post_gemini, api_post_key, api_version,
     },
     claude_state::ClaudeState,
     config::CLEWDR_CONFIG,
@@ -23,7 +23,7 @@ use crate::{
     },
     services::{
         cookie_manager::{CookieEventSender, CookieManager},
-        key_manager::KeyManager,
+        key_manager::{KeyEventSender, KeyManager},
     },
 };
 
@@ -31,6 +31,7 @@ use crate::{
 pub struct RouterBuilder {
     claude_state: ClaudeState,
     cookie_event_sender: CookieEventSender,
+    key_event_sender: KeyEventSender,
     gemini_state: GeminiState,
     inner: Router,
 }
@@ -45,10 +46,11 @@ impl RouterBuilder {
         let cookie_tx = CookieManager::start();
         let claude_state = ClaudeState::new(cookie_tx.to_owned());
         let key_tx = KeyManager::start();
-        let gemini_state = GeminiState::new(key_tx);
+        let gemini_state = GeminiState::new(key_tx.to_owned());
         RouterBuilder {
             claude_state: claude_state,
             cookie_event_sender: cookie_tx,
+            key_event_sender: key_tx,
             gemini_state: gemini_state,
             inner: Router::new(),
         }
@@ -94,6 +96,10 @@ impl RouterBuilder {
             .route("/cookies", get(api_get_cookies))
             .route("/cookie", delete(api_delete_cookie).post(api_post_cookie))
             .with_state(self.cookie_event_sender.to_owned());
+        let key_router = Router::new()
+            .route("/key", post(api_post_key).delete(api_delete_key))
+            .layer(from_extractor::<RequireBearerAuth>())
+            .with_state(self.key_event_sender.to_owned());
         let admin_router = Router::new()
             .route("/auth", get(api_auth))
             .route("/config", get(api_get_config).put(api_post_config));
@@ -101,6 +107,7 @@ impl RouterBuilder {
             .nest(
                 "/api",
                 cookie_router
+                    .merge(key_router)
                     .merge(admin_router)
                     .layer(from_extractor::<RequireAdminAuth>()),
             )

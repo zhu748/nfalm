@@ -5,8 +5,11 @@ use tracing::{error, info, warn};
 
 use crate::{
     VERSION_INFO,
-    config::{CLEWDR_CONFIG, CookieStatus},
-    services::cookie_manager::{CookieEventSender, CookieStatusInfo},
+    config::{CLEWDR_CONFIG, CookieStatus, KeyStatus},
+    services::{
+        cookie_manager::{CookieEventSender, CookieStatusInfo},
+        key_manager::KeyEventSender,
+    },
 };
 
 /// API endpoint to submit a new cookie
@@ -40,6 +43,27 @@ pub async fn api_post_cookie(
         }
         Err(e) => {
             error!("Failed to submit cookie: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
+pub async fn api_post_key(
+    State(s): State<KeyEventSender>,
+    AuthBearer(t): AuthBearer,
+    Json(c): Json<KeyStatus>,
+) -> StatusCode {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
+        return StatusCode::UNAUTHORIZED;
+    }
+    info!("Key accepted: {}", c.key);
+    match s.submit(c).await {
+        Ok(_) => {
+            info!("Key submitted successfully");
+            StatusCode::OK
+        }
+        Err(e) => {
+            error!("Failed to submit key: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         }
     }
@@ -124,6 +148,37 @@ pub async fn api_delete_cookie(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
                     "error": format!("Failed to delete cookie: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+pub async fn api_delete_key(
+    State(s): State<KeyEventSender>,
+    AuthBearer(t): AuthBearer,
+    Json(c): Json<KeyStatus>,
+) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
+    if !CLEWDR_CONFIG.load().admin_auth(&t) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Unauthorized"
+            })),
+        ));
+    }
+
+    match s.delete_key(c.to_owned()).await {
+        Ok(_) => {
+            info!("Key deleted successfully: {}", c.key);
+            Ok(StatusCode::NO_CONTENT)
+        }
+        Err(e) => {
+            error!("Failed to delete key: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to delete key: {}", e)
                 })),
             ))
         }
