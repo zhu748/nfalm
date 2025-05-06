@@ -1,11 +1,18 @@
-use axum::{Json, body::Body, extract::Path};
+use axum::{
+    Json,
+    body::Body,
+    extract::{Path, State},
+};
 use serde_json::Value;
 use tracing::info;
 
-use crate::{config::GEMINI_ENDPOINT, error::ClewdrError, gemini_body::GeminiQuery};
-const TEST_KEY: &str = "";
+use crate::{
+    config::GEMINI_ENDPOINT, error::ClewdrError, gemini_body::GeminiQuery,
+    gemini_state::GeminiState,
+};
 
 pub async fn api_post_gemini(
+    State(mut state): State<GeminiState>,
     Path(path): Path<String>,
     query: GeminiQuery,
     Json(body): Json<Value>,
@@ -15,7 +22,12 @@ pub async fn api_post_gemini(
     let path = path.trim_start_matches('/').to_string();
     let client = rquest::Client::new();
     let mut query_vec = query.to_vec();
-    query_vec.push(("key", TEST_KEY));
+    state.request_key().await?;
+    let Some(key) = state.key.clone() else {
+        return Err(ClewdrError::UnexpectedNone);
+    };
+    let key = key.key.to_string();
+    query_vec.push(("key", key.as_str()));
     let res = client
         .post(format!("{}/v1beta/{}", GEMINI_ENDPOINT, path))
         .query(&query_vec)
