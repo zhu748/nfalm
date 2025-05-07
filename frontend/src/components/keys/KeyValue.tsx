@@ -17,11 +17,11 @@ const KeyValue: React.FC<KeyValueProps> = ({ keyString }) => {
 
   // Function to mask part of the key for security
   const getMaskedKey = () => {
-    if (keyString.length <= 8) {
+    if (keyString.length <= 14) {
       return "****";
     }
 
-    const prefix = keyString.substring(0, 4);
+    const prefix = keyString.substring(0, 10);
     const suffix = keyString.substring(keyString.length - 4);
     const maskedMiddle = "****";
 
@@ -43,11 +43,7 @@ const KeyValue: React.FC<KeyValueProps> = ({ keyString }) => {
         className="ml-2 text-xs text-gray-400 hover:text-gray-300"
         title={isRevealed ? t("common.hide") : t("common.reveal")}
       >
-        {isRevealed ? (
-          <span>👁️</span>
-        ) : (
-          <span>👁️‍🗨️</span>
-        )}
+        {isRevealed ? <span>👁️</span> : <span>👁️‍🗨️</span>}
       </button>
       <button
         onClick={copyToClipboard}
