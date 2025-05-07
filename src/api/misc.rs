@@ -1,6 +1,7 @@
 use axum::{Json, extract::State};
 use axum_auth::AuthBearer;
 use rquest::StatusCode;
+use serde_json::{Value, json};
 use tracing::{error, info, warn};
 
 use crate::{
@@ -244,4 +245,30 @@ pub async fn api_auth(AuthBearer(t): AuthBearer) -> StatusCode {
     }
     info!("Auth token accepted,");
     StatusCode::OK
+}
+
+const MODEL_LIST: [&str; 2] = [
+    "claude-3-7-sonnet-20250219",
+    "claude-3-7-sonnet-20250219-thinking",
+];
+
+/// API endpoint to get the list of available models
+/// Retrieves the list of models from the configuration
+pub async fn api_get_models() -> Json<Value> {
+    let data: Vec<Value> = MODEL_LIST
+        .iter()
+        .map(|model| {
+            json!({
+                "id": model,
+                "object": "model",
+                "created": 0,
+                "owned_by": "clewdr",
+            })
+        })
+        .collect::<Vec<_>>()
+        .into();
+    Json(json!({
+        "object": "list",
+        "data": data,
+    }))
 }

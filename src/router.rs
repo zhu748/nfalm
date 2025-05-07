@@ -12,7 +12,8 @@ use crate::{
     IS_DEBUG,
     api::{
         api_auth, api_claude, api_delete_cookie, api_delete_key, api_get_config, api_get_cookies,
-        api_get_keys, api_post_config, api_post_cookie, api_post_gemini, api_post_key, api_version,
+        api_get_keys, api_get_models, api_post_config, api_post_cookie, api_post_gemini,
+        api_post_key, api_version,
     },
     claude_state::ClaudeState,
     config::CLEWDR_CONFIG,
@@ -128,6 +129,7 @@ impl RouterBuilder {
         if CLEWDR_CONFIG.load().enable_oai {
             let router = Router::new()
                 .route("/v1/chat/completions", post(api_claude))
+                .route("/v1/models", get(api_get_models))
                 .layer(
                     ServiceBuilder::new()
                         .layer(from_extractor::<RequireBearerAuth>())
