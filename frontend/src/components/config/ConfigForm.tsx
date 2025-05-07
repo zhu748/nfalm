@@ -118,10 +118,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
       {/* Vertex Settings Section */}
       <ConfigSection title={t("config.sections.vertex.title")}>
         <FormInput
-          id="vertex.auth_token"
-          name="vertex.auth_token"
+          id="vertex.access_token"
+          name="vertex.access_token"
           type="password"
-          value={config.vertex.auth_token || ""}
+          value={config.vertex.access_token || ""}
           onChange={onChange}
           label={t("config.sections.vertex.authToken")}
         />

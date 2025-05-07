@@ -46,7 +46,7 @@ export interface ConfigData {
 }
 
 interface VertexConfig {
-  auth_token: string | null;
+  access_token: string | null;
   project_id: string | null;
   model_id: string | null;
 }

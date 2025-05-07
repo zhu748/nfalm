@@ -54,14 +54,14 @@ fn generate_password() -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct VertexConfig {
-    pub auth_token: Option<String>,
+    pub access_token: Option<String>,
     pub project_id: Option<String>,
     pub model_id: Option<String>,
 }
 
 impl VertexConfig {
     pub fn validate(&self) -> bool {
-        if self.auth_token.is_none() || self.project_id.is_none() {
+        if self.access_token.is_none() || self.project_id.is_none() {
             false
         } else {
             true

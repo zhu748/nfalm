@@ -116,7 +116,7 @@ impl GeminiState {
                 CLEWDR_CONFIG
                     .load()
                     .vertex
-                    .auth_token
+                    .access_token
                     .as_deref()
                     .unwrap_or_default()
             );
