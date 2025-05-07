@@ -52,10 +52,32 @@ fn generate_password() -> String {
     pg.generate_one().unwrap()
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct VertexConfig {
+    pub enable: bool,
+    pub auth_token: Option<String>,
+    pub project_id: Option<String>,
+    pub model_id: Option<String>,
+}
+
+impl VertexConfig {
+    pub fn validate(&self) -> bool {
+        if self.enable {
+            if self.auth_token.is_none() || self.project_id.is_none() {
+                error!("Vertex AI config is enabled but missing required fields");
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// A struct representing the configuration of the application
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClewdrConfig {
-    // Cookie configurations
+    // key configurations
+    #[serde(default)]
+    pub vertex: VertexConfig,
     #[serde(default)]
     pub cookie_array: HashSet<CookieStatus>,
     #[serde(default)]
@@ -143,6 +165,7 @@ pub struct ClewdrConfig {
 impl Default for ClewdrConfig {
     fn default() -> Self {
         Self {
+            vertex: Default::default(),
             enable_oai: false,
             max_retries: default_max_retries(),
             check_update: default_check_update(),
@@ -373,6 +396,7 @@ impl ClewdrConfig {
         if self.admin_password.trim().is_empty() {
             self.admin_password = generate_password();
         }
+        self.vertex.validate();
         self.cache_response = self.cache_response.min(MAX_CACHE_RESPONSE);
         self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
         self.rquest_proxy = self.proxy.to_owned().and_then(|p| {
