@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{sync::LazyLock, time::Duration};
 
 use axum::{
     body::Body,
@@ -144,6 +144,7 @@ impl GeminiState {
         let res = self
             .client
             .post(format!("{}/v1beta/{}", GEMINI_ENDPOINT, self.path))
+            .timeout(Duration::from_secs(60 * 5))
             .query(&query_vec)
             .json(&p)
             .send()
