@@ -114,6 +114,13 @@
         "rproxy": "Reverse Proxy (optional)",
         "rproxyPlaceholder": "https://example.com"
       },
+      "vertex": {
+        "title": "Vertex Settings",
+        "authToken": "Auth Token",
+        "projectId": "Project ID",
+        "modelId": "Model ID",
+        "modelIdNote": "Note: This will override model in API queries"
+      },
       "api": {
         "title": "API Settings",
         "maxRetries": "Max Retries",

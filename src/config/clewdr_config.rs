@@ -218,11 +218,13 @@ impl Display for ClewdrConfig {
             .map_err(|_| std::fmt::Error)?;
         write!(
             f,
-            "LLM API Endpoint: {}\n\
-            LLM API Password: {}\n\
+            "Claude/AI Studio/OpenAI API Endpoint: {}\n\
+            Vertex API Endpoint: {}\n\
+            API Password: {}\n\
             Web Admin Endpoint: {}\n\
             Web Admin Password: {}\n",
             api_url.to_string().green().underline(),
+            (api_url.to_string() + "/vertex").green().underline(),
             self.password.yellow(),
             web_url.to_string().green().underline(),
             self.admin_password.yellow(),

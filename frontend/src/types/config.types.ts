@@ -4,6 +4,9 @@ export interface ConfigData {
   port: number;
   enable_oai: boolean;
 
+  // Vertex settings
+  vertex: VertexConfig;
+
   // App settings
   check_update: boolean;
   auto_update: boolean;
@@ -40,6 +43,12 @@ export interface ConfigData {
   custom_prompt: string;
   padtxt_file: string | null;
   padtxt_len: number;
+}
+
+interface VertexConfig {
+  auth_token: string | null;
+  project_id: string | null;
+  model_id: string | null;
 }
 
 export interface ConfigState {

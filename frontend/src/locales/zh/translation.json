@@ -114,6 +114,13 @@
         "rproxy": "反向代理（可选）",
         "rproxyPlaceholder": "https://example.com"
       },
+      "vertex": {
+        "title": "Vertex 设置",
+        "authToken": "认证令牌",
+        "projectId": "项目 ID",
+        "modelId": "模型 ID",
+        "modelIdNote": "注意：这将覆盖 API 查询中的模型"
+      },
       "api": {
         "title": "API设置",
         "maxRetries": "最大重试次数",
