@@ -7,9 +7,9 @@ use axum::{
 use bytes::Bytes;
 use colored::Colorize;
 use futures::Stream;
-use rquest::{Client, ClientBuilder, Proxy, header::AUTHORIZATION};
+use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use tokio::spawn;
-use tracing::{Instrument, Level, error, info, span};
+use tracing::{Instrument, Level, debug, error, info, span};
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
@@ -37,7 +37,6 @@ pub struct GeminiState {
     pub stream: bool,
     pub query: GeminiQuery,
     pub fake_stream: bool,
-    pub proxy: Option<Proxy>,
     pub event_sender: KeyEventSender,
     pub api_format: GeminiApiFormat,
     pub client: Client,
@@ -56,7 +55,6 @@ impl GeminiState {
             key: None,
             fake_stream: false,
             event_sender: tx,
-            proxy: None,
             api_format: GeminiApiFormat::Gemini,
             client: DUMMY_CLIENT.to_owned(),
             cache_key: None,
@@ -67,7 +65,8 @@ impl GeminiState {
         let key = self.event_sender.request().await?;
         self.key = Some(key.to_owned());
         let client = ClientBuilder::new();
-        let client = if let Some(proxy) = self.proxy.to_owned() {
+        let client = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
+            debug!("Using proxy: {:?}", proxy);
             client.proxy(proxy)
         } else {
             client
@@ -91,7 +90,7 @@ impl GeminiState {
     {
         if self.vertex {
             let client = ClientBuilder::new();
-            let client = if let Some(proxy) = self.proxy.to_owned() {
+            let client = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
                 client.proxy(proxy)
             } else {
                 client
