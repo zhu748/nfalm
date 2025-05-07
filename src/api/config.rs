@@ -37,6 +37,7 @@ pub async fn api_get_config(
     if let Some(obj) = config_json.as_object_mut() {
         obj.remove("cookie_array");
         obj.remove("wasted_cookie");
+        obj.remove("gemini_keys");
     }
 
     Ok(Json(config_json))
@@ -70,6 +71,7 @@ pub async fn api_post_config(
         // add cookie_array and wasted_cookie
         new_c.cookie_array = old_c.cookie_array.to_owned();
         new_c.wasted_cookie = old_c.wasted_cookie.to_owned();
+        new_c.gemini_keys = old_c.gemini_keys.to_owned();
         new_c
     });
     if let Err(e) = CLEWDR_CONFIG.load().save() {
