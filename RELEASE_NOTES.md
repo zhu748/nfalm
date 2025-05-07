@@ -2,7 +2,7 @@
 
 ## New Features
 
-- **Google Vertex AI**: Added support for Google Vertex AI, you need to fill project_id and access_token in the config file.
+- **Google Vertex AI**: Added support for Google Vertex AI, you need to fill project_id and refresh_token in the config file.
 
 ## Bug Fixes
 

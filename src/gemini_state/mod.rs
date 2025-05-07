@@ -111,10 +111,10 @@ impl GeminiState {
                 .await?;
             let res = res.error_for_status()?;
             let res = res.json::<serde_json::Value>().await?;
-            let access_token = res["access_token"]
+            let refresh_token = res["refresh_token"]
                 .as_str()
                 .ok_or(ClewdrError::UnexpectedNone)?;
-            let bearer = format!("Bearer {}", access_token);
+            let bearer = format!("Bearer {}", refresh_token);
             let endpoint = format!(
                 "https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/{MODEL_ID}:{method}",
                 PROJECT_ID = CLEWDR_CONFIG
