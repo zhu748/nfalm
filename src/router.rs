@@ -76,6 +76,7 @@ impl RouterBuilder {
     fn route_gemini_endpoints(mut self) -> Self {
         let router = Router::new()
             .route("/v1/v1beta/{*path}", post(api_post_gemini))
+            .route("/v1/vertex/v1beta/{*path}", post(api_post_gemini))
             .layer(from_extractor::<RequireQueryKeyAuth>())
             .with_state(self.gemini_state.to_owned());
         self.inner = self.inner.merge(router);

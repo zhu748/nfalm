@@ -54,7 +54,6 @@ fn generate_password() -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct VertexConfig {
-    pub enable: bool,
     pub auth_token: Option<String>,
     pub project_id: Option<String>,
     pub model_id: Option<String>,
@@ -62,13 +61,11 @@ pub struct VertexConfig {
 
 impl VertexConfig {
     pub fn validate(&self) -> bool {
-        if self.enable {
-            if self.auth_token.is_none() || self.project_id.is_none() {
-                error!("Vertex AI config is enabled but missing required fields");
-                return false;
-            }
+        if self.auth_token.is_none() || self.project_id.is_none() {
+            false
+        } else {
+            true
         }
-        true
     }
 }
 
@@ -396,7 +393,6 @@ impl ClewdrConfig {
         if self.admin_password.trim().is_empty() {
             self.admin_password = generate_password();
         }
-        self.vertex.validate();
         self.cache_response = self.cache_response.min(MAX_CACHE_RESPONSE);
         self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
         self.rquest_proxy = self.proxy.to_owned().and_then(|p| {

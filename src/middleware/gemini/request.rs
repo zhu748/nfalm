@@ -4,11 +4,13 @@ use axum::{
 };
 
 use crate::{
-    error::ClewdrError, gemini_body::GeminiQuery, gemini_state::GeminiState,
+    config::CLEWDR_CONFIG, error::ClewdrError, gemini_body::GeminiQuery, gemini_state::GeminiState,
     types::gemini::request::GeminiRequestBody,
 };
 
 pub struct GeminiContext {
+    pub model: String,
+    pub vertex: bool,
     pub stream: bool,
     pub path: String,
     pub query: GeminiQuery,
@@ -21,10 +23,29 @@ impl FromRequest<GeminiState> for GeminiPreprocess {
 
     async fn from_request(mut req: Request, state: &GeminiState) -> Result<Self, Self::Rejection> {
         let Path(path) = req.extract_parts::<Path<String>>().await?;
-        let uri = req.uri().to_string();
+        let vertex = req.uri().to_string().contains("vertex");
+        if vertex && !CLEWDR_CONFIG.load().vertex.validate() {
+            return Err(ClewdrError::BadRequest(
+                "Vertex is not configured".to_string(),
+            ));
+        }
+        let mut model = path
+            .split('/')
+            .last()
+            .map(|s| s.split_once(':').map(|s| s.0).unwrap_or(s).to_string());
+        if vertex {
+            model = CLEWDR_CONFIG.load().vertex.model_id.to_owned().or(model)
+        }
+        let Some(model) = model else {
+            return Err(ClewdrError::BadRequest(
+                "Model not found in path or vertex config".to_string(),
+            ));
+        };
         let query = req.extract_parts::<GeminiQuery>().await?;
         let ctx = GeminiContext {
-            stream: uri.contains("streamGenerateContent"),
+            vertex,
+            model,
+            stream: path.contains("streamGenerateContent"),
             path,
             query,
         };

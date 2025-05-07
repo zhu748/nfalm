@@ -7,7 +7,7 @@ use axum::{
 use bytes::Bytes;
 use colored::Colorize;
 use futures::Stream;
-use rquest::{Client, ClientBuilder, Proxy};
+use rquest::{Client, ClientBuilder, Proxy, header::AUTHORIZATION};
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span};
 
@@ -30,6 +30,8 @@ static DUMMY_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
 #[derive(Clone)]
 pub struct GeminiState {
+    pub model: String,
+    pub vertex: bool,
     pub path: String,
     pub key: Option<KeyStatus>,
     pub stream: bool,
@@ -46,6 +48,8 @@ impl GeminiState {
     /// Create a new AppState instance
     pub fn new(tx: KeyEventSender) -> Self {
         GeminiState {
+            model: String::new(),
+            vertex: false,
             path: String::new(),
             query: GeminiQuery::default(),
             stream: false,
@@ -76,6 +80,8 @@ impl GeminiState {
         self.path = ctx.path.to_owned();
         self.stream = ctx.stream.to_owned();
         self.query = ctx.query.to_owned();
+        self.model = ctx.model.to_owned();
+        self.vertex = ctx.vertex.to_owned();
     }
 
     pub async fn send_chat(
@@ -83,6 +89,51 @@ impl GeminiState {
         p: GeminiRequestBody,
     ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
     {
+        if self.vertex {
+            let client = ClientBuilder::new();
+            let client = if let Some(proxy) = self.proxy.to_owned() {
+                client.proxy(proxy)
+            } else {
+                client
+            };
+            self.client = client.build()?;
+            let method = if self.stream {
+                "streamGenerateContent"
+            } else {
+                "generateContent"
+            };
+            let endpoint = format!(
+                "https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/{MODEL_ID}:{method}",
+                PROJECT_ID = CLEWDR_CONFIG
+                    .load()
+                    .vertex
+                    .project_id
+                    .as_deref()
+                    .unwrap_or_default(),
+                MODEL_ID = self.model
+            );
+            let bearer = format!(
+                "Bearer {}",
+                CLEWDR_CONFIG
+                    .load()
+                    .vertex
+                    .auth_token
+                    .as_deref()
+                    .unwrap_or_default()
+            );
+            let query_vec = self.query.to_vec();
+            let res = self
+                .client
+                .post(endpoint)
+                .query(&query_vec)
+                .header(AUTHORIZATION, bearer)
+                .json(&p)
+                .send()
+                .await?;
+            let res = res.error_for_status()?;
+            let stream = res.bytes_stream();
+            return Ok(stream);
+        }
         self.request_key().await?;
         let Some(key) = self.key.to_owned() else {
             return Err(ClewdrError::UnexpectedNone);
