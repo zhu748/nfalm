@@ -18,6 +18,8 @@ use crate::{
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
     #[error(transparent)]
+    JsonError(#[from] serde_json::Error),
+    #[error(transparent)]
     PathRejection(#[from] axum::extract::rejection::PathRejection),
     #[error(transparent)]
     QueryRejection(#[from] axum::extract::rejection::QueryRejection),

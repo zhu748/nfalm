@@ -101,6 +101,20 @@ impl GeminiState {
             } else {
                 "generateContent"
             };
+            let mut json = serde_json::to_value(&CLEWDR_CONFIG.load().vertex)?;
+            json["grant_type"] = "refresh_token".into();
+            let res = self
+                .client
+                .post("https://oauth2.googleapis.com/token")
+                .json(&json)
+                .send()
+                .await?;
+            let res = res.error_for_status()?;
+            let res = res.json::<serde_json::Value>().await?;
+            let access_token = res["access_token"]
+                .as_str()
+                .ok_or(ClewdrError::UnexpectedNone)?;
+            let bearer = format!("Bearer {}", access_token);
             let endpoint = format!(
                 "https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/{MODEL_ID}:{method}",
                 PROJECT_ID = CLEWDR_CONFIG
@@ -110,15 +124,6 @@ impl GeminiState {
                     .as_deref()
                     .unwrap_or_default(),
                 MODEL_ID = self.model
-            );
-            let bearer = format!(
-                "Bearer {}",
-                CLEWDR_CONFIG
-                    .load()
-                    .vertex
-                    .access_token
-                    .as_deref()
-                    .unwrap_or_default()
             );
             let query_vec = self.query.to_vec();
             let res = self
@@ -160,7 +165,6 @@ impl GeminiState {
             let mut state = self.to_owned();
             let p = p.to_owned();
 
-            // check if request is successful
             match state.send_chat(p).await {
                 Ok(b) => {
                     let res = state.transform_response(b).await;
