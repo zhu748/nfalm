@@ -1,6 +1,6 @@
 # Clewd<span style="color:#CE422B">R</span>
 
-[English](./README.MD) | 简体中文
+[English](./README.md) | 简体中文
 
 **ClewdR** 是一个高性能、功能丰富的 Claude 逆向代理实现，使用 Rust 语言完全重写，旨在克服原版 [Clewd 修改版](https://github.com/teralomaniac/clewd) 的局限性。ClewdR 设计注重速度、可靠性和易用性，为用户提供与 Claude AI 模型交互的无缝体验，同时显著改善用户体验。
 
@@ -54,6 +54,7 @@
 
 ## 社区资源
 
+- [Vertex用token获取教程](./wiki/vertex_zh.md)
 - [ClewdR 部署到 HuggingFace Space](./wiki/hf-space.md)
 
 ## 贡献
