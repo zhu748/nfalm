@@ -231,7 +231,7 @@ impl GeminiState {
 
     pub async fn try_chat(
         &mut self,
-        p: impl Sized + Serialize + GetHashKey + Clone,
+        p: impl Serialize + GetHashKey + Clone,
     ) -> Result<Response, ClewdrError> {
         for i in 0..CLEWDR_CONFIG.load().max_retries + 1 {
             if i > 0 {
@@ -260,7 +260,7 @@ impl GeminiState {
 
     pub async fn try_from_cache(
         &self,
-        p: &(impl Sized + Serialize + GetHashKey + Clone + Send + 'static),
+        p: &(impl Serialize + GetHashKey + Clone + Send + 'static),
     ) -> Option<axum::response::Response> {
         let key = p.get_hash();
         if let Some(stream) = CACHE.pop(key) {
