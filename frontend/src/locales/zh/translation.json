@@ -116,7 +116,9 @@
       },
       "vertex": {
         "title": "Vertex 设置",
-        "authToken": "认证令牌",
+        "refreshToken": "刷新令牌",
+        "clientSecret": "客户端密钥",
+        "clientId": "客户端 ID",
         "projectId": "项目 ID",
         "modelId": "模型 ID",
         "modelIdNote": "注意：这将覆盖 API 查询中的模型"
