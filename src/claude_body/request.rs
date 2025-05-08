@@ -179,12 +179,12 @@ fn merge_messages(msgs: Vec<Message>, system: String) -> Option<Merged> {
 
     let chunks = msgs
         .into_iter()
-        .map_while(|m| match m.content {
+        .filter_map(|m| match m.content {
             MessageContent::Blocks { content } => {
                 // collect all text blocks, join them with new line
                 let blocks = content
                     .into_iter()
-                    .map_while(|b| match b {
+                    .filter_map(|b| match b {
                         ContentBlock::Text { text } => Some(text.trim().to_string()),
                         ContentBlock::Image { source } => {
                             // push image to the list
@@ -313,7 +313,7 @@ fn merge_system(sys: Value) -> String {
         return String::new();
     };
     arr.iter()
-        .map_while(|v| v["text"].as_str())
+        .filter_map(|v| v["text"].as_str())
         .map(|v| v.trim())
         .to_owned()
         .collect::<Vec<_>>()

@@ -123,7 +123,25 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           type="password"
           value={config.vertex.refresh_token || ""}
           onChange={onChange}
-          label={t("config.sections.vertex.authToken")}
+          label={t("config.sections.vertex.refreshToken")}
+        />
+
+        <FormInput
+          id="vertex.client_secret"
+          name="vertex.client_secret"
+          type="password"
+          value={config.vertex.client_secret || ""}
+          onChange={onChange}
+          label={t("config.sections.vertex.clientSecret")}
+        />
+
+        <FormInput
+          id="vertex.client_id"
+          name="vertex.client_id"
+          type="text"
+          value={config.vertex.client_id || ""}
+          onChange={onChange}
+          label={t("config.sections.vertex.clientId")}
         />
 
         <FormInput

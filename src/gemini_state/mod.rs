@@ -1,4 +1,4 @@
-use std::{sync::LazyLock, time::Duration};
+use std::sync::LazyLock;
 
 use axum::{
     body::Body,
@@ -9,7 +9,7 @@ use colored::Colorize;
 use futures::Stream;
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use tokio::spawn;
-use tracing::{Instrument, Level, debug, error, info, span};
+use tracing::{Instrument, Level, error, info, span};
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
@@ -66,7 +66,6 @@ impl GeminiState {
         self.key = Some(key.to_owned());
         let client = ClientBuilder::new();
         let client = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
-            debug!("Using proxy: {:?}", proxy);
             client.proxy(proxy)
         } else {
             client
@@ -148,7 +147,6 @@ impl GeminiState {
         let res = self
             .client
             .post(format!("{}/v1beta/{}", GEMINI_ENDPOINT, self.path))
-            .timeout(Duration::from_secs(60 * 5))
             .query(&query_vec)
             .json(&p)
             .send()

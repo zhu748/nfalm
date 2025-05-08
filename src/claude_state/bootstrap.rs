@@ -128,7 +128,7 @@ impl ClaudeState {
         let now = chrono::Utc::now();
         let flag_time = active_flags
             .iter()
-            .map_while(|f| {
+            .filter_map(|f| {
                 let r#type = f["type"].as_str()?;
                 let expire = f["expires_at"].as_str()?;
                 let expire = chrono::DateTime::parse_from_rfc3339(expire).ok()?;

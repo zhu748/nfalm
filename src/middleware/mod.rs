@@ -10,4 +10,4 @@ mod auth;
 pub mod claude;
 pub mod gemini;
 
-pub use auth::{RequireAdminAuth, RequireXApiKeyAuth, RequireBearerAuth, RequireQueryKeyAuth};
+pub use auth::{RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth};
