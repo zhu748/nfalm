@@ -213,7 +213,17 @@ pub struct GeminiRequestKeys<'a> {
     pub tools: Option<&'a [Tool]>,
     pub contents: Vec<&'a Chat>,
     pub generation_config: Option<&'a Value>,
-    pub path: &'a str,
+}
+
+pub trait GetHashKey {
+    /// Generates a hash value for this request key set
+    ///
+    /// Creates a consistent hash value for the request keys to be used
+    /// as a cache key.
+    ///
+    /// # Returns
+    /// * `u64` - The hash value for this request
+    fn get_hash(&self) -> u64;
 }
 
 impl GeminiRequestKeys<'_> {
@@ -244,18 +254,17 @@ impl GeminiRequestKeys<'_> {
 }
 
 impl<'a> GeminiRequestBody {
-    fn to_keys(&'a self, path: &'a str) -> GeminiRequestKeys<'a> {
+    fn to_keys(&'a self) -> GeminiRequestKeys<'a> {
         GeminiRequestKeys {
             system_instruction: self.system_instruction.as_ref(),
             tools: self.tools.as_deref(),
             contents: self.contents.iter().collect(),
             generation_config: self.generation_config.as_ref(),
-            path,
         }
     }
 }
 
-impl GeminiRequestBody {
+impl GetHashKey for GeminiRequestBody {
     /// Generates a cache key hash from request parameters
     ///
     /// Converts the request parameters to RequestKeys and computes a hash
@@ -263,8 +272,8 @@ impl GeminiRequestBody {
     ///
     /// # Returns
     /// * `u64` - The hash value to use as a cache key
-    pub fn get_hash(&self, path: &str) -> u64 {
-        let mut keys = self.to_keys(path);
+    fn get_hash(&self) -> u64 {
+        let mut keys = self.to_keys();
         keys.get_hash()
     }
 }
@@ -297,7 +306,7 @@ impl ClaudeRequestKeys<'_> {
     }
 }
 
-impl CreateMessageParams {
+impl GetHashKey for CreateMessageParams {
     /// Generates a cache key hash from request parameters
     ///
     /// Converts the request parameters to RequestKeys and computes a hash
@@ -305,7 +314,7 @@ impl CreateMessageParams {
     ///
     /// # Returns
     /// * `u64` - The hash value to use as a cache key
-    pub fn get_hash(&self) -> u64 {
+    fn get_hash(&self) -> u64 {
         let mut keys = ClaudeRequestKeys::from(self);
         keys.get_hash()
     }

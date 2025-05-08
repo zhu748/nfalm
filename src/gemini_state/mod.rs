@@ -8,6 +8,8 @@ use bytes::Bytes;
 use colored::Colorize;
 use futures::Stream;
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
+use serde::Serialize;
+use serde_json::{Value, json};
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span};
 
@@ -16,8 +18,10 @@ use crate::{
     error::ClewdrError,
     gemini_body::GeminiQuery,
     middleware::gemini::GeminiContext,
-    services::{cache::CACHE, key_manager::KeyEventSender},
-    types::gemini::request::GeminiRequestBody,
+    services::{
+        cache::{CACHE, GetHashKey},
+        key_manager::KeyEventSender,
+    },
 };
 
 #[derive(Clone)]
@@ -25,6 +29,19 @@ pub enum GeminiApiFormat {
     Gemini,
     OpenAI,
 }
+
+pub static SAFETY_SETTINGS: LazyLock<Value> = LazyLock::new(|| {
+    json!([
+      { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+      { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+      { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+      { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" },
+      {
+        "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
+        "threshold": "BLOCK_NONE"
+      }
+    ])
+});
 
 static DUMMY_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
@@ -36,7 +53,6 @@ pub struct GeminiState {
     pub key: Option<KeyStatus>,
     pub stream: bool,
     pub query: GeminiQuery,
-    pub fake_stream: bool,
     pub event_sender: KeyEventSender,
     pub api_format: GeminiApiFormat,
     pub client: Client,
@@ -53,7 +69,6 @@ impl GeminiState {
             query: GeminiQuery::default(),
             stream: false,
             key: None,
-            fake_stream: false,
             event_sender: tx,
             api_format: GeminiApiFormat::Gemini,
             client: DUMMY_CLIENT.to_owned(),
@@ -80,11 +95,12 @@ impl GeminiState {
         self.query = ctx.query.to_owned();
         self.model = ctx.model.to_owned();
         self.vertex = ctx.vertex.to_owned();
+        self.api_format = ctx.api_format.to_owned();
     }
 
     async fn vertex_response(
         &mut self,
-        p: GeminiRequestBody,
+        p: impl Sized + Serialize,
     ) -> Result<rquest::Response, ClewdrError> {
         let client = ClientBuilder::new();
         let client = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
@@ -112,33 +128,70 @@ impl GeminiState {
             .as_str()
             .ok_or(ClewdrError::UnexpectedNone)?;
         let bearer = format!("Bearer {}", access_token);
-        let endpoint = format!(
-            "https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/{MODEL_ID}:{method}",
-            PROJECT_ID = CLEWDR_CONFIG
-                .load()
-                .vertex
-                .project_id
-                .as_deref()
-                .unwrap_or_default(),
-            MODEL_ID = self.model
-        );
-        let query_vec = self.query.to_vec();
-        let res = self
-            .client
-            .post(endpoint)
-            .query(&query_vec)
-            .header(AUTHORIZATION, bearer)
-            .json(&p)
-            .send()
-            .await?;
+        let res = match self.api_format {
+            GeminiApiFormat::Gemini => {
+                let endpoint = format!(
+                    "https://aiplatform.googleapis.com/v1/projects/{}/locations/global/publishers/google/models/{}:{method}",
+                    CLEWDR_CONFIG
+                        .load()
+                        .vertex
+                        .project_id
+                        .as_deref()
+                        .unwrap_or_default(),
+                    self.model
+                );
+                let query_vec = self.query.to_vec();
+                self
+                    .client
+                    .post(endpoint)
+                    .query(&query_vec)
+                    .header(AUTHORIZATION, bearer)
+                    .json(&p)
+                    .send()
+                    .await?
+            }
+            GeminiApiFormat::OpenAI => {
+                self.client
+                    .post(format!(
+                        "https://aiplatform.googleapis.com/v1beta1/projects/{}/locations/global/endpoints/openapi/chat/completions",
+                        CLEWDR_CONFIG
+                            .load()
+                            .vertex
+                            .project_id
+                            .as_deref()
+                            .unwrap_or_default(),
+                    ))
+                    .header(AUTHORIZATION, bearer)
+                    .json(&p)
+                    .send()
+                    .await?
+            }
+        };
+
         Ok(res)
     }
 
     pub async fn send_chat(
         &mut self,
-        p: GeminiRequestBody,
+        p: impl Sized + Serialize,
     ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
     {
+        let mut p = serde_json::to_value(p)?;
+        match self.api_format {
+            GeminiApiFormat::Gemini => {
+                p["safetySettings"] = SAFETY_SETTINGS.to_owned();
+            }
+            GeminiApiFormat::OpenAI => {
+                if self.vertex {
+                    // Only Vertex OpenAI API supports safety settings
+                    p["extra_body"] = json!({
+                        "google": {
+                            "safety_settings": SAFETY_SETTINGS.to_owned(),
+                        },
+                    });
+                }
+            }
+        }
         if self.vertex {
             let res = self.vertex_response(p).await?;
             let stream = res.bytes_stream();
@@ -149,20 +202,37 @@ impl GeminiState {
             return Err(ClewdrError::UnexpectedNone);
         };
         let key = key.key.to_string();
-        let mut query_vec = self.query.to_vec();
-        query_vec.push(("key", key.as_str()));
-        let res = self
-            .client
-            .post(format!("{}/v1beta/{}", GEMINI_ENDPOINT, self.path))
-            .query(&query_vec)
-            .json(&p)
-            .send()
-            .await?;
-        let res = res.error_for_status()?;
+        let res = match self.api_format {
+            GeminiApiFormat::Gemini => {
+                let mut query_vec = self.query.to_vec();
+                query_vec.push(("key", key.as_str()));
+                self.client
+                    .post(format!("{}/v1beta/{}", GEMINI_ENDPOINT, self.path))
+                    .query(&query_vec)
+                    .json(&p)
+                    .send()
+                    .await?
+            }
+            GeminiApiFormat::OpenAI => {
+                self.client
+                    .post(format!(
+                        "{}/v1beta/openai/chat/completions",
+                        GEMINI_ENDPOINT,
+                    ))
+                    .header(AUTHORIZATION, format!("Bearer {}", key))
+                    .json(&p)
+                    .send()
+                    .await?
+            }
+        };
+        // let res = res.error_for_status().inspect_err(|e| error!("{}", e))?;
         Ok(res.bytes_stream())
     }
 
-    pub async fn try_chat(&mut self, p: GeminiRequestBody) -> Result<Response, ClewdrError> {
+    pub async fn try_chat(
+        &mut self,
+        p: impl Sized + Serialize + GetHashKey + Clone,
+    ) -> Result<Response, ClewdrError> {
         for i in 0..CLEWDR_CONFIG.load().max_retries + 1 {
             if i > 0 {
                 info!("[RETRY] attempt: {}", i.to_string().green());
@@ -188,8 +258,11 @@ impl GeminiState {
         Err(ClewdrError::TooManyRetries)
     }
 
-    pub async fn try_from_cache(&self, p: &GeminiRequestBody) -> Option<axum::response::Response> {
-        let key = p.get_hash(self.path.as_str());
+    pub async fn try_from_cache(
+        &self,
+        p: &(impl Sized + Serialize + GetHashKey + Clone + Send + 'static),
+    ) -> Option<axum::response::Response> {
+        let key = p.get_hash();
         if let Some(stream) = CACHE.pop(key) {
             info!("[CACHE] found response for key: {}", key);
             return Some(self.transform_response(stream).await);

@@ -13,7 +13,7 @@ use crate::{
     api::{
         api_auth, api_claude, api_delete_cookie, api_delete_key, api_get_config, api_get_cookies,
         api_get_keys, api_get_models, api_post_config, api_post_cookie, api_post_gemini,
-        api_post_key, api_version,
+        api_post_gemini_oai, api_post_key, api_version,
     },
     claude_state::ClaudeState,
     config::CLEWDR_CONFIG,
@@ -75,11 +75,17 @@ impl RouterBuilder {
     }
 
     fn route_gemini_endpoints(mut self) -> Self {
-        let router = Router::new()
+        let router_gemini = Router::new()
             .route("/v1/v1beta/{*path}", post(api_post_gemini))
             .route("/v1/vertex/v1beta/{*path}", post(api_post_gemini))
             .layer(from_extractor::<RequireQueryKeyAuth>())
             .with_state(self.gemini_state.to_owned());
+        let router_oai = Router::new()
+            .route("/gemini/chat/completions", post(api_post_gemini_oai))
+            .route("/gemini/vertex/chat/completions", post(api_post_gemini_oai))
+            .layer(from_extractor::<RequireBearerAuth>())
+            .with_state(self.gemini_state.to_owned());
+        let router = router_gemini.merge(router_oai);
         self.inner = self.inner.merge(router);
         self
     }

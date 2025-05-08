@@ -1,3 +1,3 @@
 mod request;
 
-pub use request::{GeminiContext, GeminiPreprocess};
+pub use request::{GeminiContext, GeminiOaiPreprocess, GeminiPreprocess};

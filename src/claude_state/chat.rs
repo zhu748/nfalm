@@ -10,7 +10,7 @@ use tracing::{Instrument, Level, debug, error, info, span, warn};
 use crate::{
     config::CLEWDR_CONFIG,
     error::{CheckClaudeErr, ClewdrError},
-    services::cache::CACHE,
+    services::cache::{CACHE, GetHashKey},
     types::claude_message::CreateMessageParams,
     utils::print_out_json,
 };
