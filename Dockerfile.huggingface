@@ -8,6 +8,3 @@ ENV CLEWDR_PORT=${PORT:-7860}
 
 # Expose the port that Hugging Face expects
 EXPOSE ${PORT:-7860}
-
-# Start the application
-CMD ["./clewdr"]
