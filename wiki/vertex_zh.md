@@ -90,7 +90,7 @@ curl -X POST \
 
 请务必保存 `refresh_token`。`refresh_token` 的有效期比较长（例如一周或更久）。
 
-**第八步：将信息填入 ClewdR 前端
+**第八步：将信息填入 ClewdR 前端**
 
 需要填入的信息有：
 
