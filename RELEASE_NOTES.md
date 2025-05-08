@@ -1,9 +1,5 @@
-# v0.9.3
+# v0.9.4
 
-## Bug fixes
+## Features
 
-- Fix vertex authentication issue
-
-## Improvements
-
-- Change Retries Exceeded status to 504
+- Add support for Gemini OpenAI API, including AI Studio and Vertex AI.

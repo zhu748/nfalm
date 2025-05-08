@@ -221,8 +221,8 @@ impl Display for ClewdrConfig {
             .map_err(|_| std::fmt::Error)?;
         write!(
             f,
-            "Claude/Gemini(AI Studio format) Endpoint: {}\n\
-            Vertex(AI Studio format) Endpoint: {}\n\
+            "Claude(Claude and OpenAI format) / Gemini(Gemini format) Endpoint: {}\n\
+            Vertex(Gemini format) Endpoint: {}\n\
             Gemini(OpenAI format) Endpoint: {}\n\
             Vertex(OpenAI format) Endpoint: {}\n\
             API Password: {}\n\
