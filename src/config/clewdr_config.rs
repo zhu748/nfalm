@@ -65,15 +65,10 @@ pub struct VertexConfig {
 
 impl VertexConfig {
     pub fn validate(&self) -> bool {
-        if self.refresh_token.is_none()
-            || self.project_id.is_none()
-            || self.client_id.is_none()
-            || self.client_secret.is_none()
-        {
-            false
-        } else {
-            true
-        }
+        self.refresh_token.is_some()
+            && self.project_id.is_some()
+            && self.client_id.is_some()
+            && self.client_secret.is_some()
     }
 }
 
@@ -314,7 +309,7 @@ impl ClewdrConfig {
                         cookies
                             .lines()
                             .map(|line| line.into())
-                            .map_while(|c: ClewdrCookie| {
+                            .filter_map(|c: ClewdrCookie| {
                                 if c.validate() {
                                     Some(CookieStatus::new(c.to_string().as_str(), None))
                                 } else {
@@ -356,9 +351,14 @@ impl ClewdrConfig {
         let ranks = bpe.encode_with_special_tokens(&padtxt_string);
         let tokens = ranks
             .into_iter()
-            .map_while(|token| bpe.decode(vec![token]).ok())
+            .filter_map(|token| bpe.decode(vec![token]).ok())
             .collect::<Vec<_>>();
         if tokens.len() < 4096 {
+            warn!(
+                "Pad txt file {} is too short, token count {}",
+                padtxt.display(),
+                tokens.len()
+            );
             return Err(ClewdrError::PadtxtTooShort);
         }
         self.pad_tokens = Arc::new(tokens);

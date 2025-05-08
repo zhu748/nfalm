@@ -265,8 +265,7 @@ pub async fn api_get_models() -> Json<Value> {
                 "owned_by": "clewdr",
             })
         })
-        .collect::<Vec<_>>()
-        .into();
+        .collect::<Vec<_>>();
     Json(json!({
         "object": "list",
         "data": data,
