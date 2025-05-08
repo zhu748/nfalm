@@ -1,6 +1,6 @@
 # Clewd<span style="color:#CE422B">R</span>
 
-English | [简体中文](./README-ZH.MD)
+English | [简体中文](./README_zh.md)
 
 **ClewdR** is a high-performance, feature-rich Rust implementation of Claude reverse proxy, completely rewritten from the ground up to overcome the limitations of the original [Clewd修改版](https://github.com/teralomaniac/clewd). Designed for speed, reliability, and ease of use, ClewdR offers a seamless way to interact with Claude AI models while bringing significant improvements to the user experience.
 
@@ -54,6 +54,7 @@ Access the web UI at `http://127.0.0.1:8484` to configure:
 
 ## Community Resources
 
+- [Getting Tokens Using Vertex](./wiki/vertex.md)
 - [Deploy ClewdR to HuggingFace Space (Chinese)](./wiki/hf-space.md)
 
 ## Contributing
