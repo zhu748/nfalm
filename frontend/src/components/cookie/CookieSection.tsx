@@ -15,6 +15,12 @@ const CookieSection: React.FC<CookieSectionProps> = ({
   renderStatus,
 }) => {
   const { t } = useTranslation();
+  // sort cookie base on reset_time
+  cookies.sort((a, b) => {
+    const aTime = a.reset_time ? new Date(a.reset_time).getTime() : 0;
+    const bTime = b.reset_time ? new Date(b.reset_time).getTime() : 0;
+    return aTime - bTime;
+  });
 
   return (
     <div className={`rounded-lg bg-gray-800 overflow-hidden w-full shadow-md`}>
