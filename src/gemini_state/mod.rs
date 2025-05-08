@@ -82,58 +82,65 @@ impl GeminiState {
         self.vertex = ctx.vertex.to_owned();
     }
 
+    async fn vertex_response(
+        &mut self,
+        p: GeminiRequestBody,
+    ) -> Result<rquest::Response, ClewdrError> {
+        let client = ClientBuilder::new();
+        let client = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
+            client.proxy(proxy)
+        } else {
+            client
+        };
+        self.client = client.build()?;
+        let method = if self.stream {
+            "streamGenerateContent"
+        } else {
+            "generateContent"
+        };
+        let mut json = serde_json::to_value(&CLEWDR_CONFIG.load().vertex)?;
+        json["grant_type"] = "refresh_token".into();
+        let res = self
+            .client
+            .post("https://oauth2.googleapis.com/token")
+            .json(&json)
+            .send()
+            .await?;
+        let res = res.error_for_status()?;
+        let res = res.json::<serde_json::Value>().await?;
+        let access_token = res["access_token"]
+            .as_str()
+            .ok_or(ClewdrError::UnexpectedNone)?;
+        let bearer = format!("Bearer {}", access_token);
+        let endpoint = format!(
+            "https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/{MODEL_ID}:{method}",
+            PROJECT_ID = CLEWDR_CONFIG
+                .load()
+                .vertex
+                .project_id
+                .as_deref()
+                .unwrap_or_default(),
+            MODEL_ID = self.model
+        );
+        let query_vec = self.query.to_vec();
+        let res = self
+            .client
+            .post(endpoint)
+            .query(&query_vec)
+            .header(AUTHORIZATION, bearer)
+            .json(&p)
+            .send()
+            .await?;
+        Ok(res)
+    }
+
     pub async fn send_chat(
         &mut self,
         p: GeminiRequestBody,
     ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
     {
         if self.vertex {
-            let client = ClientBuilder::new();
-            let client = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
-                client.proxy(proxy)
-            } else {
-                client
-            };
-            self.client = client.build()?;
-            let method = if self.stream {
-                "streamGenerateContent"
-            } else {
-                "generateContent"
-            };
-            let mut json = serde_json::to_value(&CLEWDR_CONFIG.load().vertex)?;
-            json["grant_type"] = "refresh_token".into();
-            let res = self
-                .client
-                .post("https://oauth2.googleapis.com/token")
-                .json(&json)
-                .send()
-                .await?;
-            let res = res.error_for_status()?;
-            let res = res.json::<serde_json::Value>().await?;
-            let refresh_token = res["refresh_token"]
-                .as_str()
-                .ok_or(ClewdrError::UnexpectedNone)?;
-            let bearer = format!("Bearer {}", refresh_token);
-            let endpoint = format!(
-                "https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/{MODEL_ID}:{method}",
-                PROJECT_ID = CLEWDR_CONFIG
-                    .load()
-                    .vertex
-                    .project_id
-                    .as_deref()
-                    .unwrap_or_default(),
-                MODEL_ID = self.model
-            );
-            let query_vec = self.query.to_vec();
-            let res = self
-                .client
-                .post(endpoint)
-                .query(&query_vec)
-                .header(AUTHORIZATION, bearer)
-                .json(&p)
-                .send()
-                .await?;
-            let res = res.error_for_status()?;
+            let res = self.vertex_response(p).await?;
             let stream = res.bytes_stream();
             return Ok(stream);
         }

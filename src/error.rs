@@ -105,7 +105,7 @@ impl IntoResponse for ClewdrError {
             }
             ClewdrError::JsonRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::PadtxtTooShort => (StatusCode::BAD_REQUEST, json!(self.to_string())),
-            ClewdrError::TooManyRetries => (StatusCode::TOO_MANY_REQUESTS, json!(self.to_string())),
+            ClewdrError::TooManyRetries => (StatusCode::GATEWAY_TIMEOUT, json!(self.to_string())),
             ClewdrError::InvalidCookie(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::PathNotFound(_) => (StatusCode::NOT_FOUND, json!(self.to_string())),
             ClewdrError::InvalidKey => (StatusCode::UNAUTHORIZED, json!(self.to_string())),
