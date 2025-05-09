@@ -252,10 +252,10 @@ impl CheckGeminiErr for Response {
             };
             return Err(ClewdrError::GeminiHttpError(status, error));
         }
-        return Err(ClewdrError::GeminiHttpError(
+        Err(ClewdrError::GeminiHttpError(
             status,
             err_arr[0].to_owned().error,
-        ));
+        ))
     }
 }
 
