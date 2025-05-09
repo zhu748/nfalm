@@ -15,7 +15,7 @@ use tracing::{Instrument, Level, error, info, span};
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
-    error::ClewdrError,
+    error::{CheckGeminiErr, ClewdrError},
     gemini_body::GeminiQuery,
     middleware::gemini::GeminiContext,
     services::{
@@ -122,7 +122,7 @@ impl GeminiState {
             .json(&json)
             .send()
             .await?;
-        let res = res.error_for_status()?;
+        let res = res.check_gemini().await?;
         let res = res.json::<serde_json::Value>().await?;
         let access_token = res["access_token"]
             .as_str()
@@ -167,7 +167,7 @@ impl GeminiState {
                     .await?
             }
         };
-
+        let res = res.check_gemini().await?;
         Ok(res)
     }
 
@@ -225,7 +225,7 @@ impl GeminiState {
                     .await?
             }
         };
-        // let res = res.error_for_status().inspect_err(|e| error!("{}", e))?;
+        let res = res.check_gemini().await?;
         Ok(res.bytes_stream())
     }
 

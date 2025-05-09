@@ -72,7 +72,9 @@ pub enum ClewdrError {
     #[error(transparent)]
     UTF8Error(#[from] std::string::FromUtf8Error),
     #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
-    OtherHttpError(StatusCode, JsErrorBody),
+    ClaudeHttpError(StatusCode, ClaudeErrorBody),
+    #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
+    GeminiHttpError(StatusCode, GeminiErrorBody),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error(transparent)]
@@ -90,8 +92,11 @@ impl IntoResponse for ClewdrError {
         let (status, msg) = match self {
             ClewdrError::PathRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::QueryRejection(ref r) => (r.status(), json!(r.body_text())),
-            ClewdrError::OtherHttpError(status, inner) => {
-                return (status, Json(JsError { error: inner })).into_response();
+            ClewdrError::ClaudeHttpError(status, inner) => {
+                return (status, Json(ClaudeError { error: inner })).into_response();
+            }
+            ClewdrError::GeminiHttpError(status, inner) => {
+                return (status, Json(GeminiError { error: inner })).into_response();
             }
             ClewdrError::CacheFound(res) => return (StatusCode::OK, res).into_response(),
             ClewdrError::TestMessage => {
@@ -115,8 +120,8 @@ impl IntoResponse for ClewdrError {
             }
             _ => (StatusCode::INTERNAL_SERVER_ERROR, json!(self.to_string())),
         };
-        let err = JsError {
-            error: JsErrorBody {
+        let err = ClaudeError {
+            error: ClaudeErrorBody {
                 message: msg,
                 r#type: <&'static str>::from(self).into(),
                 code: Some(status.as_u16()),
@@ -128,13 +133,13 @@ impl IntoResponse for ClewdrError {
 
 /// HTTP error response
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct JsError {
-    pub error: JsErrorBody,
+pub struct ClaudeError {
+    pub error: ClaudeErrorBody,
 }
 
 /// Inner HTTP error response
 #[derive(Debug, Serialize, Clone)]
-pub struct JsErrorBody {
+pub struct ClaudeErrorBody {
     pub message: Value,
     pub r#type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -148,7 +153,28 @@ struct RawBody {
     pub r#type: String,
 }
 
-impl<'de> Deserialize<'de> for JsErrorBody {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GeminiError {
+    pub error: GeminiErrorBody,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GeminiErrorBody {
+    pub message: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<u16>,
+}
+
+impl Display for GeminiErrorBody {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        serde_json::to_string_pretty(self)
+            .map_err(|_| std::fmt::Error)?
+            .fmt(f)
+    }
+}
+
+impl<'de> Deserialize<'de> for ClaudeErrorBody {
     /// when message is a json string, try parse it as a object
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -156,13 +182,13 @@ impl<'de> Deserialize<'de> for JsErrorBody {
     {
         let raw = RawBody::deserialize(deserializer)?;
         if let Ok(message) = serde_json::from_str::<Value>(&raw.message) {
-            return Ok(JsErrorBody {
+            return Ok(ClaudeErrorBody {
                 message,
                 r#type: raw.r#type,
                 code: None,
             });
         }
-        Ok(JsErrorBody {
+        Ok(ClaudeErrorBody {
             message: json!(raw.message),
             r#type: raw.r#type,
             code: None,
@@ -170,7 +196,7 @@ impl<'de> Deserialize<'de> for JsErrorBody {
     }
 }
 
-impl Display for JsErrorBody {
+impl Display for ClaudeErrorBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         serde_json::to_string_pretty(self)
             .map_err(|_| std::fmt::Error)?
@@ -183,6 +209,43 @@ where
     Self: Sized,
 {
     fn check_claude(self) -> impl Future<Output = Result<Self, ClewdrError>>;
+}
+
+pub trait CheckGeminiErr
+where
+    Self: Sized,
+{
+    fn check_gemini(self) -> impl Future<Output = Result<Self, ClewdrError>>;
+}
+
+impl CheckGeminiErr for Response {
+    async fn check_gemini(self) -> Result<Self, ClewdrError> {
+        let status = self.status();
+        if status.is_success() {
+            return Ok(self);
+        }
+        // else just return OtherHttpError
+        let text = match self.text().await {
+            Ok(text) => text,
+            Err(err) => {
+                let error = GeminiErrorBody {
+                    message: err.to_string(),
+                    status: "error_get_error_body".to_string(),
+                    code: Some(status.as_u16()),
+                };
+                return Err(ClewdrError::GeminiHttpError(status, error));
+            }
+        };
+        let Ok(err) = serde_json::from_str::<GeminiError>(&text) else {
+            let error = GeminiErrorBody {
+                message: format!("Unknown error: {}", text),
+                status: "error_parse_error_body".to_string(),
+                code: Some(status.as_u16()),
+            };
+            return Err(ClewdrError::GeminiHttpError(status, error));
+        };
+        return Err(ClewdrError::GeminiHttpError(status, err.error));
+    }
 }
 
 impl CheckClaudeErr for Response {
@@ -203,31 +266,31 @@ impl CheckClaudeErr for Response {
         debug!("Error response status: {}", status);
         if status == 302 {
             // blocked by cloudflare
-            let error = JsErrorBody {
+            let error = ClaudeErrorBody {
                 message: json!("Blocked, check your IP address"),
                 r#type: "error".to_string(),
                 code: Some(status.as_u16()),
             };
-            return Err(ClewdrError::OtherHttpError(status, error));
+            return Err(ClewdrError::ClaudeHttpError(status, error));
         }
         let text = match self.text().await {
             Ok(text) => text,
             Err(err) => {
-                let error = JsErrorBody {
+                let error = ClaudeErrorBody {
                     message: json!(err.to_string()),
                     r#type: "error_get_error_body".to_string(),
                     code: Some(status.as_u16()),
                 };
-                return Err(ClewdrError::OtherHttpError(status, error));
+                return Err(ClewdrError::ClaudeHttpError(status, error));
             }
         };
-        let Ok(err) = serde_json::from_str::<JsError>(&text) else {
-            let error = JsErrorBody {
+        let Ok(err) = serde_json::from_str::<ClaudeError>(&text) else {
+            let error = ClaudeErrorBody {
                 message: format!("Unknown error: {}", text).into(),
                 r#type: "error_parse_error_body".to_string(),
                 code: Some(status.as_u16()),
             };
-            return Err(ClewdrError::OtherHttpError(status, error));
+            return Err(ClewdrError::ClaudeHttpError(status, error));
         };
         if status == 400 && err.error.message == json!("This organization has been disabled.") {
             // account disabled
@@ -248,6 +311,6 @@ impl CheckClaudeErr for Response {
                 return Err(ClewdrError::InvalidCookie(Reason::TooManyRequest(time)));
             }
         }
-        Err(ClewdrError::OtherHttpError(status, inner_error))
+        Err(ClewdrError::ClaudeHttpError(status, inner_error))
     }
 }
