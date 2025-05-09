@@ -2,7 +2,7 @@
 
 [English](./README.md) | 简体中文
 
-**ClewdR** 是一个高性能、功能丰富的 Claude 逆向代理实现，使用 Rust 语言完全重写，旨在克服原版 [Clewd 修改版](https://github.com/teralomaniac/clewd) 的局限性。ClewdR 设计注重速度、可靠性和易用性，为用户提供与 Claude AI 模型交互的无缝体验，同时显著改善用户体验。
+**ClewdR** 是一个高性能、功能丰富的 Claude/Gemini 逆向代理实现，使用 Rust 语言完全重写，旨在克服原版 [Clewd 修改版](https://github.com/teralomaniac/clewd) 的局限性。ClewdR 设计注重速度、可靠性和易用性，为用户提供与 Claude AI 模型交互的无缝体验，同时显著改善用户体验。
 
 ## 核心功能
 
@@ -23,6 +23,8 @@
 | **后端** | `Axum` 和 `Tokio` | 自制 Node.js 后端 |
 | **思维链扩展** | 支持 | 不适用 |
 | **图片** | 支持 | 不适用 |
+| **Gemini 支持** | Google AI Studio 和 Vertex AI | 不适用 |
+| **多 API 格式** | Claude, Gemini, OpenAI | 仅 OpenAI |
 
 ## 使用指南
 
@@ -30,6 +32,8 @@
 2. 运行`clewdr`或`clewdr.exe`
 3. 浏览器访问`http://127.0.0.1:8484`配置代理
 4. 在 SillyTavern 中设置为 Claude 反向代理（**非**OpenAI 兼容模式），务必填写密码
+   - 完美支持 SillyTavern 非流式模式（无需假流式传输）
+   - 同时支持 Gemini 和 Claude 模型
 
 ## 系统要求
 
@@ -45,6 +49,7 @@
 - 代理设置
 - 认证选项
 - Claude API 参数
+- Gemini API 选项（Google AI Studio 和 Vertex AI）
 - 请求处理偏好设置
 
 ## 故障排除

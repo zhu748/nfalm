@@ -2,7 +2,7 @@
 
 English | [简体中文](./README_zh.md)
 
-**ClewdR** is a high-performance, feature-rich Rust implementation of Claude reverse proxy, completely rewritten from the ground up to overcome the limitations of the original [Clewd修改版](https://github.com/teralomaniac/clewd). Designed for speed, reliability, and ease of use, ClewdR offers a seamless way to interact with Claude AI models while bringing significant improvements to the user experience.
+**ClewdR** is a high-performance, feature-rich Rust implementation of Claude/Gemini reverse proxy, completely rewritten from the ground up to overcome the limitations of the original [Clewd修改版](https://github.com/teralomaniac/clewd). Designed for speed, reliability, and ease of use, ClewdR offers a seamless way to interact with Claude AI models while bringing significant improvements to the user experience.
 
 ## Key Features
 
@@ -23,6 +23,8 @@ English | [简体中文](./README_zh.md)
 | **Backend** | `Axum` and `Tokio` | Custom Node.js backend |
 | **Extend Thinking** | Supported | N/A |
 | **Images** | Supported | N/A |
+| **Gemini Support** | Google AI Studio & Vertex AI | N/A |
+| **Multi-API Format** | Claude, Gemini, OpenAI | OpenAI only |
 
 ## How to Start
 
@@ -30,6 +32,8 @@ English | [简体中文](./README_zh.md)
 2. Run `clewdr` / `clewdr.exe`.
 3. Open `http://127.0.0.1:8484` in your browser to configure the proxy.
 4. In SillyTavern: Set as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill password.
+   - Works perfectly in non-stream mode with SillyTavern (no fake stream needed)
+   - Supports both Gemini and Claude models
 
 ## System Requirements
 
@@ -45,6 +49,7 @@ Access the web UI at `http://127.0.0.1:8484` to configure:
 - Proxy settings
 - Authentication options
 - Claude API parameters
+- Gemini API options (Google AI Studio & Vertex AI)
 - Request handling preferences
 
 ## Troubleshooting
