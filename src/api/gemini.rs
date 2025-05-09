@@ -9,7 +9,7 @@ use tracing::info;
 
 use crate::{
     error::ClewdrError,
-    gemini_state::GeminiState,
+    gemini_state::{GeminiApiFormat, GeminiState},
     middleware::gemini::{GeminiContext, GeminiOaiPreprocess, GeminiPreprocess},
     utils::enabled,
 };
@@ -26,9 +26,10 @@ pub async fn api_post_gemini(
         ..
     } = ctx;
     info!(
-        "[REQ] stream: {}, vertex: {}, model: {}",
+        "[REQ] stream: {}, vertex: {}, format: {}, model: {}",
         enabled(stream),
         enabled(vertex),
+        GeminiApiFormat::Gemini.to_string().green(),
         model.green(),
     );
 
@@ -61,9 +62,10 @@ pub async fn api_post_gemini_oai(
         ..
     } = ctx;
     info!(
-        "[REQ] stream: {}, vertex: {}, model: {}",
+        "[REQ] stream: {}, vertex: {}, format: {}, model: {}",
         enabled(stream),
         enabled(vertex),
+        GeminiApiFormat::OpenAI.to_string().yellow(),
         model.green(),
     );
 

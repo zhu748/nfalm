@@ -236,7 +236,7 @@ impl CheckGeminiErr for Response {
                 return Err(ClewdrError::GeminiHttpError(status, error));
             }
         };
-        let Ok(err) = serde_json::from_str::<GeminiError>(&text) else {
+        let Ok(err_arr) = serde_json::from_str::<Vec<GeminiError>>(&text) else {
             let error = GeminiErrorBody {
                 message: format!("Unknown error: {}", text),
                 status: "error_parse_error_body".to_string(),
@@ -244,7 +244,18 @@ impl CheckGeminiErr for Response {
             };
             return Err(ClewdrError::GeminiHttpError(status, error));
         };
-        return Err(ClewdrError::GeminiHttpError(status, err.error));
+        if err_arr.is_empty() {
+            let error = GeminiErrorBody {
+                message: format!("Unknown error: {}", text),
+                status: "error_parse_error_body".to_string(),
+                code: Some(status.as_u16()),
+            };
+            return Err(ClewdrError::GeminiHttpError(status, error));
+        }
+        return Err(ClewdrError::GeminiHttpError(
+            status,
+            err_arr[0].to_owned().error,
+        ));
     }
 }
 

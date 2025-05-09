@@ -10,6 +10,7 @@ use futures::Stream;
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
 use serde_json::{Value, json};
+use strum::Display;
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span};
 
@@ -24,7 +25,7 @@ use crate::{
     },
 };
 
-#[derive(Clone)]
+#[derive(Clone, Display, PartialEq, Eq)]
 pub enum GeminiApiFormat {
     Gemini,
     OpenAI,
@@ -189,6 +190,7 @@ impl GeminiState {
                             "safety_settings": SAFETY_SETTINGS.to_owned(),
                         },
                     });
+                    p["model"] = format!("google/{}", self.model).into();
                 }
             }
         }
@@ -201,6 +203,7 @@ impl GeminiState {
         let Some(key) = self.key.to_owned() else {
             return Err(ClewdrError::UnexpectedNone);
         };
+        info!("[KEY] {}", key.key.ellipse().green());
         let key = key.key.to_string();
         let res = match self.api_format {
             GeminiApiFormat::Gemini => {
@@ -250,6 +253,12 @@ impl GeminiState {
                         error!("[{}] {}", key.key.ellipse().green(), e);
                     } else {
                         error!("{}", e);
+                    }
+                    match e {
+                        ClewdrError::GeminiHttpError(_, _) => {
+                            continue;
+                        }
+                        e => return Err(e),
                     }
                 }
             }
