@@ -1,5 +1,5 @@
-# v0.9.4
+# v0.9.5
 
-## Features
+## Improvements
 
-- Add support for Gemini OpenAI API, including AI Studio and Vertex AI.
+- Improve error handling and logging in Gemini
