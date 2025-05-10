@@ -9,8 +9,8 @@ pub struct GeminiArgs {
     pub alt: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Iterable, Default)]
-pub struct GeminiQueryAlt {
+#[derive(Deserialize)]
+struct GeminiQueryAlt {
     pub alt: Option<String>,
 }
 
