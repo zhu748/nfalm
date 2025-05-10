@@ -17,7 +17,7 @@ use tracing::{Instrument, Level, error, info, span};
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
     error::{CheckGeminiErr, ClewdrError},
-    gemini_body::GeminiQuery,
+    gemini_body::GeminiArgs,
     middleware::gemini::GeminiContext,
     services::{
         cache::{CACHE, GetHashKey},
@@ -53,7 +53,7 @@ pub struct GeminiState {
     pub path: String,
     pub key: Option<KeyStatus>,
     pub stream: bool,
-    pub query: GeminiQuery,
+    pub query: GeminiArgs,
     pub event_sender: KeyEventSender,
     pub api_format: GeminiApiFormat,
     pub client: Client,
@@ -67,7 +67,7 @@ impl GeminiState {
             model: String::new(),
             vertex: false,
             path: String::new(),
-            query: GeminiQuery::default(),
+            query: GeminiArgs::default(),
             stream: false,
             key: None,
             event_sender: tx,

@@ -2,7 +2,7 @@ use axum::extract::FromRequestParts;
 use axum_auth::AuthBearer;
 use tracing::warn;
 
-use crate::{config::CLEWDR_CONFIG, error::ClewdrError, gemini_body::GeminiQuery};
+use crate::{config::CLEWDR_CONFIG, error::ClewdrError, gemini_body::GeminiArgs};
 
 /// Extractor for the X-API-Key header used in Claude API compatibility
 ///
@@ -38,7 +38,7 @@ where
         parts: &mut axum::http::request::Parts,
         _: &S,
     ) -> Result<Self, Self::Rejection> {
-        let query = GeminiQuery::from_request_parts(parts, &()).await?;
+        let query = GeminiArgs::from_request_parts(parts, &()).await?;
         if !CLEWDR_CONFIG.load().user_auth(&query.key) {
             warn!("Invalid query key: {}", query.key);
             return Err(ClewdrError::InvalidKey);

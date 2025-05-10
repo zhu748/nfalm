@@ -6,7 +6,7 @@ use axum::{
 use crate::{
     config::CLEWDR_CONFIG,
     error::ClewdrError,
-    gemini_body::GeminiQuery,
+    gemini_body::GeminiArgs,
     gemini_state::{GeminiApiFormat, GeminiState},
     types::{claude_message::CreateMessageParams, gemini::request::GeminiRequestBody},
 };
@@ -16,7 +16,7 @@ pub struct GeminiContext {
     pub vertex: bool,
     pub stream: bool,
     pub path: String,
-    pub query: GeminiQuery,
+    pub query: GeminiArgs,
     pub api_format: GeminiApiFormat,
 }
 
@@ -45,7 +45,7 @@ impl FromRequest<GeminiState> for GeminiPreprocess {
                 "Model not found in path or vertex config".to_string(),
             ));
         };
-        let query = req.extract_parts::<GeminiQuery>().await?;
+        let query = req.extract_parts::<GeminiArgs>().await?;
         let ctx = GeminiContext {
             vertex,
             model,
@@ -84,7 +84,7 @@ impl FromRequest<GeminiState> for GeminiOaiPreprocess {
             model,
             stream,
             path: String::new(),
-            query: GeminiQuery::default(),
+            query: GeminiArgs::default(),
             api_format: GeminiApiFormat::OpenAI,
         };
         let mut state = state.clone();

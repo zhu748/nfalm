@@ -4,12 +4,17 @@ use serde::Deserialize;
 use struct_iterable::Iterable;
 
 #[derive(Debug, Clone, Deserialize, Iterable, Default)]
-pub struct GeminiQuery {
+pub struct GeminiArgs {
     pub key: String,
     pub alt: Option<String>,
 }
 
-impl<S> FromRequestParts<S> for GeminiQuery
+#[derive(Debug, Clone, Deserialize, Iterable, Default)]
+pub struct GeminiQueryAlt {
+    pub alt: Option<String>,
+}
+
+impl<S> FromRequestParts<S> for GeminiArgs
 where
     S: Sync,
 {
@@ -19,12 +24,26 @@ where
         parts: &mut axum::http::request::Parts,
         _: &S,
     ) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<GeminiQuery>::from_request_parts(parts, &()).await?;
-        Ok(query)
+        match Query::<GeminiArgs>::from_request_parts(parts, &()).await {
+            Ok(Query(q)) => Ok(q),
+            Err(_) => {
+                let Query(q) = Query::<GeminiQueryAlt>::from_request_parts(parts, &()).await?;
+                // extract key from x-goog-api-key
+                let key = parts
+                    .headers
+                    .get("x-goog-api-key")
+                    .and_then(|v| v.to_str().ok())
+                    .ok_or(ClewdrError::InvalidKey)?;
+                Ok(GeminiArgs {
+                    key: key.to_string(),
+                    alt: q.alt,
+                })
+            }
+        }
     }
 }
 
-impl GeminiQuery {
+impl GeminiArgs {
     pub fn to_vec(&self) -> Vec<(&'static str, &str)> {
         let mut vec = Vec::new();
         for (k, vv) in self.iter() {
