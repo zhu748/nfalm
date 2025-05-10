@@ -1,5 +1,5 @@
-# v0.9.5
+# v0.9.6
 
 ## Improvements
 
-- Improve error handling and logging in Gemini
+- Support undocumented `x-goog-api-key` header for Google AI Studio.
