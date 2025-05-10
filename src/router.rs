@@ -71,6 +71,7 @@ impl RouterBuilder {
             .route_oai_comp_claude_endpoints()
             .route_gemini_endpoints()
             .setup_static_serving()
+            .with_tower_trace()
             .with_cors()
     }
 
@@ -176,6 +177,15 @@ impl RouterBuilder {
             ]);
 
         self.inner = self.inner.layer(cors);
+        self
+    }
+
+    fn with_tower_trace(mut self) -> Self {
+        use tower_http::trace::TraceLayer;
+
+        let layer = TraceLayer::new_for_http();
+
+        self.inner = self.inner.layer(layer);
         self
     }
 
