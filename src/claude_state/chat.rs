@@ -3,7 +3,6 @@ use futures::TryFutureExt;
 use rquest::{Method, Response, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
-use std::mem;
 use tokio::spawn;
 use tracing::{Instrument, Level, debug, error, info, span, warn};
 
@@ -151,16 +150,11 @@ impl ClaudeState {
             "{}/api/organizations/{}/chat_conversations",
             self.endpoint, org_uuid
         );
-        let mut body = json!({
+        let body = json!({
             "uuid": new_uuid,
             "name": format!("ClewdR-{}", new_uuid),
         });
 
-        // enable thinking mode
-        if p.thinking.is_some() && self.is_pro() {
-            body["paprika_mode"] = "extended".into();
-            body["model"] = p.model.to_owned().into();
-        }
         self.build_request(Method::POST, endpoint)
             .json(&body)
             .send()
@@ -170,6 +164,23 @@ impl ClaudeState {
         self.conv_uuid = Some(new_uuid.to_string());
         debug!("New conversation created: {}", new_uuid);
 
+        let mut body = json!({});
+        // enable thinking mode
+        body["settings"]["paprika_mode"] = if p.thinking.is_some() && self.is_pro() {
+            "extended".into()
+        } else {
+            json!(null)
+        };
+
+        let endpoint = format!(
+            "{}/api/organizations/{}/chat_conversations/{}",
+            self.endpoint, org_uuid, new_uuid
+        );
+        let _ = self
+            .build_request(Method::PUT, endpoint)
+            .json(&body)
+            .send()
+            .await;
         // generate the request body
         // check if the request is empty
         let mut body = self
@@ -177,7 +188,7 @@ impl ClaudeState {
             .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
 
         // check images
-        let images = mem::take(&mut body.images);
+        let images = body.images.drain(..).collect::<Vec<_>>();
 
         // upload images
         let files = self.upload_images(images).await;
