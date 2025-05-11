@@ -60,6 +60,7 @@ Access the web UI at `http://127.0.0.1:8484` to configure:
 ## Community Resources
 
 - [Getting Tokens Using Vertex](./wiki/vertex.md)
+- [Linux One-click Script (Chinese)](https://github.com/rzline/st-cr-ins.sh)
 - [Deploy ClewdR to HuggingFace Space (Chinese)](./wiki/hf-space.md)
 
 ## Contributing

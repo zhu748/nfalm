@@ -60,6 +60,7 @@
 ## 社区资源
 
 - [Vertex用token获取教程](./wiki/vertex_zh.md)
+- [Linux一键脚本](https://github.com/rzline/st-cr-ins.sh)
 - [ClewdR 部署到 HuggingFace Space](./wiki/hf-space.md)
 
 ## 贡献
