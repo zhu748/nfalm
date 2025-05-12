@@ -74,7 +74,7 @@ pub enum ClewdrError {
     #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
     ClaudeHttpError(StatusCode, ClaudeErrorBody),
     #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
-    GeminiHttpError(StatusCode, GeminiErrorBody),
+    GeminiHttpError(StatusCode, Value),
     #[error("Unexpected None")]
     UnexpectedNone,
     #[error(transparent)]
@@ -96,7 +96,7 @@ impl IntoResponse for ClewdrError {
                 return (status, Json(ClaudeError { error: inner })).into_response();
             }
             ClewdrError::GeminiHttpError(status, inner) => {
-                return (status, Json(GeminiError { error: inner })).into_response();
+                return (status, Json(inner)).into_response();
             }
             ClewdrError::CacheFound(res) => return (StatusCode::OK, res).into_response(),
             ClewdrError::TestMessage => {
@@ -153,27 +153,6 @@ struct RawBody {
     pub r#type: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GeminiError {
-    pub error: GeminiErrorBody,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GeminiErrorBody {
-    pub message: String,
-    pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub code: Option<u16>,
-}
-
-impl Display for GeminiErrorBody {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        serde_json::to_string_pretty(self)
-            .map_err(|_| std::fmt::Error)?
-            .fmt(f)
-    }
-}
-
 impl<'de> Deserialize<'de> for ClaudeErrorBody {
     /// when message is a json string, try parse it as a object
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -228,34 +207,23 @@ impl CheckGeminiErr for Response {
         let text = match self.text().await {
             Ok(text) => text,
             Err(err) => {
-                let error = GeminiErrorBody {
-                    message: err.to_string(),
-                    status: "error_get_error_body".to_string(),
-                    code: Some(status.as_u16()),
-                };
+                let error = json!({
+                    "message": err.to_string(),
+                    "status": "error_get_error_body",
+                    "code": status.as_u16()
+                });
                 return Err(ClewdrError::GeminiHttpError(status, error));
             }
         };
-        let Ok(err_arr) = serde_json::from_str::<Vec<GeminiError>>(&text) else {
-            let error = GeminiErrorBody {
-                message: format!("Unknown error: {}", text),
-                status: "error_parse_error_body".to_string(),
-                code: Some(status.as_u16()),
-            };
+        let Ok(error) = serde_json::from_str::<Value>(&text) else {
+            let error = json!({
+                "message": format!("Unknown error: {}", text),
+                "status": "error_parse_error_body",
+                "code": Some(status.as_u16()),
+            });
             return Err(ClewdrError::GeminiHttpError(status, error));
         };
-        if err_arr.is_empty() {
-            let error = GeminiErrorBody {
-                message: format!("Unknown error: {}", text),
-                status: "error_parse_error_body".to_string(),
-                code: Some(status.as_u16()),
-            };
-            return Err(ClewdrError::GeminiHttpError(status, error));
-        }
-        Err(ClewdrError::GeminiHttpError(
-            status,
-            err_arr[0].to_owned().error,
-        ))
+        Err(ClewdrError::GeminiHttpError(status, error))
     }
 }
 
