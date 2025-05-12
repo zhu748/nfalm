@@ -291,9 +291,7 @@ impl ClewdrConfig {
     /// # Returns
     /// * Config instance
     pub fn new() -> Self {
-        let config = Figment::new()
-            .adjoin(Toml::file("config.toml"))
-            .adjoin(Toml::file(CONFIG_NAME));
+        let config = Figment::new().adjoin(Toml::file(CONFIG_NAME));
         let mut config: ClewdrConfig = if let Some(arg_config) = ARG_CONFIG_FILE.as_ref() {
             config.merge(Toml::file(arg_config))
         } else {
