@@ -1,24 +1,24 @@
-Vertex Using Documents
+# How to Obtain OAuth 2.0 Credentials for Google Cloud Platform (GCP) Vertex AI
 
 English | [简体中文](./vertex_zh.md)
 
-**Step 1: Sign in to the GCP Console and Navigate to "APIs & Services"**
+## Sign in to the GCP Console and Navigate to "APIs & Services"
 
 1. Open your web browser and go to the Google Cloud Console: `https://console.cloud.google.com/`
 2. Sign in using your Google account.
 3. Select the GCP project for which you want to create OAuth 2.0 credentials. If you don't have a project yet, create a new one first.
 
-**Step 2: Go to the "Credentials" Page**
+## Go to the "Credentials" Page
 
 1. In the navigation menu on the left side of the console, find and click "APIs & Services".
 2. In the expanded sub-menu, click "Credentials".
 
-**Step 3: Create Credentials**
+## Create Credentials
 
 1. At the top of the "Credentials" page, click the "+ CREATE CREDENTIALS" button.
 2. In the dropdown menu that appears, select "OAuth client ID".
 
-**Step 4: Create OAuth Client ID - Select "Desktop app"**
+## Create OAuth Client ID - Select "Desktop app"
 
 After completing the OAuth consent screen configuration (if not already configured, you will be prompted to do so first), you may need to click "+ CREATE CREDENTIALS" -> "OAuth client ID" again.
 
@@ -27,26 +27,26 @@ After completing the OAuth consent screen configuration (if not already configur
 
 Click the "CREATE" button.
 
-**Step 5: Obtain Your Client ID and Client Secret**
+## Obtain Your Client ID and Client Secret
 
 1. Upon successful creation, your "Your Client ID" and "Your Client Secret" will be displayed on the screen.
 2. **Very Important:** Copy and securely save this information immediately. Your application will use these IDs and secrets to identify itself to Google's authentication service and request access to user data.
 3. Click "OK" to close the dialog.
 
-**Step 6: Obtain the Authorization Code via Browser**
+## Add test account
+
+1. In the left navigation menu, click "Target Audience".
+2. In the "Test users" section, click "Add users".
+3. Enter the email addresses of the users you want to add as test users. These users will be able to authorize your application to access their data.
+
+## Obtain the Authorization Code via Browser
 
 Using the Client ID you obtained in Step 5, replace the `{YOUR_CLIENT_ID}` placeholder in the URL below and open this URL in your web browser to initiate the authorization flow:
 
 `https://accounts.google.com/o/oauth2/auth?client_id={YOUR_CLIENT_ID}&redirect_uri=http://localhost&scope=https://www.googleapis.com/auth/cloud-platform&response_type=code&access_type=offline&prompt=consent`
 
-* `client_id`: Your Client ID.
-* `redirect_uri`: Must match the redirect URI used in your application (using `http://localhost` here).
-* `scope`: The requested API permission scope (requesting access to Cloud Platform here).
-* `response_type=code`: Indicates a request for an authorization code.
-* `access_type=offline`: Requests a refresh token, allowing you to refresh the access token even when the user is offline.
-* `prompt=consent`: Ensures the user sees the consent screen every time (optional, but recommended for first use).
-
-After opening this URL in your browser, Google will prompt you to sign in (if not already signed in) and authorize your application to access the requested permissions. Upon consent, the browser will be redirected to the specified `redirect_uri` (`http://localhost`), including the authorization code in the URL's query parameters.
+After opening this URL in your browser, Google will prompt you to sign in, please sign in using the test account you added in the previous step.
+After signing in, Google will ask you to authorize your application to access the requested permissions. Click "Allow" to proceed.
 
 If everything goes well, the URL in your browser's address bar should look similar to this format:
 
@@ -54,7 +54,7 @@ If everything goes well, the URL in your browser's address bar should look simil
 
 The `{YOUR_AUTHORIZATION_CODE}` in the URL is the authorization code you need. Copy and save this authorization code; it can only be used once and is short-lived.
 
-**Step 7: Exchange the Authorization Code for Access and Refresh Tokens**
+## Exchange the Authorization Code for Access and Refresh Tokens
 
 Open a terminal or command-line interface and use the `curl` command to send a POST request to Google's token endpoint to exchange the authorization code you obtained for an access token and a refresh token.
 
@@ -90,7 +90,7 @@ If the request is successful, you will see a JSON response in your terminal simi
 
 Be sure to save `refresh_token`. The `refresh_token` usually has a longer lifespan (e.g., a week or more)
 
-**Step 8: Fill in the Information to the ClewdR Frontend**
+## Fill in the Information to the ClewdR Frontend
 
 The information you need to enter includes:
 
