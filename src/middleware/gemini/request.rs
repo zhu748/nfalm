@@ -79,7 +79,9 @@ impl FromRequest<GeminiState> for GeminiOaiPreprocess {
         }
         let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
         let model = body.model.to_owned();
-        body.preprocess_vertex();
+        if vertex {
+            body.preprocess_vertex();
+        }
         let stream = body.stream.unwrap_or_default();
         let ctx = GeminiContext {
             vertex,
