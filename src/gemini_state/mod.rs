@@ -301,12 +301,12 @@ impl GeminiState {
         if let Ok(json) = serde_json::from_slice::<Value>(&bytes) {
             match self.api_format {
                 GeminiApiFormat::Gemini => {
-                    if json["contents"].as_array().map_or(false, |v| v.is_empty()) {
+                    if json["contents"].as_array().is_some_and(|v| v.is_empty()) {
                         return Err(ClewdrError::EmptyChoices);
                     }
                 }
                 GeminiApiFormat::OpenAI => {
-                    if json["choices"].as_array().map_or(false, |v| v.is_empty()) {
+                    if json["choices"].as_array().is_some_and(|v| v.is_empty()) {
                         return Err(ClewdrError::EmptyChoices);
                     }
                 }
