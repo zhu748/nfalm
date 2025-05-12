@@ -71,11 +71,9 @@ curl -X POST \
   -d grant_type=authorization_code
 ```
 
-* `code`: 您在第六步中获得的授权码。
+* `code`: 您在上一步中获得的授权码。
 * `client_id`: 您的客户端 ID。
 * `client_secret`: 您的客户端密钥。
-* `redirect_uri`: 必须与您在第六步中使用的重定向 URI 匹配。
-* `grant_type=authorization_code`: 表示您正在使用授权码流程。
 
 如果请求成功，您将在终端中看到类似以下的 JSON 响应：
 

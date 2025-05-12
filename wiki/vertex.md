@@ -70,11 +70,9 @@ curl -X POST \
   -d grant_type=authorization_code
 ```
 
-* `code`: The authorization code you obtained in Step 6.
+* `code`: The authorization code you obtained in last step.
 * `client_id`: Your Client ID.
 * `client_secret`: Your Client Secret.
-* `redirect_uri`: Must match the redirect URI used in Step 6.
-* `grant_type=authorization_code`: Indicates you are using the authorization code flow.
 
 If the request is successful, you will see a JSON response in your terminal similar to this:
 
