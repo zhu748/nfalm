@@ -48,7 +48,7 @@ async fn handle_gemini_request<T: Serialize + GetHashKey + Clone + Send + 'stati
                 .try_chat(body)
                 .await
                 .map(|res| res.into_body().into_data_stream())
-                .unwrap_or_else(|e| Body::from(e.to_string()).into_data_stream())
+                .unwrap_or_else(|e| e.into_response().into_body().into_data_stream())
         }
         .into_stream()
         .flatten();
