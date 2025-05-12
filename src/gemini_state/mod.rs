@@ -177,23 +177,6 @@ impl GeminiState {
         p: impl Sized + Serialize,
     ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
     {
-        let mut p = serde_json::to_value(p)?;
-        match self.api_format {
-            GeminiApiFormat::Gemini => {
-                p["safetySettings"] = SAFETY_SETTINGS.to_owned();
-            }
-            GeminiApiFormat::OpenAI => {
-                if self.vertex {
-                    // Only Vertex OpenAI API supports safety settings
-                    p["extra_body"] = json!({
-                        "google": {
-                            "safety_settings": SAFETY_SETTINGS.to_owned(),
-                        },
-                    });
-                    p["model"] = format!("google/{}", self.model).into();
-                }
-            }
-        }
         if self.vertex {
             let res = self.vertex_response(p).await?;
             let stream = res.bytes_stream();

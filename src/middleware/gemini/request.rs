@@ -54,7 +54,8 @@ impl FromRequest<GeminiState> for GeminiPreprocess {
             query,
             api_format: GeminiApiFormat::Gemini,
         };
-        let Json(body) = Json::<GeminiRequestBody>::from_request(req, &()).await?;
+        let Json(mut body) = Json::<GeminiRequestBody>::from_request(req, &()).await?;
+        body.safety_off();
         let mut state = state.clone();
         state.update_from_ctx(&ctx);
         if let Some(res) = state.try_from_cache(&body).await {
@@ -76,8 +77,9 @@ impl FromRequest<GeminiState> for GeminiOaiPreprocess {
                 "Vertex is not configured".to_string(),
             ));
         }
-        let Json(body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
+        let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
         let model = body.model.to_owned();
+        body.preprocess_vertex();
         let stream = body.stream.unwrap_or_default();
         let ctx = GeminiContext {
             vertex,
