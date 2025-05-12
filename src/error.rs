@@ -73,7 +73,7 @@ pub enum ClewdrError {
     UTF8Error(#[from] std::string::FromUtf8Error),
     #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
     ClaudeHttpError(StatusCode, ClaudeErrorBody),
-    #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
+    #[error("Http error: code: {}, body: {}", .0.to_string().red(), serde_json::to_string_pretty(&.1).unwrap_or_default())]
     GeminiHttpError(StatusCode, Value),
     #[error("Unexpected None")]
     UnexpectedNone,
