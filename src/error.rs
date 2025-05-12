@@ -17,6 +17,8 @@ use crate::{
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[error("API returns no choice")]
+    EmptyChoices,
     #[error(transparent)]
     JsonError(#[from] serde_json::Error),
     #[error(transparent)]
@@ -118,6 +120,7 @@ impl IntoResponse for ClewdrError {
             ClewdrError::InvalidHeaderValue(_) => {
                 (StatusCode::BAD_REQUEST, json!(self.to_string()))
             }
+            ClewdrError::EmptyChoices => (StatusCode::NO_CONTENT, json!(self.to_string())),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, json!(self.to_string())),
         };
         let err = ClaudeError {

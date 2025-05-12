@@ -65,7 +65,9 @@ impl ClewdrCache {
     /// * `id` - An identifier for logging purposes
     pub fn push(
         &'static self,
-        stream: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
+        stream: impl Stream<Item = Result<Bytes, impl std::error::Error + Send + 'static>>
+        + Send
+        + 'static,
         key: u64,
         id: usize,
     ) {
@@ -162,7 +164,9 @@ impl CachedResponse {
 ///
 /// # Returns
 /// * `Vec<Bytes>` - Vector containing all successful byte chunks from the stream
-async fn stream_to_vec(stream: impl Stream<Item = Result<Bytes, rquest::Error>>) -> Vec<Bytes> {
+async fn stream_to_vec(
+    stream: impl Stream<Item = Result<Bytes, impl std::error::Error + Send + 'static>>,
+) -> Vec<Bytes> {
     pin_mut!(stream);
     stream
         .filter_map(async |item| item.ok())

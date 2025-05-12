@@ -1,18 +1,18 @@
-use std::sync::LazyLock;
+use std::{convert::Infallible, sync::LazyLock};
 
 use axum::{
     body::Body,
     response::{IntoResponse, Response},
 };
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 use colored::Colorize;
-use futures::Stream;
+use futures::{Stream, StreamExt, pin_mut, stream};
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
 use serde_json::{Value, json};
 use strum::Display;
 use tokio::spawn;
-use tracing::{Instrument, Level, error, info, span};
+use tracing::{Instrument, Level, error, info, span, warn};
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
@@ -228,8 +228,17 @@ impl GeminiState {
 
             match state.send_chat(p).await {
                 Ok(b) => {
-                    let res = state.transform_response(b).await;
-                    return Ok(res);
+                    if !state.stream {
+                        let Ok(b) = state.check_empty_choices(b).await else {
+                            warn!("Empty choices");
+                            continue;
+                        };
+                        let res = transform_response(self.cache_key, b).await;
+                        return Ok(res);
+                    } else {
+                        let res = transform_response(self.cache_key, b).await;
+                        return Ok(res);
+                    };
                 }
                 Err(e) => {
                     if let Some(key) = state.key.to_owned() {
@@ -257,7 +266,7 @@ impl GeminiState {
         let key = p.get_hash();
         if let Some(stream) = CACHE.pop(key) {
             info!("[CACHE] found response for key: {}", key);
-            return Some(self.transform_response(stream).await);
+            return Some(Body::from_stream(stream).into_response());
         }
         for id in 0..CLEWDR_CONFIG.load().cache_response {
             let mut state = self.to_owned();
@@ -269,19 +278,59 @@ impl GeminiState {
         None
     }
 
-    pub async fn transform_response(
+    async fn check_empty_choices(
         &self,
-        input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
-    ) -> axum::response::Response {
-        // response is used for caching
-        if let Some((key, id)) = self.cache_key {
-            CACHE.push(input, key, id);
-            // return whatever, not used
-            return Body::empty().into_response();
+        input: impl Stream<Item = Result<Bytes, impl std::error::Error + Send + Sync + 'static>>
+        + Send
+        + 'static,
+    ) -> Result<
+        impl Stream<Item = Result<Bytes, impl std::error::Error + Send + Sync + 'static>>
+        + Send
+        + 'static,
+        ClewdrError,
+    > {
+        let mut bytes = BytesMut::new();
+        pin_mut!(input);
+        while let Some(item) = input.next().await {
+            match item {
+                Ok(b) => bytes.put(b),
+                Err(_) => continue,
+            }
         }
-        // response is used for returning
-        // not streaming
-        // stream the response
-        Body::from_stream(input).into_response()
+        let bytes = bytes.freeze();
+        if let Ok(json) = serde_json::from_slice::<Value>(&bytes) {
+            match self.api_format {
+                GeminiApiFormat::Gemini => {
+                    if json["contents"].as_array().map_or(false, |v| v.is_empty()) {
+                        return Err(ClewdrError::EmptyChoices);
+                    }
+                }
+                GeminiApiFormat::OpenAI => {
+                    if json["choices"].as_array().map_or(false, |v| v.is_empty()) {
+                        return Err(ClewdrError::EmptyChoices);
+                    }
+                }
+            }
+        }
+        Ok(stream::once(async { Ok::<_, Infallible>(bytes) }))
     }
+}
+
+async fn transform_response<E>(
+    cache_key: Option<(u64, usize)>,
+    input: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
+) -> axum::response::Response
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    // response is used for caching
+    if let Some((key, id)) = cache_key {
+        CACHE.push(input, key, id);
+        // return whatever, not used
+        return Body::empty().into_response();
+    }
+    // response is used for returning
+    // not streaming
+    // stream the response
+    Body::from_stream(input).into_response()
 }
