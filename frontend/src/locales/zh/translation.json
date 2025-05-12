@@ -97,8 +97,7 @@
         "title": "服务器设置",
         "description": "这些设置需要重启才能生效。",
         "ip": "IP地址",
-        "port": "端口",
-        "enableOai": "启用OpenAI兼容性"
+        "port": "端口"
       },
       "app": {
         "title": "应用设置",

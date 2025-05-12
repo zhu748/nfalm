@@ -16,7 +16,6 @@ use crate::{
         api_post_gemini_oai, api_post_key, api_version,
     },
     claude_state::ClaudeState,
-    config::CLEWDR_CONFIG,
     gemini_state::GeminiState,
     middleware::{
         RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth,
@@ -133,19 +132,17 @@ impl RouterBuilder {
 
     /// Optionally sets up routes for OpenAI compatible endpoints
     fn route_oai_comp_claude_endpoints(mut self) -> Self {
-        if CLEWDR_CONFIG.load().enable_oai {
-            let router = Router::new()
-                .route("/v1/chat/completions", post(api_claude))
-                .route("/v1/models", get(api_get_models))
-                .layer(
-                    ServiceBuilder::new()
-                        .layer(from_extractor::<RequireBearerAuth>())
-                        .layer(map_response(to_oai))
-                        .layer(map_response(apply_stop_sequences)),
-                )
-                .with_state(self.claude_state.to_owned().with_openai_format());
-            self.inner = self.inner.merge(router);
-        }
+        let router = Router::new()
+            .route("/v1/chat/completions", post(api_claude))
+            .route("/v1/models", get(api_get_models))
+            .layer(
+                ServiceBuilder::new()
+                    .layer(from_extractor::<RequireBearerAuth>())
+                    .layer(map_response(to_oai))
+                    .layer(map_response(apply_stop_sequences)),
+            )
+            .with_state(self.claude_state.to_owned().with_openai_format());
+        self.inner = self.inner.merge(router);
         self
     }
 

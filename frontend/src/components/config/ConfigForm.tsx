@@ -44,15 +44,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
             label={t("config.sections.server.port")}
           />
         </div>
-
-        <div className="mt-3">
-          <ConfigCheckbox
-            name="enable_oai"
-            checked={config.enable_oai}
-            onChange={onChange}
-            label={t("config.sections.server.enableOai")}
-          />
-        </div>
       </ConfigSection>
 
       {/* App Settings Section */}

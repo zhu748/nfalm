@@ -97,8 +97,7 @@
         "title": "Server Settings",
         "description": "These settings require a restart to take effect.",
         "ip": "IP Address",
-        "port": "Port",
-        "enableOai": "Enable OpenAI compatibility"
+        "port": "Port"
       },
       "app": {
         "title": "App Settings",

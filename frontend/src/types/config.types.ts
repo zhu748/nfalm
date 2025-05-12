@@ -2,7 +2,6 @@ export interface ConfigData {
   // Server settings
   ip: string;
   port: number;
-  enable_oai: boolean;
 
   // Vertex settings
   vertex: VertexConfig;

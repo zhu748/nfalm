@@ -90,8 +90,6 @@ pub struct ClewdrConfig {
     ip: IpAddr,
     #[serde(default = "default_port")]
     port: u16,
-    #[serde(default)]
-    pub enable_oai: bool,
 
     // App settings, can hot reload, but meaningless
     #[serde(default = "default_check_update")]
@@ -166,7 +164,6 @@ impl Default for ClewdrConfig {
     fn default() -> Self {
         Self {
             vertex: Default::default(),
-            enable_oai: false,
             max_retries: default_max_retries(),
             check_update: default_check_update(),
             auto_update: false,
@@ -236,9 +233,6 @@ impl Display for ClewdrConfig {
             web_url.to_string().green().underline(),
             self.admin_password.yellow(),
         )?;
-        if self.enable_oai {
-            writeln!(f, "OpenAI Compatible: {}", "Enabled".green())?;
-        }
         writeln!(
             f,
             "Response Caching: {}",

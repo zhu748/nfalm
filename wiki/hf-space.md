@@ -98,7 +98,6 @@ clewdr_cookie_array = [[]]
 clewdr_wasted_cookie = [] #这个可以不用管
 clewdr_ip = "127.0.0.1" #此项禁止加入变量
 clewdr_port = 8484  #此项禁止加入变量
-clewdr_enable_oai = false
 clewdr_check_update = true
 clewdr_auto_update = false
 clewdr_password = "password"
