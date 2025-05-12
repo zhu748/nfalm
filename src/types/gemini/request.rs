@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 #[allow(non_camel_case_types)]
@@ -109,13 +109,32 @@ impl SystemInstruction {
 }
 
 #[derive(Serialize, Deserialize, Hash, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GeminiRequestBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub system_instruction: Option<SystemInstruction>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<Tool>>,
     pub contents: Vec<Chat>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generation_config: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safety_settings: Option<Value>,
+}
+
+impl GeminiRequestBody {
+    pub fn safety_off(&mut self) {
+        self.safety_settings = Some(json!([
+          { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" },
+          {
+            "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
+            "threshold": "BLOCK_NONE"
+          }
+        ]));
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 #[derive(Debug)]
 pub struct RequiredMessageParams {
@@ -53,6 +54,34 @@ pub struct CreateMessageParams {
     /// Request metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
+    /// extra body for Gemini
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_body: Option<serde_json::Value>,
+}
+
+impl CreateMessageParams {
+    fn safety_off(&mut self) {
+        let mut extra_body = json!({});
+        extra_body["google"]["safety_settings"] = json!([
+          { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
+          { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" },
+          {
+            "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
+            "threshold": "BLOCK_NONE"
+          }
+        ]);
+        self.extra_body = Some(extra_body);
+    }
+
+    pub fn preprocess_vertex(&mut self) {
+        self.safety_off();
+        if self.model.starts_with("google/") {
+            return;
+        }
+        self.model = format!("google/{}", self.model);
+    }
 }
 
 /// Thinking mode in Claude API Request
