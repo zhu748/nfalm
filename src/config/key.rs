@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, ops::Deref};
+use std::{fmt::Display, ops::Deref, sync::LazyLock};
 use tracing::warn;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
@@ -19,8 +19,9 @@ impl Deref for GeminiKey {
 
 impl GeminiKey {
     pub fn validate(&self) -> bool {
-        let re = regex::Regex::new(r"^AIzaSy[A-Za-z0-9_-]{33}$").unwrap();
-        re.is_match(&self.inner)
+        static RE: LazyLock<regex::Regex> =
+            LazyLock::new(|| regex::Regex::new(r"^AIzaSy[A-Za-z0-9_-]{33}$").unwrap());
+        RE.is_match(&self.inner)
     }
     pub fn ellipse(&self) -> String {
         let len = self.inner.len();
