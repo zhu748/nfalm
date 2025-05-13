@@ -230,20 +230,26 @@ impl KeyManager {
                 KeyEvent::Request(sender) => {
                     // Process request
                     let key = self.dispatch();
-                    sender.send(key).unwrap_or_else(|_| {
-                        error!("Failed to send key");
+                    spawn(async move {
+                        sender.send(key).unwrap_or_else(|_| {
+                            error!("Failed to send key");
+                        });
                     });
                 }
                 KeyEvent::GetStatus(sender) => {
                     let status_info = self.report();
-                    sender.send(status_info).unwrap_or_else(|_| {
-                        error!("Failed to send status info");
+                    spawn(async move {
+                        sender.send(status_info).unwrap_or_else(|_| {
+                            error!("Failed to send status info");
+                        });
                     });
                 }
                 KeyEvent::Delete(key, sender) => {
                     let result = self.delete(key);
-                    sender.send(result).unwrap_or_else(|_| {
-                        error!("Failed to send delete result");
+                    spawn(async move {
+                        sender.send(result).unwrap_or_else(|_| {
+                            error!("Failed to send delete result");
+                        });
                     });
                 }
             }
