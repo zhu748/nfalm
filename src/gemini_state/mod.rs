@@ -78,6 +78,14 @@ impl GeminiState {
         }
     }
 
+    pub async fn report_403(&self) -> Result<(), ClewdrError> {
+        if let Some(mut key) = self.key.to_owned() {
+            key.count_403 += 1;
+            self.event_sender.return_key(key).await?;
+        }
+        Ok(())
+    }
+
     pub async fn request_key(&mut self) -> Result<(), ClewdrError> {
         let key = self.event_sender.request().await?;
         self.key = Some(key.to_owned());
@@ -241,7 +249,14 @@ impl GeminiState {
                         error!("{}", e);
                     }
                     match e {
-                        ClewdrError::GeminiHttpError(_, _) => {
+                        ClewdrError::GeminiHttpError(s, _) => {
+                            if s == 403 {
+                                spawn(async move {
+                                    state.report_403().await.unwrap_or_else(|e| {
+                                        error!("Failed to report 403: {}", e);
+                                    });
+                                });
+                            }
                             continue;
                         }
                         e => return Err(e),

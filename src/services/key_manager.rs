@@ -62,8 +62,8 @@ impl KeyEventSender {
     ///
     /// # Returns
     /// Result indicating success or send error
-    pub async fn return_key(&self, key: KeyStatus) -> Result<(), mpsc::error::SendError<KeyEvent>> {
-        self.sender.send(KeyEvent::Return(key))
+    pub async fn return_key(&self, key: KeyStatus) -> Result<(), ClewdrError> {
+        Ok(self.sender.send(KeyEvent::Return(key))?)
     }
 
     /// Submit a new key to the key manager
@@ -73,8 +73,8 @@ impl KeyEventSender {
     ///
     /// # Returns
     /// Result indicating success or send error
-    pub async fn submit(&self, key: KeyStatus) -> Result<(), mpsc::error::SendError<KeyEvent>> {
-        self.sender.send(KeyEvent::Submit(key))
+    pub async fn submit(&self, key: KeyStatus) -> Result<(), ClewdrError> {
+        Ok(self.sender.send(KeyEvent::Submit(key))?)
     }
 
     /// Get status information about all keys
@@ -154,6 +154,15 @@ impl KeyManager {
         Ok(key)
     }
 
+    fn collect(&mut self, key: KeyStatus) {
+        // find the key and replace it
+        let Some(pos) = self.valid.iter().position(|k| *k == key) else {
+            error!("Key not found in valid keys");
+            return;
+        };
+        self.valid[pos] = key;
+    }
+
     /// Accepts a new key into the valid collection
     /// Checks for duplicates before adding
     ///
@@ -210,11 +219,9 @@ impl KeyManager {
         self.log();
         while let Some(event) = self.event_rx.recv().await {
             match event {
-                KeyEvent::Return(_key) => {
-                    // Key is automatically rotated in dispatch, no action needed for return
-                    // This is simplified compared to cookie manager as requested
-                    // info!("Key returned: {}", key.key);
-                    // TODO: Handle error if key is not in valid keys
+                KeyEvent::Return(key) => {
+                    // Process returned key
+                    self.collect(key);
                 }
                 KeyEvent::Submit(key) => {
                     // Process submitted new key

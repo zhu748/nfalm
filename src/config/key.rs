@@ -65,10 +65,23 @@ impl From<GeminiKey> for String {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KeyStatus {
     pub key: GeminiKey,
-    // TODO: add more fields
+    #[serde(default)]
+    pub count_403: u32,
+}
+
+impl PartialEq for KeyStatus {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+impl Eq for KeyStatus {}
+impl std::hash::Hash for KeyStatus {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
 }
 
 impl KeyStatus {
