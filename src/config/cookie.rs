@@ -4,6 +4,7 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
+    sync::LazyLock,
 };
 use tracing::{info, warn};
 
@@ -109,9 +110,10 @@ impl ClewdrCookie {
     /// # Returns
     /// * `bool` - True if the cookie has a valid format, false otherwise
     pub fn validate(&self) -> bool {
+        static RE: LazyLock<regex::Regex> =
+            LazyLock::new(|| regex::Regex::new(r"^[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap());
         // Check if the cookie is valid
-        let re = regex::Regex::new(r"^[0-9A-Za-z_-]{86}-[0-9A-Za-z_-]{6}AA$").unwrap();
-        re.is_match(&self.inner)
+        RE.is_match(&self.inner)
     }
 
     pub fn ellipse(&self) -> String {
