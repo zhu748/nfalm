@@ -159,33 +159,36 @@ const KeyVisualization: React.FC = () => {
         <h4 className="text-purple-300 font-medium mb-3">
           {t("keyStatus.sections.valid")}
         </h4>
-        
+
         {keyStatus.valid.length === 0 ? (
-          <p className="text-sm text-gray-400 py-2">
-            {t("keyStatus.noKeys")}
-          </p>
+          <p className="text-sm text-gray-400 py-2">{t("keyStatus.noKeys")}</p>
         ) : (
           <div className="space-y-2">
-            {keyStatus.valid.map((status, index) => (
-              <div
-                key={index}
-                className="py-2 text-sm text-gray-300 flex flex-wrap justify-between items-start border-b border-purple-800/30 last:border-0"
-              >
-                <div className="text-purple-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
-                  <KeyValue keyString={status.key} />
+            {keyStatus.valid
+              .slice()
+              .sort((a, b) => (b.count_403 || 0) - (a.count_403 || 0))
+              .map((status, index) => (
+                <div
+                  key={index}
+                  className="py-2 text-sm text-gray-300 flex flex-wrap justify-between items-start border-b border-purple-800/30 last:border-0"
+                >
+                  <div className="text-purple-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
+                    <KeyValue keyString={status.key} />
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    {typeof status.count_403 === "number" && (
+                      <span className="text-orange-400 bg-orange-900/30 px-2 py-0.5 rounded text-xs">
+                        403: {status.count_403}
+                      </span>
+                    )}
+                    <DeleteButton
+                      keyString={status.key}
+                      onDelete={handleDeleteKey}
+                      isDeleting={deletingKey === status.key}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <span className="text-gray-400">
-                    {t("keyStatus.status.active")}
-                  </span>
-                  <DeleteButton
-                    keyString={status.key}
-                    onDelete={handleDeleteKey}
-                    isDeleting={deletingKey === status.key}
-                  />
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </div>
@@ -193,9 +196,7 @@ const KeyVisualization: React.FC = () => {
       {/* No Keys Help Text */}
       {!loading && totalKeys === 0 && (
         <div className="mt-4 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-md">
-          <p className="text-sm text-gray-300">
-            {t("keyStatus.emptyHelp")}
-          </p>
+          <p className="text-sm text-gray-300">{t("keyStatus.emptyHelp")}</p>
         </div>
       )}
     </div>

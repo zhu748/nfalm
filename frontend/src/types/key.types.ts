@@ -1,6 +1,7 @@
 // frontend/src/types/key.types.ts
 export interface KeyStatus {
   key: string;
+  count_403: number;
 }
 
 export interface KeyStatusInfo {
