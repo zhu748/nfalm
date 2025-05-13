@@ -5,10 +5,9 @@ use serde_json::Value;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     sync::{Arc, LazyLock},
-    time::Duration,
 };
-use tokio::{spawn, sync::Mutex, time::timeout};
-use tracing::{debug, error, info, warn};
+use tokio::{spawn, sync::Mutex};
+use tracing::{debug, info, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
@@ -70,27 +69,28 @@ impl ClewdrCache {
         key: u64,
         id: usize,
     ) {
-        debug!("Storing response in cache for key: {}", key);
-        let timeout_dur = Duration::from_secs(60);
         spawn(async move {
-            if let Err(_) = timeout(timeout_dur, async move {
-                let vec = stream_to_vec(stream).await;
-                debug!("Stream converted to vector of length: {}", vec.len());
-                let value = self.moka.get_with(key, Default::default);
-                {
-                    let mut value = value.lock().await;
-                    if value.len() >= CLEWDR_CONFIG.load().cache_response {
-                        debug!("Cache is full, skipping cache for key: {}", key);
-                        return;
-                    }
-                    value.push(vec);
-                }
-                info!("[CACHE {}] cached response for key: {}", id, key);
-            })
-            .await
+            debug!("Storing response in cache for key {}, id {}", key, id);
+            let vec = stream_to_vec(stream).await;
+            debug!(
+                "Stream converted to vector of length: {} for key {}, id {}",
+                vec.len(),
+                key,
+                id
+            );
+            let value = self.moka.get_with(key, Default::default);
+            debug!("Cache entry retrieved for key {}, id {}", key, id);
             {
-                error!("Timeout while caching response for key: {}", key);
+                let mut value = value.lock().await;
+                debug!("Lock acquired for cache entry for key {}, id {}", key, id);
+                if value.len() >= CLEWDR_CONFIG.load().cache_response {
+                    debug!("Cache is full, skipping cache for key: {}, id {}", key, id);
+                    return;
+                }
+                debug!("Adding response to cache for key {}, id {}", key, id);
+                value.push(vec);
             }
+            info!("[CACHE] cached response for key: {}, id {}", key, id);
         });
     }
 
