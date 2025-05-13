@@ -79,6 +79,7 @@ where
         let start = std::time::Instant::now();
         loop {
             select! {
+                biased;
                 data = stream.next() => {
                     match data {
                         Some(d) => yield d,
