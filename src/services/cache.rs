@@ -78,6 +78,9 @@ impl ClewdrCache {
                 key,
                 id
             );
+            if vec.is_empty() {
+                return;
+            }
             let value = self.moka.get_with(key, Default::default);
             debug!("Cache entry retrieved for key {}, id {}", key, id);
             {
