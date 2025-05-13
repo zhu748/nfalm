@@ -33,7 +33,7 @@ impl ClaudeState {
         p: &CreateMessageParams,
     ) -> Option<axum::response::Response> {
         let key = p.get_hash();
-        if let Some(stream) = CACHE.pop(key) {
+        if let Some(stream) = CACHE.pop(key).await {
             info!("[CACHE] found response for key: {}", key);
             return Some(self.transform_response(stream).await);
         }

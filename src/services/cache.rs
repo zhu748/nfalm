@@ -4,9 +4,9 @@ use moka::sync::Cache;
 use serde_json::Value;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock},
 };
-use tokio::spawn;
+use tokio::{spawn, sync::Mutex};
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -73,12 +73,10 @@ impl ClewdrCache {
     ) {
         spawn(async move {
             let vec = stream_to_vec(stream).await;
+            debug!("Stream converted to vector of length: {}", vec.len());
             let value = self.moka.get_with(key, Default::default);
             {
-                let Ok(mut value) = value.lock() else {
-                    debug!("Failed to lock cache for key: {}", key);
-                    return;
-                };
+                let mut value = value.lock().await;
                 if value.len() >= CLEWDR_CONFIG.load().cache_response {
                     debug!("Cache is full, skipping cache for key: {}", key);
                     return;
@@ -100,16 +98,13 @@ impl ClewdrCache {
     ///
     /// # Returns
     /// * `Option<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static>` - The cached response as a stream, if available
-    pub fn pop(
+    pub async fn pop(
         &self,
         key: u64,
     ) -> Option<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static> {
         let value = self.moka.get(&key)?;
         let (vec, now_empty) = {
-            let mut value = value
-                .lock()
-                .inspect_err(|e| debug!("Failed to lock cache for key: {}: {}", key, e))
-                .ok()?;
+            let mut value = value.lock().await;
             (value.pop(), value.is_empty())
         };
         if now_empty {
