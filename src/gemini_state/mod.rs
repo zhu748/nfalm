@@ -23,6 +23,7 @@ use crate::{
         cache::{CACHE, GetHashKey},
         key_manager::KeyEventSender,
     },
+    types::gemini::response::{FinishReason, GeminiResponse},
 };
 
 #[derive(Clone, Display, PartialEq, Eq)]
@@ -284,17 +285,24 @@ impl GeminiState {
             return Ok(Either::Left(resp.bytes_stream()));
         }
         let bytes = resp.bytes().await?;
-        if let Ok(json) = serde_json::from_slice::<Value>(&bytes) {
-            match self.api_format {
-                GeminiApiFormat::Gemini => {
-                    if json["contents"].as_array().is_some_and(|v| v.is_empty()) {
-                        return Err(ClewdrError::EmptyChoices);
-                    }
+
+        match self.api_format {
+            GeminiApiFormat::Gemini => {
+                let res = serde_json::from_slice::<GeminiResponse>(&bytes)?;
+                if res.candidates.is_empty() {
+                    return Err(ClewdrError::EmptyChoices);
                 }
-                GeminiApiFormat::OpenAI => {
-                    if json["choices"].as_array().is_some_and(|v| v.is_empty()) {
-                        return Err(ClewdrError::EmptyChoices);
-                    }
+                if res.candidates[0].finishReason == Some(FinishReason::OTHER) {
+                    return Err(ClewdrError::EmptyChoices);
+                }
+            }
+            GeminiApiFormat::OpenAI => {
+                let res = serde_json::from_slice::<Value>(&bytes)?;
+                if res["choices"].as_array().is_some_and(|v| v.is_empty()) {
+                    return Err(ClewdrError::EmptyChoices);
+                }
+                if res["choices"][0]["finish_reason"] == "OTHER" {
+                    return Err(ClewdrError::EmptyChoices);
                 }
             }
         }

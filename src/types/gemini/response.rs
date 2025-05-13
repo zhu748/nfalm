@@ -2,7 +2,7 @@ use super::request::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum FinishReason {
     /// Default value. This value is unused.
@@ -33,7 +33,7 @@ pub enum FinishReason {
 
 #[derive(Serialize, Deserialize)]
 #[allow(non_snake_case)]
-struct Candidate {
+pub struct Candidate {
     content: Chat,
     pub finishReason: Option<FinishReason>,
 }
@@ -41,7 +41,7 @@ struct Candidate {
 #[derive(Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct GeminiResponse {
-    candidates: Vec<Candidate>,
+    pub candidates: Vec<Candidate>,
     pub usageMetadata: Value,
     pub modelVersion: String,
     pub promptFeedback: Option<Value>,
