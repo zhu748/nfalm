@@ -92,6 +92,7 @@ where
                     }
                     yield Ok(Bytes::from("\n"));
                 }
+                else => break
             }
         }
     }
