@@ -43,13 +43,13 @@ pub struct CookieManager {
     valid: VecDeque<CookieStatus>,
     exhausted: HashSet<CookieStatus>,
     invalid: HashSet<UselessCookie>,
-    event_rx: mpsc::Receiver<CookieEvent>, // Event receiver for incoming events
+    event_rx: mpsc::UnboundedReceiver<CookieEvent>, // Event receiver for incoming events
 }
 
 /// Event sender interface provided for external components to interact with the cookie manager
 #[derive(Clone)]
 pub struct CookieEventSender {
-    sender: mpsc::Sender<CookieEvent>,
+    sender: mpsc::UnboundedSender<CookieEvent>,
 }
 
 impl CookieEventSender {
@@ -59,7 +59,7 @@ impl CookieEventSender {
     /// * `Result<CookieStatus, ClewdrError>` - Cookie if available, error otherwise
     pub async fn request(&self) -> Result<CookieStatus, ClewdrError> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(CookieEvent::Request(tx)).await?;
+        self.sender.send(CookieEvent::Request(tx))?;
         rx.await?
     }
 
@@ -76,7 +76,7 @@ impl CookieEventSender {
         cookie: CookieStatus,
         reason: Option<Reason>,
     ) -> Result<(), mpsc::error::SendError<CookieEvent>> {
-        self.sender.send(CookieEvent::Return(cookie, reason)).await
+        self.sender.send(CookieEvent::Return(cookie, reason))
     }
 
     /// Submit a new cookie to the cookie manager
@@ -90,7 +90,7 @@ impl CookieEventSender {
         &self,
         cookie: CookieStatus,
     ) -> Result<(), mpsc::error::SendError<CookieEvent>> {
-        self.sender.send(CookieEvent::Submit(cookie)).await
+        self.sender.send(CookieEvent::Submit(cookie))
     }
 
     /// Get status information about all cookies
@@ -99,7 +99,7 @@ impl CookieEventSender {
     /// * `Result<CookieStatusInfo, ClewdrError>` - Status information about all cookies
     pub async fn get_status(&self) -> Result<CookieStatusInfo, ClewdrError> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(CookieEvent::GetStatus(tx)).await?;
+        self.sender.send(CookieEvent::GetStatus(tx))?;
         Ok(rx.await?)
     }
 
@@ -112,7 +112,7 @@ impl CookieEventSender {
     /// * `Result<(), ClewdrError>` - Success or error
     pub async fn delete_cookie(&self, cookie: CookieStatus) -> Result<(), ClewdrError> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(CookieEvent::Delete(cookie, tx)).await?;
+        self.sender.send(CookieEvent::Delete(cookie, tx))?;
         rx.await?
     }
 
@@ -122,7 +122,7 @@ impl CookieEventSender {
     /// # Returns
     /// Result indicating success or send error
     pub(crate) async fn check_reset(&self) -> Result<(), mpsc::error::SendError<CookieEvent>> {
-        self.sender.send(CookieEvent::CheckReset).await
+        self.sender.send(CookieEvent::CheckReset)
     }
 }
 
@@ -154,7 +154,7 @@ impl CookieManager {
         let invalid = HashSet::from_iter(CLEWDR_CONFIG.load().wasted_cookie.iter().cloned());
 
         // 创建事件通道
-        let (event_tx, event_rx) = mpsc::channel(100);
+        let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         let sender = CookieEventSender { sender: event_tx };
 

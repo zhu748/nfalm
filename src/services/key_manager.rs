@@ -35,13 +35,13 @@ pub enum KeyEvent {
 /// Key manager that handles key distribution and status tracking
 pub struct KeyManager {
     valid: VecDeque<KeyStatus>,
-    event_rx: mpsc::Receiver<KeyEvent>, // Event receiver for incoming events
+    event_rx: mpsc::UnboundedReceiver<KeyEvent>, // Event receiver for incoming events
 }
 
 /// Event sender interface provided for external components to interact with the key manager
 #[derive(Clone)]
 pub struct KeyEventSender {
-    sender: mpsc::Sender<KeyEvent>,
+    sender: mpsc::UnboundedSender<KeyEvent>,
 }
 
 impl KeyEventSender {
@@ -51,7 +51,7 @@ impl KeyEventSender {
     /// * `Result<KeyStatus, ClewdrError>` - Key if available, error otherwise
     pub async fn request(&self) -> Result<KeyStatus, ClewdrError> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(KeyEvent::Request(tx)).await?;
+        self.sender.send(KeyEvent::Request(tx))?;
         rx.await?
     }
 
@@ -63,7 +63,7 @@ impl KeyEventSender {
     /// # Returns
     /// Result indicating success or send error
     pub async fn return_key(&self, key: KeyStatus) -> Result<(), mpsc::error::SendError<KeyEvent>> {
-        self.sender.send(KeyEvent::Return(key)).await
+        self.sender.send(KeyEvent::Return(key))
     }
 
     /// Submit a new key to the key manager
@@ -74,7 +74,7 @@ impl KeyEventSender {
     /// # Returns
     /// Result indicating success or send error
     pub async fn submit(&self, key: KeyStatus) -> Result<(), mpsc::error::SendError<KeyEvent>> {
-        self.sender.send(KeyEvent::Submit(key)).await
+        self.sender.send(KeyEvent::Submit(key))
     }
 
     /// Get status information about all keys
@@ -83,7 +83,7 @@ impl KeyEventSender {
     /// * `Result<KeyStatusInfo, ClewdrError>` - Status information about all keys
     pub async fn get_status(&self) -> Result<KeyStatusInfo, ClewdrError> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(KeyEvent::GetStatus(tx)).await?;
+        self.sender.send(KeyEvent::GetStatus(tx))?;
         Ok(rx.await?)
     }
 
@@ -96,7 +96,7 @@ impl KeyEventSender {
     /// * `Result<(), ClewdrError>` - Success or error
     pub async fn delete_key(&self, key: KeyStatus) -> Result<(), ClewdrError> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(KeyEvent::Delete(key, tx)).await?;
+        self.sender.send(KeyEvent::Delete(key, tx))?;
         rx.await?
     }
 }
@@ -113,7 +113,7 @@ impl KeyManager {
         let valid = VecDeque::from_iter(CLEWDR_CONFIG.load().gemini_keys.iter().cloned());
 
         // Create event channel
-        let (event_tx, event_rx) = mpsc::channel(100);
+        let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         let sender = KeyEventSender { sender: event_tx };
 
