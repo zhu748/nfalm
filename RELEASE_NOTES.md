@@ -1,19 +1,20 @@
-# v0.9.7
+# v0.9.8
 
 ## Bug Fixes
 
-- Override extend thinking mode every time create a new conversation
+- Do not apply safety settings to the AI Studio OpenAI API
 
 ## Code Quality
 
-- Refactor to move safety settings to middlewares
+- Refactor Gemini logic
 
 ## Improvements
 
-- Remove unnecessary `enable_oai` settings
-- Remove unnecessary check for older config files
-- Improve gemini error body handling
+- Remove unnecessary `pass_params` configuration
+- Add `\n` packet to Gemini keep-alive
+- Enhance Gemini empty response check
+- Move all regex compilation to `LazyLock`
 
 ## Features
 
-- Check for empty response and retry
+- Record 403 counts for each key
