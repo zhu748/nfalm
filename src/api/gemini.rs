@@ -1,11 +1,14 @@
+use async_stream::stream;
 use axum::{
     body::Body,
     extract::State,
     response::{IntoResponse, Response},
 };
+use bytes::Bytes;
 use colored::Colorize;
-use futures::{FutureExt, StreamExt};
+use futures::{FutureExt, Stream, StreamExt, pin_mut};
 use serde::Serialize;
+use tokio::select;
 use tracing::info;
 
 use crate::{
@@ -43,21 +46,61 @@ async fn handle_gemini_request<T: Serialize + GetHashKey + Clone + Send + 'stati
 
     // For non-streaming requests, we need to handle keep-alive differently
     if !stream {
-        let stream = async move {
-            state
-                .try_chat(body)
-                .await
-                .map(|res| res.into_body().into_data_stream())
-                .unwrap_or_else(|e| e.into_response().into_body().into_data_stream())
-        }
-        .into_stream()
-        .flatten();
+        let stream = keep_alive_stream(state, body);
         return Ok(Body::from_stream(stream).into_response());
     }
 
     // For streaming requests, proceed as before
     let res = state.try_chat(body).await?;
     Ok(res)
+}
+
+fn keep_alive_stream<T>(
+    mut state: GeminiState,
+    body: T,
+) -> impl Stream<Item = Result<Bytes, axum::Error>>
+where
+    T: Serialize + GetHashKey + Clone + Send + 'static,
+{
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
+    let time_out = std::time::Duration::from_secs(360);
+    stream! {
+        let stream = async move {
+            state
+                .try_chat(body.clone())
+                .await
+                .unwrap_or_else(|e| e.into_response())
+                .into_body()
+                .into_data_stream()
+        }
+        .into_stream()
+        .flatten();
+        pin_mut!(stream);
+        let start = std::time::Instant::now();
+        loop {
+            select! {
+                data = stream.next() => {
+                    match data {
+                        Some(Ok(data)) => {
+                            yield Ok(data);
+                        }
+                        Some(Err(e)) => {
+                            yield Err(e);
+                        }
+                        None => {
+                            break;
+                        }
+                    }
+                }
+                _ = interval.tick() => {
+                    if start.elapsed() > time_out {
+                        break;
+                    }
+                    yield Ok(Bytes::from("\n"));
+                }
+            }
+        }
+    }
 }
 
 pub async fn api_post_gemini(
