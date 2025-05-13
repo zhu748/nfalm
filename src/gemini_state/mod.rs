@@ -306,9 +306,7 @@ impl GeminiState {
                 }
             }
         }
-        Ok(Either::Right(stream::once(async {
-            Ok::<_, rquest::Error>(bytes)
-        })))
+        Ok(Either::Right(stream::once(async { Ok(bytes) })))
     }
 }
 
