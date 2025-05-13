@@ -1,12 +1,12 @@
-use std::{convert::Infallible, sync::LazyLock};
+use std::sync::LazyLock;
 
 use axum::{
     body::Body,
     response::{IntoResponse, Response},
 };
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::Bytes;
 use colored::Colorize;
-use futures::{Stream, StreamExt, pin_mut, stream};
+use futures::{Stream, future::Either, stream};
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -175,12 +175,10 @@ impl GeminiState {
     pub async fn send_chat(
         &mut self,
         p: impl Sized + Serialize,
-    ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
-    {
+    ) -> Result<rquest::Response, ClewdrError> {
         if self.vertex {
             let res = self.vertex_response(p).await?;
-            let stream = res.bytes_stream();
-            return Ok(stream);
+            return Ok(res);
         }
         self.request_key().await?;
         let Some(key) = self.key.to_owned() else {
@@ -212,7 +210,7 @@ impl GeminiState {
             }
         };
         let res = res.check_gemini().await?;
-        Ok(res.bytes_stream())
+        Ok(res)
     }
 
     pub async fn try_chat(
@@ -227,18 +225,13 @@ impl GeminiState {
             let p = p.to_owned();
 
             match state.send_chat(p).await {
-                Ok(b) => {
-                    if !state.stream {
-                        let Ok(b) = state.check_empty_choices(b).await else {
-                            warn!("Empty choices");
-                            continue;
-                        };
-                        let res = transform_response(self.cache_key, b).await;
-                        return Ok(res);
-                    } else {
-                        let res = transform_response(self.cache_key, b).await;
-                        return Ok(res);
+                Ok(resp) => {
+                    let Ok(stream) = state.check_empty_choices(resp).await else {
+                        warn!("Empty choices");
+                        continue;
                     };
+                    let res = transform_response(self.cache_key, stream).await;
+                    return Ok(res);
                 }
                 Err(e) => {
                     if let Some(key) = state.key.to_owned() {
@@ -280,24 +273,17 @@ impl GeminiState {
 
     async fn check_empty_choices(
         &self,
-        input: impl Stream<Item = Result<Bytes, impl std::error::Error + Send + Sync + 'static>>
-        + Send
-        + 'static,
+        resp: rquest::Response,
     ) -> Result<
         impl Stream<Item = Result<Bytes, impl std::error::Error + Send + Sync + 'static>>
         + Send
         + 'static,
         ClewdrError,
     > {
-        let mut bytes = BytesMut::new();
-        pin_mut!(input);
-        while let Some(item) = input.next().await {
-            match item {
-                Ok(b) => bytes.put(b),
-                Err(_) => continue,
-            }
+        if self.stream {
+            return Ok(Either::Left(resp.bytes_stream()));
         }
-        let bytes = bytes.freeze();
+        let bytes = resp.bytes().await?;
         if let Ok(json) = serde_json::from_slice::<Value>(&bytes) {
             match self.api_format {
                 GeminiApiFormat::Gemini => {
@@ -312,7 +298,9 @@ impl GeminiState {
                 }
             }
         }
-        Ok(stream::once(async { Ok::<_, Infallible>(bytes) }))
+        Ok(Either::Right(stream::once(async {
+            Ok::<_, rquest::Error>(bytes)
+        })))
     }
 }
 
