@@ -1,12 +1,14 @@
+use std::str::FromStr;
+
 use clewdr::{
-    self, BANNER,
+    self, BANNER, IS_DEV,
     config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
 };
 use colored::Colorize;
 use tracing::warn;
 use tracing_subscriber::{
-    Registry,
+    Layer, Registry,
     fmt::{self, time::ChronoLocal},
     layer::SubscriberExt,
 };
@@ -27,11 +29,23 @@ async fn main() -> Result<(), ClewdrError> {
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
-    let subscriber = Registry::default().with(
-        fmt::Layer::default()
-            .with_writer(std::io::stdout)
-            .with_timer(timer.to_owned()),
-    );
+    let console_layer = console_subscriber::spawn();
+    let filter = if *IS_DEV {
+        tracing_subscriber::filter::LevelFilter::DEBUG
+    } else {
+        tracing_subscriber::filter::LevelFilter::INFO
+    };
+    let tokio_console_filter =
+        tracing_subscriber::filter::Targets::from_str("tokio=trace,runtime=trace")
+            .expect("Failed to parse filter");
+    let subscriber = Registry::default()
+        .with(
+            fmt::Layer::default()
+                .with_writer(std::io::stdout)
+                .with_timer(timer.to_owned())
+                .with_filter(filter),
+        )
+        .with(console_layer.with_filter(tokio_console_filter));
     #[cfg(not(feature = "no_fs"))]
     let (subscriber, _guard) = {
         let file_appender = tracing_appender::rolling::daily(LOG_DIR, "clewdr.log");
@@ -41,7 +55,8 @@ async fn main() -> Result<(), ClewdrError> {
             subscriber.with(
                 fmt::Layer::default()
                     .with_writer(file_writer)
-                    .with_timer(timer),
+                    .with_timer(timer)
+                    .with_filter(filter),
             ),
             _guard,
         )

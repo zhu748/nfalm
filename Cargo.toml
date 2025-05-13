@@ -8,7 +8,12 @@ authors = ["Xerxes-2"]
 path = "src/lib.rs"
 
 [dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tokio = { version = "1", features = [
+    "macros",
+    "rt-multi-thread",
+    "signal",
+    "tracing",
+] }
 rquest = { version = "5", features = [
     "json",
     "stream",
@@ -25,10 +30,7 @@ serde = { version = "1", features = ["derive"] }
 colored = "3"
 axum = { version = "0.8", features = ["json", "tracing", "tokio", "macros"] }
 regex = "1"
-tracing = { version = "0.1", features = [
-    "max_level_debug",
-    "release_max_level_info",
-] }
+tracing = { version = "0.1", features = [] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
 rand = "0.9"
 chrono = "0.4"
@@ -63,6 +65,7 @@ trie-rs = "0.4"
 async-stream = "0.3"
 struct_iterable = "0.1"
 tokio-stream = "0.1"
+console-subscriber = "0.4"
 
 [features]
 no_fs = []
