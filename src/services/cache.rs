@@ -1,13 +1,14 @@
 use bytes::Bytes;
-use futures::{Stream, StreamExt, pin_mut, stream};
+use futures::{Stream, StreamExt, stream};
 use moka::sync::Cache;
 use serde_json::Value;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     sync::{Arc, LazyLock},
+    time::Duration,
 };
-use tokio::{spawn, sync::Mutex};
-use tracing::{debug, info, warn};
+use tokio::{spawn, sync::Mutex, time::timeout};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
@@ -65,25 +66,31 @@ impl ClewdrCache {
     /// * `id` - An identifier for logging purposes
     pub fn push(
         &'static self,
-        stream: impl Stream<Item = Result<Bytes, impl std::error::Error + Send + 'static>>
-        + Send
-        + 'static,
+        stream: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
         key: u64,
         id: usize,
     ) {
+        debug!("Storing response in cache for key: {}", key);
+        let timeout_dur = Duration::from_secs(60);
         spawn(async move {
-            let vec = stream_to_vec(stream).await;
-            debug!("Stream converted to vector of length: {}", vec.len());
-            let value = self.moka.get_with(key, Default::default);
-            {
-                let mut value = value.lock().await;
-                if value.len() >= CLEWDR_CONFIG.load().cache_response {
-                    debug!("Cache is full, skipping cache for key: {}", key);
-                    return;
+            if let Err(_) = timeout(timeout_dur, async move {
+                let vec = stream_to_vec(stream).await;
+                debug!("Stream converted to vector of length: {}", vec.len());
+                let value = self.moka.get_with(key, Default::default);
+                {
+                    let mut value = value.lock().await;
+                    if value.len() >= CLEWDR_CONFIG.load().cache_response {
+                        debug!("Cache is full, skipping cache for key: {}", key);
+                        return;
+                    }
+                    value.push(vec);
                 }
-                value.push(vec);
+                info!("[CACHE {}] cached response for key: {}", id, key);
+            })
+            .await
+            {
+                error!("Timeout while caching response for key: {}", key);
             }
-            info!("[CACHE {}] cached response for key: {}", id, key);
         });
     }
 
@@ -160,9 +167,8 @@ impl CachedResponse {
 /// # Returns
 /// * `Vec<Bytes>` - Vector containing all successful byte chunks from the stream
 async fn stream_to_vec(
-    stream: impl Stream<Item = Result<Bytes, impl std::error::Error + Send + 'static>>,
+    stream: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
 ) -> Vec<Bytes> {
-    pin_mut!(stream);
     stream
         .filter_map(async |item| item.ok())
         .collect::<Vec<_>>()

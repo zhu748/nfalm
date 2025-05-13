@@ -290,12 +290,8 @@ impl GeminiState {
     async fn check_empty_choices(
         &self,
         resp: rquest::Response,
-    ) -> Result<
-        impl Stream<Item = Result<Bytes, impl std::error::Error + Send + Sync + 'static>>
-        + Send
-        + 'static,
-        ClewdrError,
-    > {
+    ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
+    {
         if self.stream {
             return Ok(Either::Left(resp.bytes_stream()));
         }
@@ -325,13 +321,10 @@ impl GeminiState {
     }
 }
 
-async fn transform_response<E>(
+async fn transform_response(
     cache_key: Option<(u64, usize)>,
-    input: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
-) -> axum::response::Response
-where
-    E: std::error::Error + Send + Sync + 'static,
-{
+    input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
+) -> axum::response::Response {
     // response is used for caching
     if let Some((key, id)) = cache_key {
         CACHE.push(input, key, id);
