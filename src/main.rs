@@ -57,10 +57,13 @@ async fn main() -> Result<(), ClewdrError> {
     };
     if IS_DEBUG {
         // enable tokio console
-        let console_layer = console_subscriber::spawn();
         let tokio_console_filter =
             tracing_subscriber::filter::Targets::from_str("tokio=trace,runtime=trace")
                 .expect("Failed to parse filter");
+        let console_layer = console_subscriber::ConsoleLayer::builder()
+            // set the address the server is bound to
+            .server_addr(([0, 0, 0, 0], 6669))
+            .spawn();
         let s = subscriber.with(console_layer.with_filter(tokio_console_filter));
         tracing::subscriber::set_global_default(s).expect("unable to set global subscriber");
     } else {
