@@ -125,7 +125,6 @@
       "api": {
         "title": "API Settings",
         "maxRetries": "Max Retries",
-        "passParams": "Pass Parameters",
         "preserveChats": "Preserve Chats",
         "webSearch": "Web Search"
       },

@@ -172,12 +172,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           />
         </div>
         <div className="flex space-x-6">
-          <ConfigCheckbox
-            name="pass_params"
-            checked={config.pass_params}
-            onChange={onChange}
-            label={t("config.sections.api.passParams")}
-          />
 
           <ConfigCheckbox
             name="preserve_chats"

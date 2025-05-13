@@ -111,8 +111,6 @@ pub struct ClewdrConfig {
     #[serde(default = "default_max_retries")]
     pub max_retries: usize,
     #[serde(default)]
-    pub pass_params: bool,
-    #[serde(default)]
     pub preserve_chats: bool,
     #[serde(default)]
     pub web_search: bool,
@@ -184,7 +182,6 @@ impl Default for ClewdrConfig {
             custom_a: None,
             rquest_proxy: None,
             pad_tokens: Arc::new(vec![]),
-            pass_params: false,
             preserve_chats: false,
             web_search: false,
             cache_response: 0,

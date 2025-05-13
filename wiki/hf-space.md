@@ -103,7 +103,6 @@ clewdr_auto_update = false
 clewdr_password = "password"
 clewdr_admin_password = "password"
 clewdr_max_retries = 5
-clewdr_pass_params = false
 clewdr_preserve_chats = false
 clewdr_skip_first_warning = false
 clewdr_skip_second_warning = false

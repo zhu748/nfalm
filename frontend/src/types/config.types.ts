@@ -18,7 +18,6 @@ export interface ConfigData {
 
   // API settings
   max_retries: number;
-  pass_params: boolean;
   preserve_chats: boolean;
   web_search: boolean;
 
