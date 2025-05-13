@@ -81,15 +81,8 @@ where
             select! {
                 data = stream.next() => {
                     match data {
-                        Some(Ok(data)) => {
-                            yield Ok(data);
-                        }
-                        Some(Err(e)) => {
-                            yield Err(e);
-                        }
-                        None => {
-                            break;
-                        }
+                        Some(d) => yield d,
+                        None => break
                     }
                 }
                 _ = interval.tick() => {
