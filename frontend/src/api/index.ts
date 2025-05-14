@@ -136,6 +136,11 @@ export async function getConfig() {
  */
 export async function saveConfig(configData: any) {
   const token = localStorage.getItem("authToken") || "";
+  // change configData.vertex.credential to json any
+  if (configData.vertex && configData.vertex.credential) {
+    configData.vertex.credential = JSON.parse(configData.vertex.credential);
+  }
+
   const response = await fetch("/api/config", {
     method: "PUT",
     headers: {

@@ -115,7 +115,7 @@
       },
       "vertex": {
         "title": "Vertex 设置",
-        "refreshToken": "刷新令牌",
+        "credential": "Json凭证",
         "clientSecret": "客户端密钥",
         "clientId": "客户端 ID",
         "projectId": "项目 ID",

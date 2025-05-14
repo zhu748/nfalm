@@ -109,39 +109,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
       {/* Vertex Settings Section */}
       <ConfigSection title={t("config.sections.vertex.title")}>
         <FormInput
-          id="vertex.refresh_token"
-          name="vertex.refresh_token"
+          id="vertex.credential"
+          name="vertex.credential"
           type="password"
-          value={config.vertex.refresh_token || ""}
+          value={config.vertex.credential || ""}
           onChange={onChange}
-          label={t("config.sections.vertex.refreshToken")}
-        />
-
-        <FormInput
-          id="vertex.client_secret"
-          name="vertex.client_secret"
-          type="password"
-          value={config.vertex.client_secret || ""}
-          onChange={onChange}
-          label={t("config.sections.vertex.clientSecret")}
-        />
-
-        <FormInput
-          id="vertex.client_id"
-          name="vertex.client_id"
-          type="text"
-          value={config.vertex.client_id || ""}
-          onChange={onChange}
-          label={t("config.sections.vertex.clientId")}
-        />
-
-        <FormInput
-          id="vertex.project_id"
-          name="vertex.project_id"
-          type="text"
-          value={config.vertex.project_id || ""}
-          onChange={onChange}
-          label={t("config.sections.vertex.projectId")}
+          label={t("config.sections.vertex.credential")}
         />
 
         <div className="relative">
@@ -172,7 +145,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           />
         </div>
         <div className="flex space-x-6">
-
           <ConfigCheckbox
             name="preserve_chats"
             checked={config.preserve_chats}

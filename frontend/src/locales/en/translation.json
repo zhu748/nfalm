@@ -115,7 +115,7 @@
       },
       "vertex": {
         "title": "Vertex Settings",
-        "refreshToken": "Refresh Token",
+        "credential": "Credential",
         "clientSecret": "Client Secret",
         "clientId": "Client ID",
         "projectId": "Project ID",
