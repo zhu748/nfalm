@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use futures::{Stream, StreamExt, stream};
+use futures::{Stream, TryStreamExt, stream};
 use moka::sync::Cache;
 use serde_json::Value;
 use std::{
@@ -11,6 +11,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
+    error::ClewdrError,
     types::{
         claude_message::{CreateMessageParams, Message, Role},
         gemini::request::{Chat, GeminiRequestBody, SystemInstruction, Tool},
@@ -71,7 +72,13 @@ impl ClewdrCache {
     ) {
         spawn(async move {
             debug!("Storing response in cache for key {}, id {}", key, id);
-            let vec = stream_to_vec(stream).await;
+            let Ok(vec) = stream_to_vec(stream).await else {
+                warn!(
+                    "Failed to convert stream to vector for key {}, id {}",
+                    key, id
+                );
+                return;
+            };
             debug!(
                 "Stream converted to vector of length: {} for key {}, id {}",
                 vec.len(),
@@ -171,8 +178,8 @@ impl CachedResponse {
 /// * `Vec<Bytes>` - Vector containing all successful byte chunks from the stream
 async fn stream_to_vec(
     stream: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
-) -> Vec<Bytes> {
-    stream.filter_map(async |i| i.ok()).collect().await
+) -> Result<Vec<Bytes>, ClewdrError> {
+    Ok(stream.try_collect().await?)
 }
 
 /// Converts a vector of bytes to a stream of successful results
