@@ -38,6 +38,7 @@ pub async fn api_get_config(
         obj.remove("cookie_array");
         obj.remove("wasted_cookie");
         obj.remove("gemini_keys");
+        obj["vertex"]["credential"] = "placeholder".into();
     }
 
     Ok(Json(config_json))
@@ -72,6 +73,9 @@ pub async fn api_post_config(
         new_c.cookie_array = old_c.cookie_array.to_owned();
         new_c.wasted_cookie = old_c.wasted_cookie.to_owned();
         new_c.gemini_keys = old_c.gemini_keys.to_owned();
+        if new_c.vertex.credential.is_none() {
+            new_c.vertex.credential = old_c.vertex.credential.to_owned();
+        }
         new_c
     });
     if let Err(e) = CLEWDR_CONFIG.load().save() {
