@@ -66,6 +66,7 @@ async-stream = "0.3"
 struct_iterable = "0.1"
 tokio-stream = "0.1"
 console-subscriber = "0.4"
+yup-oauth2 = "12"
 
 [features]
 no_fs = []

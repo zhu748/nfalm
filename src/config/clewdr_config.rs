@@ -16,6 +16,7 @@ use std::{
 };
 use tiktoken_rs::o200k_base;
 use tracing::{error, warn};
+use yup_oauth2::ServiceAccountKey;
 
 use crate::{
     config::{
@@ -54,21 +55,13 @@ fn generate_password() -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct VertexConfig {
-    pub refresh_token: Option<String>,
-    pub client_id: Option<String>,
-    pub client_secret: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub project_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential: Option<ServiceAccountKey>,
     pub model_id: Option<String>,
 }
 
 impl VertexConfig {
     pub fn validate(&self) -> bool {
-        self.refresh_token.is_some()
-            && self.project_id.is_some()
-            && self.client_id.is_some()
-            && self.client_secret.is_some()
+        self.credential.is_some()
     }
 }
 

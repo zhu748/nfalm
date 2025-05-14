@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 use strum::Display;
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span, warn};
+use yup_oauth2::{ServiceAccountAuthenticator, ServiceAccountKey};
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
@@ -46,6 +47,14 @@ pub static SAFETY_SETTINGS: LazyLock<Value> = LazyLock::new(|| {
 });
 
 static DUMMY_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
+
+async fn get_token(sa_key: ServiceAccountKey) -> Result<String, ClewdrError> {
+    let auth = ServiceAccountAuthenticator::builder(sa_key).build().await?;
+    let scopes = &["https://www.googleapis.com/auth/cloud-platform"];
+    let token = auth.token(scopes).await?;
+    let token = token.token().ok_or(ClewdrError::UnexpectedNone)?;
+    Ok(token.into())
+}
 
 #[derive(Clone)]
 pub struct GeminiState {
@@ -124,30 +133,21 @@ impl GeminiState {
         } else {
             "generateContent"
         };
-        let mut json = serde_json::to_value(&CLEWDR_CONFIG.load().vertex)?;
-        json["grant_type"] = "refresh_token".into();
-        let res = self
-            .client
-            .post("https://oauth2.googleapis.com/token")
-            .json(&json)
-            .send()
-            .await?;
-        let res = res.check_gemini().await?;
-        let res = res.json::<serde_json::Value>().await?;
-        let access_token = res["access_token"]
-            .as_str()
-            .ok_or(ClewdrError::UnexpectedNone)?;
+
+        // Get an access token
+        let Some(cred) = CLEWDR_CONFIG.load().vertex.credential.to_owned() else {
+            return Err(ClewdrError::BadRequest(
+                "Vertex credential not found".to_string(),
+            ));
+        };
+
+        let access_token = get_token(cred.to_owned()).await?;
         let bearer = format!("Bearer {}", access_token);
         let res = match self.api_format {
             GeminiApiFormat::Gemini => {
                 let endpoint = format!(
                     "https://aiplatform.googleapis.com/v1/projects/{}/locations/global/publishers/google/models/{}:{method}",
-                    CLEWDR_CONFIG
-                        .load()
-                        .vertex
-                        .project_id
-                        .as_deref()
-                        .unwrap_or_default(),
+                    cred.project_id.unwrap_or_default(),
                     self.model
                 );
                 let query_vec = self.query.to_vec();
@@ -164,12 +164,7 @@ impl GeminiState {
                 self.client
                     .post(format!(
                         "https://aiplatform.googleapis.com/v1beta1/projects/{}/locations/global/endpoints/openapi/chat/completions",
-                        CLEWDR_CONFIG
-                            .load()
-                            .vertex
-                            .project_id
-                            .as_deref()
-                            .unwrap_or_default(),
+                        cred.project_id.unwrap_or_default(),
                     ))
                     .header(AUTHORIZATION, bearer)
                     .json(&p)

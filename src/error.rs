@@ -17,6 +17,8 @@ use crate::{
 #[derive(thiserror::Error, Debug, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[error(transparent)]
+    YuOAuth2Error(#[from] yup_oauth2::Error),
     #[error("API returns no choice")]
     EmptyChoices,
     #[error(transparent)]
@@ -92,6 +94,7 @@ pub enum ClewdrError {
 impl IntoResponse for ClewdrError {
     fn into_response(self) -> axum::response::Response {
         let (status, msg) = match self {
+            ClewdrError::YuOAuth2Error(ref r) => (StatusCode::BAD_REQUEST, json!(r.to_string())),
             ClewdrError::PathRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::QueryRejection(ref r) => (r.status(), json!(r.body_text())),
             ClewdrError::ClaudeHttpError(status, inner) => {
