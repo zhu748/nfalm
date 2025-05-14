@@ -84,7 +84,7 @@ where
                     match data {
                         Some(Ok(d)) => yield Ok(d),
                         Some(Err(e)) => {
-                            yield Err(e.into());
+                            yield Err(e);
                             break;
                         }
                         None => break
