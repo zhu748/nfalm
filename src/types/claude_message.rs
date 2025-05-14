@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::config::CLEWDR_CONFIG;
+
 #[derive(Debug)]
 pub struct RequiredMessageParams {
     pub model: String,
@@ -77,8 +79,9 @@ impl CreateMessageParams {
 
     pub fn preprocess_vertex(&mut self) {
         self.safety_off();
-        if self.model.starts_with("google/") {
-            return;
+        self.model = self.model.trim_start_matches("google/").to_string();
+        if let Some(model) = CLEWDR_CONFIG.load().vertex.model_id.to_owned() {
+            self.model = model;
         }
         self.model = format!("google/{}", self.model);
     }
