@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Default)]
 #[allow(non_camel_case_types)]
 pub enum Role {
+    #[default]
     user,
     model,
 }
@@ -92,6 +93,7 @@ pub enum Part {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 pub struct Chat {
+    #[serde(default)]
     role: Role,
     parts: Vec<Part>,
 }

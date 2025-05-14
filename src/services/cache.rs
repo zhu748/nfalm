@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use futures::{Stream, StreamExt, pin_mut, stream};
+use futures::{Stream, StreamExt, stream};
 use moka::sync::Cache;
 use serde_json::Value;
 use std::{
@@ -172,12 +172,7 @@ impl CachedResponse {
 async fn stream_to_vec(
     stream: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
 ) -> Vec<Bytes> {
-    let mut vec = vec![];
-    pin_mut!(stream);
-    while let Some(Ok(bytes)) = stream.next().await {
-        vec.push(bytes);
-    }
-    vec
+    stream.filter_map(async |i| i.ok()).collect().await
 }
 
 /// Converts a vector of bytes to a stream of successful results
