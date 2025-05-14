@@ -1,7 +1,8 @@
 use axum::{Json, body::Body, response::IntoResponse};
 use bytes::Bytes;
 use eventsource_stream::{EventStream, Eventsource};
-use futures::{Stream, StreamExt, pin_mut};
+use futures::{Stream, TryStreamExt};
+use itertools::Itertools;
 use serde::Deserialize;
 
 use crate::{
@@ -26,19 +27,17 @@ pub async fn merge_sse(
     struct Data {
         completion: String,
     }
-    pin_mut!(stream);
-    let mut w = String::new();
-    while let Some(event) = stream.next().await {
-        let Ok(event) = event else {
-            continue;
-        };
-        let data = event.data;
-        let Ok(data) = serde_json::from_str::<Data>(&data) else {
-            continue;
-        };
-        w += data.completion.as_str();
-    }
-    w
+    stream
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|event| {
+            let data = event.data;
+            let data = serde_json::from_str::<Data>(&data).ok()?;
+            Some(data.completion)
+        })
+        .join("")
 }
 
 impl<S> From<S> for Message

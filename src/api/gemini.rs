@@ -82,7 +82,11 @@ where
                 biased;
                 data = stream.next() => {
                     match data {
-                        Some(d) => yield d,
+                        Some(Ok(d)) => yield Ok(d),
+                        Some(Err(e)) => {
+                            yield Err(e.into());
+                            break;
+                        }
                         None => break
                     }
                 }

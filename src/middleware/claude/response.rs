@@ -1,6 +1,6 @@
 use axum::response::{IntoResponse, Response, Sse, sse::Event};
 use eventsource_stream::Eventsource;
-use futures::{Stream, StreamExt};
+use futures::{Stream, TryStreamExt};
 use serde::Serialize;
 
 use crate::{
@@ -114,24 +114,23 @@ where
     I: Stream<Item = Result<eventsource_stream::Event, E>> + Send,
     E: Send,
 {
-    s.filter_map(async |event| match event {
-        Ok(eventsource_stream::Event { data, .. }) => {
-            let parsed = serde_json::from_str::<StreamEvent>(&data).ok()?;
-            let StreamEvent::ContentBlockDelta { delta, .. } = parsed else {
-                return None;
-            };
-            match delta {
-                ContentBlockDelta::TextDelta { text } => {
-                    Some(Ok(build_event(EventContent::Content { content: text })))
-                }
-                ContentBlockDelta::ThinkingDelta { thinking } => {
-                    Some(Ok(build_event(EventContent::Reasoning {
-                        reasoning_content: thinking,
-                    })))
-                }
-                _ => None,
+    s.try_filter_map(async |eventsource_stream::Event { data, .. }| {
+        let Ok(parsed) = serde_json::from_str::<StreamEvent>(&data) else {
+            return Ok(None);
+        };
+        let StreamEvent::ContentBlockDelta { delta, .. } = parsed else {
+            return Ok(None);
+        };
+        match delta {
+            ContentBlockDelta::TextDelta { text } => {
+                Ok(Some(build_event(EventContent::Content { content: text })))
             }
+            ContentBlockDelta::ThinkingDelta { thinking } => {
+                Ok(Some(build_event(EventContent::Reasoning {
+                    reasoning_content: thinking,
+                })))
+            }
+            _ => Ok(None),
         }
-        Err(e) => Some(Err(e)),
     })
 }

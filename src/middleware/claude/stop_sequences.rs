@@ -3,7 +3,9 @@ use axum::response::{IntoResponse, Response, Sse, sse::Event};
 use eventsource_stream::{Event as SourceEvent, Eventsource};
 use futures::Stream;
 
-use crate::types::claude_message::{ContentBlockDelta, MessageDeltaContent, StopReason, StreamEvent};
+use crate::types::claude_message::{
+    ContentBlockDelta, MessageDeltaContent, StopReason, StreamEvent,
+};
 
 use super::ClaudeContext;
 
