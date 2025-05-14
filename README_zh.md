@@ -59,7 +59,7 @@
 
 ## 社区资源
 
-- [Vertex用token获取教程](./wiki/vertex_zh.md)
+- [Vertex用token获取教程](https://github.com/wyeeeee/hajimi/blob/main/wiki/vertex.md)
 - [Linux一键脚本](https://github.com/rzline/st-cr-ins.sh)
 - [ClewdR 部署到 HuggingFace Space](./wiki/hf-space.md)
 
