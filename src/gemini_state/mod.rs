@@ -9,7 +9,7 @@ use colored::Colorize;
 use futures::{Stream, future::Either, stream};
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use strum::Display;
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span, warn};
@@ -32,19 +32,6 @@ pub enum GeminiApiFormat {
     Gemini,
     OpenAI,
 }
-
-pub static SAFETY_SETTINGS: LazyLock<Value> = LazyLock::new(|| {
-    json!([
-      { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF" },
-      { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF" },
-      { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF" },
-      { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" },
-      {
-        "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
-        "threshold": "BLOCK_NONE"
-      }
-    ])
-});
 
 static DUMMY_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
