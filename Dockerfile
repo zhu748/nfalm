@@ -26,7 +26,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
 COPY . .
-ENV RUSTFLAGS=-Awarnings
+ENV RUSTFLAGS="-Awarnings --cfg tokio_unstable"
 COPY --from=frontend-builder /usr/src/app/static ./static
 RUN cargo build --release --bin clewdr --features no_fs
 
@@ -41,6 +41,7 @@ ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484
 ENV CLEWDR_CHECK_UPDATE=FALSE
 ENV CLEWDR_AUTO_UPDATE=FALSE
+ENV CLEWDR_TOKIO_CONSOLE=FALSE
 
 # 暴露端口
 EXPOSE 8484

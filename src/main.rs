@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{env, str::FromStr};
 
 use clewdr::{
     self, BANNER, IS_DEBUG,
@@ -55,7 +55,7 @@ async fn main() -> Result<(), ClewdrError> {
             _guard,
         )
     };
-    if IS_DEBUG {
+    if env::var("CLEWDR_TOKIO_CONSOLE").is_ok_and(|v| v.to_lowercase() == "true") {
         // enable tokio console
         let tokio_console_filter =
             tracing_subscriber::filter::Targets::from_str("tokio=trace,runtime=trace")
