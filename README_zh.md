@@ -69,5 +69,5 @@
 
 ## 许可证
 
-本项目采用 CC-BY-NC-SA 4.0 许可证。有关详细信息，请参阅 [LICENSE](./LICENSE) 文件。
+本项目采用 CC-BY-NC-SA 4.0 许可证。有关详细信息，请参阅 [LICENSE](./LICENSE.md) 文件。
 本软件不得用于商业目的。

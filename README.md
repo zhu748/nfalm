@@ -69,5 +69,5 @@ Contributions welcome! Feel free to submit issues or pull requests on GitHub.
 
 ## License
 
-This project is licensed under [CC BY-NC-SA 4.0](.LICENSE.md) - see the LICENSE file for details.
+This project is licensed under [CC BY-NC-SA 4.0](./LICENSE.md) - see the LICENSE file for details.
 This software may not be used for commercial purposes.
