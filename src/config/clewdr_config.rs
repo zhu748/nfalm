@@ -20,17 +20,14 @@ use yup_oauth2::ServiceAccountKey;
 
 use crate::{
     config::{
-        CONFIG_NAME, CookieStatus, UselessCookie, default_check_update, default_ip,
-        default_max_retries, default_padtxt_len, default_port, default_skip_cool_down,
-        default_use_real_roles,
+        CookieStatus, UselessCookie, default_check_update, default_ip, default_max_retries,
+        default_padtxt_len, default_port, default_skip_cool_down, default_use_real_roles,
     },
     error::ClewdrError,
     utils::enabled,
 };
 
-use super::{
-    ARG_CONFIG_FILE, ARG_COOKIE_FILE, CONFIG_PATH, ClewdrCookie, ENDPOINT_URL, key::KeyStatus,
-};
+use super::{ARG_COOKIE_FILE, CONFIG_PATH, ClewdrCookie, ENDPOINT_URL, key::KeyStatus};
 
 /// Generates a random password for authentication
 /// Creates a secure 64-character password with mixed character types
@@ -275,18 +272,14 @@ impl ClewdrConfig {
     /// # Returns
     /// * Config instance
     pub fn new() -> Self {
-        let config = Figment::new().adjoin(Toml::file(CONFIG_NAME));
-        let mut config: ClewdrConfig = if let Some(arg_config) = ARG_CONFIG_FILE.as_ref() {
-            config.merge(Toml::file(arg_config))
-        } else {
-            config
-        }
-        .admerge(Env::prefixed("CLEWDR_"))
-        .extract_lossy()
-        .inspect_err(|e| {
-            error!("Failed to load config: {}", e);
-        })
-        .unwrap_or_default();
+        let mut config: ClewdrConfig = Figment::new()
+            .adjoin(Toml::file_exact(CONFIG_PATH.as_path()))
+            .admerge(Env::prefixed("CLEWDR_"))
+            .extract_lossy()
+            .inspect_err(|e| {
+                error!("Failed to load config: {}", e);
+            })
+            .unwrap_or_default();
         if let Some(ref f) = *ARG_COOKIE_FILE {
             // load cookies from file
             if f.exists() {
