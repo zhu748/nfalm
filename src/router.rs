@@ -6,7 +6,7 @@ use axum::{
 };
 use const_format::formatc;
 use tower::ServiceBuilder;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer, services::ServeDir};
 
 use crate::{
     IS_DEBUG,
@@ -79,11 +79,13 @@ impl RouterBuilder {
             .route("/v1/v1beta/{*path}", post(api_post_gemini))
             .route("/v1/vertex/v1beta/{*path}", post(api_post_gemini))
             .layer(from_extractor::<RequireQueryKeyAuth>())
+            .layer(CompressionLayer::new())
             .with_state(self.gemini_state.to_owned());
         let router_oai = Router::new()
             .route("/gemini/chat/completions", post(api_post_gemini_oai))
             .route("/gemini/vertex/chat/completions", post(api_post_gemini_oai))
             .layer(from_extractor::<RequireBearerAuth>())
+            .layer(CompressionLayer::new())
             .with_state(self.gemini_state.to_owned());
         let router = router_gemini.merge(router_oai);
         self.inner = self.inner.merge(router);
@@ -97,6 +99,7 @@ impl RouterBuilder {
             .layer(
                 ServiceBuilder::new()
                     .layer(from_extractor::<RequireXApiKeyAuth>())
+                    .layer(CompressionLayer::new())
                     .layer(map_response(apply_stop_sequences)),
             )
             .with_state(self.claude_state.to_owned().with_claude_format());
@@ -138,6 +141,7 @@ impl RouterBuilder {
             .layer(
                 ServiceBuilder::new()
                     .layer(from_extractor::<RequireBearerAuth>())
+                    .layer(CompressionLayer::new())
                     .layer(map_response(to_oai))
                     .layer(map_response(apply_stop_sequences)),
             )
