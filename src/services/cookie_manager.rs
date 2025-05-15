@@ -192,7 +192,7 @@ impl CookieManager {
                 .chain(self.exhausted.iter())
                 .cloned()
                 .collect();
-            config.wasted_cookie = self.invalid.iter().cloned().collect();
+            config.wasted_cookie = self.invalid.to_owned();
             config
         });
         CLEWDR_CONFIG.load().save().unwrap_or_else(|e| {
@@ -336,7 +336,7 @@ impl CookieManager {
             *c != cookie
         });
         let useless = UselessCookie::new(cookie.cookie.to_owned(), Reason::Null);
-        found = self.exhausted.remove(&cookie) | self.invalid.remove(&useless);
+        found |= self.exhausted.remove(&cookie) | self.invalid.remove(&useless);
 
         if found {
             // Update config to reflect changes
