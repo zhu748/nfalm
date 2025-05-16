@@ -1,14 +1,5 @@
-# v0.9.10
+# v0.9.11
 
 ## Bug Fixes
 
-- Fix a bug that cookie was not deleted properly.
-
-## Features
-
-- Add zstd compression layer to response body.
-
-## Improvements
-
-- Remove unused code.
-- Simplify config file loading.
+- Fix accepting optional missing config file
