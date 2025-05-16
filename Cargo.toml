@@ -67,6 +67,9 @@ struct_iterable = "0.1"
 tokio-stream = "0.1"
 console-subscriber = "0.4"
 yup-oauth2 = "12"
+hyper-util = "0.1"
+hyper-http-proxy = "1"
+http = "1"
 
 [features]
 no_fs = []

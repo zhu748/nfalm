@@ -7,13 +7,14 @@ use axum::{
 use bytes::Bytes;
 use colored::Colorize;
 use futures::{Stream, future::Either, stream};
+use hyper_util::client::legacy::connect::HttpConnector;
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
 use serde_json::Value;
 use strum::Display;
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span, warn};
-use yup_oauth2::{ServiceAccountAuthenticator, ServiceAccountKey};
+use yup_oauth2::{CustomHyperClientBuilder, ServiceAccountAuthenticator, ServiceAccountKey};
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
@@ -36,9 +37,30 @@ pub enum GeminiApiFormat {
 static DUMMY_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
 async fn get_token(sa_key: ServiceAccountKey) -> Result<String, ClewdrError> {
-    let auth = ServiceAccountAuthenticator::builder(sa_key).build().await?;
-    let scopes = &["https://www.googleapis.com/auth/cloud-platform"];
-    let token = auth.token(scopes).await?;
+    const SCOPES: [&str; 1] = ["https://www.googleapis.com/auth/cloud-platform"];
+    let token = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
+        let proxy = proxy
+            .trim_start_matches("http://")
+            .trim_start_matches("https://")
+            .trim_start_matches("socks5://");
+        let proxy = format!("http://{}", proxy);
+        let proxy_uri = proxy.parse()?;
+        let proxy = hyper_http_proxy::Proxy::new(hyper_http_proxy::Intercept::All, proxy_uri);
+        let connector = HttpConnector::new();
+        let proxy_connector = hyper_http_proxy::ProxyConnector::from_proxy(connector, proxy)?;
+        let client =
+            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+                .pool_max_idle_per_host(0)
+                .build(proxy_connector);
+        let client_builder = CustomHyperClientBuilder::from(client);
+        let auth = ServiceAccountAuthenticator::with_client(sa_key, client_builder)
+            .build()
+            .await?;
+        auth.token(&SCOPES).await?
+    } else {
+        let auth = ServiceAccountAuthenticator::builder(sa_key).build().await?;
+        auth.token(&SCOPES).await?
+    };
     let token = token.token().ok_or(ClewdrError::UnexpectedNone)?;
     Ok(token.into())
 }
