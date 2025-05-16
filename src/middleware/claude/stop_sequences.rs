@@ -19,9 +19,18 @@ fn stop_stream(
     try_stream!({
         let mut searches = vec![trie.inc_search()];
         for await event in stream {
-            let eventsource_stream::Event { data, .. } = event?;
-            let event = Event::default();
-            let event = event.data(&data);
+            let eventsource_stream::Event {
+                data,
+                id,
+                event,
+                retry,
+            } = event?;
+            let event = Event::default().event(event).id(id).data(&data);
+            let event = if let Some(retry) = retry {
+                event.retry(retry)
+            } else {
+                event
+            };
             let Ok(parsed) = serde_json::from_str::<StreamEvent>(&data) else {
                 yield event;
                 continue;
