@@ -1,5 +1,5 @@
-# v0.9.12
+# v0.9.13
 
-## Bug Fixes
+## Improvements
 
-- Install ca-certificates in Dockerfile to fix SSL errors in the container.
+- Support proxy for oauth2 login (HTTP only)
