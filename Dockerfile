@@ -35,6 +35,9 @@ FROM debian:bookworm-slim
 WORKDIR /app
 # 从后端构建阶段复制编译好的二进制文件
 COPY --from=backend-builder /app/target/release/clewdr .
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # 配置环境变量
 ENV CLEWDR_IP=0.0.0.0
