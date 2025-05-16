@@ -272,8 +272,7 @@ impl ClewdrConfig {
     /// # Returns
     /// * Config instance
     pub fn new() -> Self {
-        let mut config: ClewdrConfig = Figment::new()
-            .adjoin(Toml::file_exact(CONFIG_PATH.as_path()))
+        let mut config: ClewdrConfig = Figment::from(Toml::file(CONFIG_PATH.as_path()))
             .admerge(Env::prefixed("CLEWDR_"))
             .extract_lossy()
             .inspect_err(|e| {
