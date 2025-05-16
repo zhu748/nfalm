@@ -2,4 +2,4 @@
 
 ## Bug Fixes
 
-- Fix accepting optional missing config file
+- Install ca-certificates in Dockerfile to fix SSL errors in the container.
