@@ -4,6 +4,7 @@ use figment::{
     Figment,
     providers::{Env, Format, Toml},
 };
+use http::uri::Authority;
 use passwords::PasswordGenerator;
 use rquest::{Proxy, Url};
 use serde::{Deserialize, Serialize};
@@ -190,7 +191,8 @@ impl Default for ClewdrConfig {
 impl Display for ClewdrConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // one line per field
-        let authority = format!("{}:{}", self.ip, self.port);
+        let authority = self.address();
+        let authority: Authority = authority.to_string().parse().map_err(|_| std::fmt::Error)?;
         let api_url = Uri::builder()
             .scheme(Scheme::HTTP)
             .authority(authority.to_owned())
@@ -199,7 +201,7 @@ impl Display for ClewdrConfig {
             .map_err(|_| std::fmt::Error)?;
         let web_url = Uri::builder()
             .scheme(Scheme::HTTP)
-            .authority(authority)
+            .authority(authority.to_string())
             .path_and_query("")
             .build()
             .map_err(|_| std::fmt::Error)?;
