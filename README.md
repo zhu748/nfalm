@@ -2,29 +2,32 @@
 
 English | [简体中文](./README_zh.md)
 
-**ClewdR** is a high-performance, feature-rich Rust implementation of Claude/Gemini reverse proxy, completely rewritten from the ground up to overcome the limitations of the original [Clewd修改版](https://github.com/teralomaniac/clewd). Designed for speed, reliability, and ease of use, ClewdR offers a seamless way to interact with Claude AI models while bringing significant improvements to the user experience.
+**ClewdR** is a high-performance, feature-rich Rust implementation of Claude/Gemini reverse proxy, completely rewritten
+from the ground up to overcome the limitations of the original [Clewd修改版](https://github.com/teralomaniac/clewd).
+Designed for speed, reliability, and ease of use, ClewdR offers a seamless way to interact with Claude AI models while
+bringing significant improvements to the user experience.
 
 ## Key Features
 
-| Feature | ClewdR | Original Clewd |
-|---------|--------|----------------|
-| **Performance** | 3x Faster stream | Slow |
-| **Caching Responses** |  Supported | N/A |
-| **Memory Usage** | < 10MB | High |
-| **Concurrency** | Multithreaded concurrent requests | Single-threaded single request |
-| **Deployment** | Docker / Single Binary | Complex setup |
-| **Configuration** | React UI / File / Env | File / Env |
-| **Hot Reload** | Supported | N/A |
-| **Cookie Management** | Automatic | Limited |
-| **Proxy Support** | HTTP/HTTPS/SOCKS5 | N/A (needs TUN) |
-| **Dependencies** | N/A | Requires Node.js |
-| **HTTP Client** | Internal Rust `rquest` | External `superfetch` binary |
-| **Platform Support** | macOS and Android native | Not native, lack of `superfetch` |
-| **Backend** | `Axum` and `Tokio` | Custom Node.js backend |
-| **Extend Thinking** | Supported | N/A |
-| **Images** | Supported | N/A |
-| **Gemini Support** | Google AI Studio & Vertex AI | N/A |
-| **Multi-API Format** | Claude, Gemini, OpenAI | OpenAI only |
+| Feature               | ClewdR                            | Original Clewd                   |
+|-----------------------|-----------------------------------|----------------------------------|
+| **Performance**       | 3x Faster stream                  | Slow                             |
+| **Caching Responses** | Supported                         | N/A                              |
+| **Memory Usage**      | < 10MB                            | High                             |
+| **Concurrency**       | Multithreaded concurrent requests | Single-threaded single request   |
+| **Deployment**        | Docker / Single Binary            | Complex setup                    |
+| **Configuration**     | React UI / File / Env             | File / Env                       |
+| **Hot Reload**        | Supported                         | N/A                              |
+| **Cookie Management** | Automatic                         | Limited                          |
+| **Proxy Support**     | HTTP/HTTPS/SOCKS5                 | N/A (needs TUN)                  |
+| **Dependencies**      | N/A                               | Requires Node.js                 |
+| **HTTP Client**       | Internal Rust `rquest`            | External `superfetch` binary     |
+| **Platform Support**  | macOS and Android native          | Not native, lack of `superfetch` |
+| **Backend**           | `Axum` and `Tokio`                | Custom Node.js backend           |
+| **Extend Thinking**   | Supported                         | N/A                              |
+| **Images**            | Supported                         | N/A                              |
+| **Gemini Support**    | Google AI Studio & Vertex AI      | N/A                              |
+| **Multi-API Format**  | Claude, Gemini, OpenAI            | OpenAI only                      |
 
 ## How to Start
 
@@ -32,14 +35,14 @@ English | [简体中文](./README_zh.md)
 2. Run `clewdr` / `clewdr.exe`.
 3. Open `http://127.0.0.1:8484` in your browser to configure the proxy.
 4. In SillyTavern: Set as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill password.
-   - Works perfectly in non-stream mode with SillyTavern (no fake stream needed)
-   - Supports both Gemini and Claude models
+    - Works perfectly in non-stream mode with SillyTavern (no fake stream needed)
+    - Supports both Gemini and Claude models
 
 ## System Requirements
 
 - Windows 8+, macOS 10.12+, Linux, Android
 - Prebuilt Linux binaries require glibc 2.38 or later
-  - You can use `musl`-based binaries for older systems
+    - You can use `musl`-based binaries for older systems
 - No additional runtime dependencies required
 
 ## Configuration Options
@@ -59,9 +62,9 @@ Access the web UI at `http://127.0.0.1:8484` to configure:
 
 ## Community Resources
 
-- [Getting Tokens Using Vertex](https://github.com/wyeeeee/hajimi/blob/main/wiki/vertex.md)
-- [Linux One-click Script (Chinese)](https://github.com/rzline/st-cr-ins.sh)
-- [Deploy ClewdR to HuggingFace Space (Chinese)](./wiki/hf-space.md)
+Check out GitHub Wiki for more information and community resources:
+
+- [ClewdR Wiki](https://github.com/Xerxes-2/clewdr/wiki)
 
 ## Contributing
 
