@@ -230,6 +230,7 @@ impl GeminiState {
         &mut self,
         p: impl Serialize + GetHashKey + Clone,
     ) -> Result<Response, ClewdrError> {
+        let mut err = None;
         for i in 0..CLEWDR_CONFIG.load().max_retries + 1 {
             if i > 0 {
                 info!("[RETRY] attempt: {}", i.to_string().green());
@@ -241,6 +242,7 @@ impl GeminiState {
                 Ok(resp) => {
                     let Ok(stream) = state.check_empty_choices(resp).await else {
                         warn!("Empty choices");
+                        err = Some(ClewdrError::EmptyChoices);
                         continue;
                     };
                     let res = transform_response(self.cache_key, stream).await;
@@ -261,6 +263,7 @@ impl GeminiState {
                                     });
                                 });
                             }
+                            err = Some(e);
                             continue;
                         }
                         e => return Err(e),
@@ -269,6 +272,9 @@ impl GeminiState {
             }
         }
         error!("Max retries exceeded");
+        if let Some(e) = err {
+            return Err(e);
+        }
         Err(ClewdrError::TooManyRetries)
     }
 
