@@ -11,7 +11,7 @@ pub struct RequiredMessageParams {
 }
 
 fn default_max_tokens() -> u32 {
-    4096
+    8192
 }
 /// Parameters for creating a message
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
