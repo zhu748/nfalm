@@ -1,75 +1,65 @@
 # Clewd<span style="color:#CE422B">R</span>
 
-[English](./README.md) | 简体中文
+## 高性能 LLM 代理
 
-**ClewdR** 是一个高性能、功能丰富的 Claude/Gemini 逆向代理实现，使用 Rust
-语言完全重写，旨在克服原版 [Clewd 修改版](https://github.com/teralomaniac/clewd) 的局限性。ClewdR 设计注重速度、可靠性和易用性，为用户提供与
-Claude AI 模型交互的无缝体验，同时显著改善用户体验。
+专为 Claude (Claude.ai) 和 Gemini (Google AI Studio, Google Vertex AI) 打造
 
-## 核心功能
+## 核心优势
 
-| 功能            | ClewdR                       | 原版 Clewd              |
-|---------------|------------------------------|-----------------------|
-| **性能**        | 流式传输速度提升3倍                   | 处理速度较慢                |
-| **缓存响应**      | 支持                           | 不适用                   |
-| **内存占用**      | < 10MB                       | 较高                    |
-| **并发**        | 多线程并发请求                      | 单线程单请求                |
-| **部署**        | Docker / 单一二进制文件             | 复杂设置                  |
-| **配置**        | React UI / 文件 / 环境变量         | 文件 / 环境变量             |
-| **热重载**       | 支持                           | 不适用                   |
-| **Cookie 管理** | 自动                           | 有限                    |
-| **代理支持**      | HTTP/HTTPS/SOCKS5            | 不适用 (需要 TUN)          |
-| **依赖**        | 无                            | 需要 Node.js            |
-| **HTTP 客户端**  | 内置 Rust `rquest`             | 外部 `superfetch` 二进制文件 |
-| **平台支持**      | macOS 和 Android 原生支持         | 非原生支持，缺少 `superfetch` |
-| **后端**        | `Axum` 和 `Tokio`             | 自制 Node.js 后端         |
-| **思维链扩展**     | 支持                           | 不适用                   |
-| **图片**        | 支持                           | 不适用                   |
-| **Gemini 支持** | Google AI Studio 和 Vertex AI | 不适用                   |
-| **多 API 格式**  | Claude, Gemini, OpenAI       | 仅 OpenAI              |
+### 全功能前端
 
-## 使用指南
+- 集成式 React 前端，提供完整功能体验
 
-1. 从 [GitHub 发布页](https://github.com/xerxes-2/clewdr/releases) 下载对应平台二进制文件
-2. 运行`clewdr`或`clewdr.exe`
-3. 浏览器访问`http://127.0.0.1:8484`配置代理
-4. 在 SillyTavern 中设置为 Claude 反向代理（**非**OpenAI 兼容模式），务必填写密码
-    - 完美支持 SillyTavern 非流式模式（无需假流式传输）
-    - 同时支持 Gemini 和 Claude 模型
+### 高效架构
 
-## 系统要求
+- 相比脚本语言实现占用十分之一，性能十倍，轻松每秒上千请求
+- 事件驱动设计，逻辑解耦，支持热重载和多种配置方式
+- Moka 技术支持的高性能回复缓存
+- 基于 Tokio 和 Axum 的多线程异步处理
+- 指纹级模拟 Chrome 的 Rquest HTTP 客户端
 
-- Windows 8+, macOS 10.12+, Linux, Android
-- Linux 预构建二进制文件需要 glibc 2.38 或更新版本
-    - 较旧系统可使用基于 musl 的二进制文件
-- 无需额外运行时依赖
+### 智能 Cookie 管理
 
-## 配置选项
+- 自动分类管理账号状态
+- 精细化轮询机制，最大化资源利用
 
-访问网页界面 `http://127.0.0.1:8484` 进行配置：
+### 全平台兼容
 
-- 代理设置
-- 认证选项
-- Claude API 参数
-- Gemini API 选项（Google AI Studio 和 Vertex AI）
-- 请求处理偏好设置
+- Rust 静态编译，单二进制部署，不需要环境依赖
+- 原生支持 macOS/Android 等多平台
+- 极低内存占用（仅个位数 MB）
+- 无需虚拟机或复杂依赖
 
-## 故障排除
+### 增强功能
 
-- **连接问题**：检查网络连接和代理设置
-- **认证错误**：确保配置了正确的密码
+- 内置代理服务器支持（无需 TUN）
+- 并发缓存请求处理
+- Gemini 额外支持：
+  - Google AI Studio 和 Google Vertex AI
+  - OpenAI 兼容模式 / Gemini 格式
+  - 无痛 Http Keep-Alive 支持
+- Claude 额外支持：
+  - OpenAI 兼容模式 / Claude 格式
+  - Extend Thinking 扩展思考
+  - 代理端实现停止序列
+  - 图片附件上传
+  - 网页搜索
+  - Claude Max
 
-## 贡献
+## 快速上手
 
-欢迎贡献！请随时在 GitHub 上提交问题或拉取请求。
+1. 下载对应平台的程序包（[最新版本](https://github.com/Xerxes-2/clewdr/releases/latest)）
+2. 首次运行将自动生成密码，访问默认前端地址 <http://127.0.0.1:8484>，使用控制台显示的 Web Admin Password 进行登录
+   - 如果需要修改密码，可以在前端界面中设置新的密码
+   - 如果忘记密码，可以删除 `clewdr.toml` 文件重新生成
+   - 注意：如果使用 Docker 部署，密码会在容器启动时生成并显示在日志中
+3. 在前端界面中配置代理地址和其他参数，添加 Cookie 和 Key
+4. 第三方应用配置：
+    1. ClewdR 启动时会在控制台打印各个 API 的访问地址
+    2. 选择你想要的 API 格式（Claude 或 Gemini 或 OpenAI 兼容）
+    3. 在 SillyTavern 等应用中设置为相应的代理地址，代理密码填写控制台显示的 API Password
+5. 享受高性能 LLM 代理服务！
 
 ## 社区资源
 
-访问 GitHub Wiki 获取更多信息和社区资源：
-
-- [ClewdR Wiki](https://github.com/Xerxes-2/clewdr/wiki)
-
-## 许可证
-
-本项目采用 CC-BY-NC-SA 4.0 许可证。有关详细信息，请参阅 [LICENSE](./LICENSE.md) 文件。
-本软件不得用于商业目的。
+**Github 聚合 Wiki**：<https://github.com/Xerxes-2/clewdr/wiki>

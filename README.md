@@ -1,76 +1,67 @@
 # Clewd<span style="color:#CE422B">R</span>
 
-English | [简体中文](./README_zh.md)
+[English](./README.md) | [简体中文](./README_zh.md)
 
-**ClewdR** is a high-performance, feature-rich Rust implementation of Claude/Gemini reverse proxy, completely rewritten
-from the ground up to overcome the limitations of the original [Clewd修改版](https://github.com/teralomaniac/clewd).
-Designed for speed, reliability, and ease of use, ClewdR offers a seamless way to interact with Claude AI models while
-bringing significant improvements to the user experience.
+## High-Performance LLM Proxy
 
-## Key Features
+Specifically built for Claude (Claude.ai) and Gemini (Google AI Studio, Google Vertex AI)
 
-| Feature               | ClewdR                            | Original Clewd                   |
-|-----------------------|-----------------------------------|----------------------------------|
-| **Performance**       | 3x Faster stream                  | Slow                             |
-| **Caching Responses** | Supported                         | N/A                              |
-| **Memory Usage**      | < 10MB                            | High                             |
-| **Concurrency**       | Multithreaded concurrent requests | Single-threaded single request   |
-| **Deployment**        | Docker / Single Binary            | Complex setup                    |
-| **Configuration**     | React UI / File / Env             | File / Env                       |
-| **Hot Reload**        | Supported                         | N/A                              |
-| **Cookie Management** | Automatic                         | Limited                          |
-| **Proxy Support**     | HTTP/HTTPS/SOCKS5                 | N/A (needs TUN)                  |
-| **Dependencies**      | N/A                               | Requires Node.js                 |
-| **HTTP Client**       | Internal Rust `rquest`            | External `superfetch` binary     |
-| **Platform Support**  | macOS and Android native          | Not native, lack of `superfetch` |
-| **Backend**           | `Axum` and `Tokio`                | Custom Node.js backend           |
-| **Extend Thinking**   | Supported                         | N/A                              |
-| **Images**            | Supported                         | N/A                              |
-| **Gemini Support**    | Google AI Studio & Vertex AI      | N/A                              |
-| **Multi-API Format**  | Claude, Gemini, OpenAI            | OpenAI only                      |
+## Core Advantages
 
-## How to Start
+### Full-Featured Frontend
 
-1. Download binary for your platform from [GitHub releases](https://github.com/xerxes-2/clewdr/releases).
-2. Run `clewdr` / `clewdr.exe`.
-3. Open `http://127.0.0.1:8484` in your browser to configure the proxy.
-4. In SillyTavern: Set as Claude Reverse Proxy, **NOT** OpenAI Compatible. Remember to fill password.
-    - Works perfectly in non-stream mode with SillyTavern (no fake stream needed)
-    - Supports both Gemini and Claude models
+- Integrated React frontend providing a complete functional experience
 
-## System Requirements
+### Efficient Architecture
 
-- Windows 8+, macOS 10.12+, Linux, Android
-- Prebuilt Linux binaries require glibc 2.38 or later
-    - You can use `musl`-based binaries for older systems
-- No additional runtime dependencies required
+- Occupies one-tenth the resources compared to script language implementations, with ten times the performance, easily handling thousands of requests per second
+- Event-driven design, decoupled logic, supports hot reloading and multiple configuration methods
+- High-performance response caching supported by Moka technology
+- Multi-threaded asynchronous processing based on Tokio and Axum
+- Fingerprint-level Chrome simulation Rquest HTTP client
 
-## Configuration Options
+### Intelligent Cookie Management
 
-Access the web UI at `http://127.0.0.1:8484` to configure:
+- Automatic classification and management of account status
+- Fine-grained polling mechanism to maximize resource utilization
 
-- Proxy settings
-- Authentication options
-- Claude API parameters
-- Gemini API options (Google AI Studio & Vertex AI)
-- Request handling preferences
+### Full Platform Compatibility
 
-## Troubleshooting
+- Rust static compilation, single binary deployment, no environment dependencies needed
+- Native support for macOS/Android and other platforms
+- Extremely low memory usage (only single-digit MB)
+- No need for virtual machines or complex dependencies
 
-- **Connection Issues**: Verify network connectivity and proxy settings
-- **Authentication Errors**: Ensure correct password is configured
+### Enhanced Features
+
+- Built-in proxy server support (no TUN required)
+- Concurrent cache request handling
+- Gemini additional support:
+  - Google AI Studio and Google Vertex AI
+  - OpenAI compatible mode / Gemini format
+  - Painless HTTP Keep-Alive support
+- Claude additional support:
+  - OpenAI compatible mode / Claude format
+  - Extend Thinking
+  - Stop sequences implemented on the proxy side
+  - Image attachment uploads
+  - Web search
+  - Claude Max
+
+## Quick Start
+
+1. Download the program package for your platform ([Latest Version](https://github.com/Xerxes-2/clewdr/releases/latest))
+2. The password will be automatically generated on the first run. Access the default frontend address <http://127.0.0.1:8484>, and log in using the Web Admin Password displayed in the console.
+   - If you need to change the password, you can set a new one in the frontend interface.
+   - If you forget the password, you can delete the `clewdr.toml` file to regenerate it.
+   - Note: If deploying with Docker, the password will be generated and displayed in the logs when the container starts.
+3. Configure the proxy address and other parameters in the frontend interface, add Cookies and Keys.
+4. Third-party application configuration:
+    1. ClewdR will print the access addresses for each API in the console when it starts.
+    2. Choose the API format you want (Claude or Gemini or OpenAI compatible).
+    3. Set the corresponding proxy address in applications like SillyTavern, and fill in the API Password displayed in the console as the proxy password.
+5. Enjoy the high-performance LLM proxy service!
 
 ## Community Resources
 
-Check out GitHub Wiki for more information and community resources:
-
-- [ClewdR Wiki](https://github.com/Xerxes-2/clewdr/wiki)
-
-## Contributing
-
-Contributions welcome! Feel free to submit issues or pull requests on GitHub.
-
-## License
-
-This project is licensed under [CC BY-NC-SA 4.0](./LICENSE.md) - see the LICENSE file for details.
-This software may not be used for commercial purposes.
+**Github Aggregated Wiki**: <https://github.com/Xerxes-2/clewdr/wiki>
