@@ -46,12 +46,17 @@ eventsource-stream = "0.2"
 enable-ansi-support = "0.2"
 tracing-appender = "0.2"
 self-replace = "1"
-zip = "2"
+zip = "3"
 tempfile = "3"
 axum-auth = "0.8"
 tiktoken-rs = "0.6"
 passwords = "3"
-tower-http = { version = "0.6", features = ["compression-zstd", "cors", "fs", "trace"] }
+tower-http = { version = "0.6", features = [
+    "compression-zstd",
+    "cors",
+    "fs",
+    "trace",
+] }
 figment = { version = "0.10", features = ["env", "json", "toml"] }
 arc-swap = "1"
 include_dir = "0.7"
