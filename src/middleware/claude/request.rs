@@ -110,7 +110,7 @@ impl FromRequest<ClaudeState> for ClaudePreprocess {
         if let Some(mut r) = state.try_from_cache(&body).await {
             r.extensions_mut().insert(info.to_owned());
             let r = to_oai(r).await.into_response();
-            return Err(ClewdrError::CacheFound(r));
+            return Err(ClewdrError::CacheFound { res: Box::new(r) });
         }
 
         Ok(Self(body, info))

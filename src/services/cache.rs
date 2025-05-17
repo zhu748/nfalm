@@ -2,6 +2,7 @@ use bytes::Bytes;
 use futures::{Stream, TryStreamExt, stream};
 use moka::sync::Cache;
 use serde_json::Value;
+use snafu::ResultExt;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     sync::{Arc, LazyLock},
@@ -11,7 +12,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
-    error::ClewdrError,
+    error::{ClewdrError, RquestSnafu},
     types::{
         claude_message::{CreateMessageParams, Message, Role},
         gemini::request::{Chat, GeminiRequestBody, SystemInstruction, Tool},
@@ -179,7 +180,9 @@ impl CachedResponse {
 async fn stream_to_vec(
     stream: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
 ) -> Result<Vec<Bytes>, ClewdrError> {
-    Ok(stream.try_collect().await?)
+    stream.try_collect().await.context(RquestSnafu {
+        msg: "Failed to collect stream into vector",
+    })
 }
 
 /// Converts a vector of bytes to a stream of successful results

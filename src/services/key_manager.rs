@@ -205,7 +205,9 @@ impl KeyManager {
             self.log();
             Ok(())
         } else {
-            Err(ClewdrError::UnexpectedNone)
+            Err(ClewdrError::UnexpectedNone {
+                msg: "Delete operation did not find the key",
+            })
         }
     }
 

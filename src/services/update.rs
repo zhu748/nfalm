@@ -1,6 +1,8 @@
 use colored::Colorize;
+use http::header::USER_AGENT;
 use rquest::Client;
 use serde::Deserialize;
+use snafu::ResultExt;
 use std::{
     env,
     fs::File,
@@ -9,7 +11,7 @@ use std::{
 use tracing::info;
 use zip::ZipArchive;
 
-use crate::{Args, config::CLEWDR_CONFIG, error::ClewdrError};
+use crate::{config::CLEWDR_CONFIG, error::{ClewdrError, RquestSnafu}, Args};
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -42,7 +44,12 @@ impl ClewdrUpdater {
         let repo_owner = authors.split(':').next().unwrap_or("Xerxes-2");
         let repo_name = env!("CARGO_PKG_NAME");
         let policy = rquest::redirect::Policy::default();
-        let client = rquest::Client::builder().redirect(policy).build()?;
+        let client = rquest::Client::builder()
+            .redirect(policy)
+            .build()
+            .context(RquestSnafu {
+                msg: "Failed to create HTTP client",
+            })?;
 
         let user_agent = format!(
             "clewdr/{} (+https://github.com/{}/{})",
@@ -86,12 +93,20 @@ impl ClewdrUpdater {
         let response = self
             .client
             .get(&url)
-            .header("User-Agent", &self.user_agent)
+            .header(USER_AGENT, &self.user_agent)
             .send()
-            .await?
-            .error_for_status()?;
+            .await
+            .context(RquestSnafu {
+                msg: "Failed to fetch latest release from GitHub",
+            })?
+            .error_for_status()
+            .context(RquestSnafu {
+                msg: "Fetch latest release from GitHub returned an error",
+            })?;
 
-        let release: GitHubRelease = response.json().await?;
+        let release: GitHubRelease = response.json().await.context(RquestSnafu {
+            msg: "Failed to parse GitHub release response",
+        })?;
         let latest_version = release.tag_name.trim_start_matches('v');
         let current_version = env!("CARGO_PKG_VERSION");
 
@@ -138,13 +153,21 @@ impl ClewdrUpdater {
         let response = self
             .client
             .get(&asset.browser_download_url)
-            .header("User-Agent", &self.user_agent)
+            .header(USER_AGENT, &self.user_agent)
             .send()
-            .await?
-            .error_for_status()?;
+            .await
+            .context(RquestSnafu {
+                msg: "Failed to download update asset",
+            })?
+            .error_for_status()
+            .context(RquestSnafu {
+                msg: "Download update asset returned an error",
+            })?;
 
         // Save the downloaded file
-        let content = response.bytes().await?;
+        let content = response.bytes().await.context(RquestSnafu {
+            msg: "Failed to read response bytes from update asset",
+        })?;
         let mut file = File::create(&zip_path)?;
         copy(&mut content.as_ref(), &mut file)?;
 
@@ -167,10 +190,9 @@ impl ClewdrUpdater {
         let binary_path = extract_dir.join(binary_name);
 
         if !binary_path.exists() {
-            return Err(ClewdrError::AssetError(format!(
-                "Binary not found in the update package: {}",
-                binary_name
-            )));
+            return Err(ClewdrError::AssetError {
+                msg: format!("Binary not found in the update package: {}", binary_name),
+            });
         }
 
         // Make the binary executable on Unix systems
@@ -189,9 +211,9 @@ impl ClewdrUpdater {
             if so_path.exists() {
                 let current_dir = env::current_exe()?
                     .parent()
-                    .ok_or(ClewdrError::PathNotFound(
-                        "Failed to get current directory".to_string(),
-                    ))?
+                    .ok_or(ClewdrError::AssetError {
+                        msg: "Failed to get current directory",
+                    })?
                     .to_path_buf();
                 let target_so_path = current_dir.join("libc++_shared.so");
                 std::fs::copy(&so_path, &target_so_path)?;
@@ -244,10 +266,9 @@ impl ClewdrUpdater {
             ("macos", "aarch64") => "macos-aarch64",
             ("android", "aarch64") => "android-aarch64",
             _ => {
-                return Err(ClewdrError::AssetError(format!(
-                    "Unsupported platform: {}-{}",
-                    os, arch
-                )));
+                return Err(ClewdrError::AssetError {
+                    msg: format!("Unsupported platform: {}-{}", os, arch),
+                });
             }
         };
         info!("Detected platform: {}", target);
@@ -255,10 +276,9 @@ impl ClewdrUpdater {
             .assets
             .iter()
             .find(|asset| asset.name.contains(target) && asset.name.ends_with(".zip"))
-            .ok_or(ClewdrError::AssetError(format!(
-                "No suitable asset found for platform: {}",
-                target
-            )))
+            .ok_or(ClewdrError::AssetError {
+                msg: format!("No suitable asset found for platform: {}", target),
+            })
     }
 
     /// Compares two version strings to determine if an update is needed
@@ -274,7 +294,9 @@ impl ClewdrUpdater {
         let parse_version = |v: &str| -> Result<(u32, u32, u32), ClewdrError> {
             let vec = v.split('.').collect::<Vec<_>>();
             let [major, minor, patch, ..] = vec.as_slice() else {
-                return Err(ClewdrError::InvalidVersion(v.to_string()));
+                return Err(ClewdrError::InvalidVersion {
+                    version: v.to_string(),
+                });
             };
             Ok((major.parse()?, minor.parse()?, patch.parse()?))
         };

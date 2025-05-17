@@ -4,6 +4,7 @@ use rquest::{
     header::{ORIGIN, REFERER},
 };
 use rquest_util::Emulation;
+use snafu::ResultExt;
 use strum::Display;
 use tracing::{debug, error};
 use url::Url;
@@ -12,7 +13,7 @@ use std::sync::LazyLock;
 
 use crate::{
     config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},
-    error::ClewdrError,
+    error::{ClewdrError, RquestSnafu},
     services::cookie_manager::CookieEventSender,
 };
 
@@ -118,7 +119,9 @@ impl ClaudeState {
         if let Some(ref proxy) = self.proxy {
             client = client.proxy(proxy.to_owned());
         }
-        self.client = client.build()?;
+        self.client = client.build().context(RquestSnafu {
+            msg: "Failed to build client with new cookie",
+        })?;
         self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
         // load newest config
         self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
@@ -157,7 +160,13 @@ impl ClaudeState {
             self.endpoint, org_uuid, conv_uuid
         );
         debug!("Deleting chat: {}", conv_uuid);
-        let _ = self.build_request(Method::DELETE, endpoint).send().await?;
+        let _ = self
+            .build_request(Method::DELETE, endpoint)
+            .send()
+            .await
+            .context(RquestSnafu {
+                msg: "Failed to delete chat conversation",
+            });
         Ok(())
     }
 }

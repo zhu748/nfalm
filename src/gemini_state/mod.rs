@@ -11,6 +11,7 @@ use hyper_util::client::legacy::connect::HttpConnector;
 use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
 use serde_json::Value;
+use snafu::ResultExt;
 use strum::Display;
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span, warn};
@@ -18,7 +19,7 @@ use yup_oauth2::{CustomHyperClientBuilder, ServiceAccountAuthenticator, ServiceA
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
-    error::{CheckGeminiErr, ClewdrError},
+    error::{CheckGeminiErr, ClewdrError, InvalidUriSnafu, RquestSnafu},
     gemini_body::GeminiArgs,
     middleware::gemini::GeminiContext,
     services::{
@@ -44,7 +45,9 @@ async fn get_token(sa_key: ServiceAccountKey) -> Result<String, ClewdrError> {
             .trim_start_matches("https://")
             .trim_start_matches("socks5://");
         let proxy = format!("http://{}", proxy);
-        let proxy_uri = proxy.parse()?;
+        let proxy_uri = proxy.parse().context(InvalidUriSnafu {
+            uri: proxy.to_owned(),
+        })?;
         let proxy = hyper_http_proxy::Proxy::new(hyper_http_proxy::Intercept::All, proxy_uri);
         let connector = HttpConnector::new();
         let proxy_connector = hyper_http_proxy::ProxyConnector::from_proxy(connector, proxy)?;
@@ -61,7 +64,9 @@ async fn get_token(sa_key: ServiceAccountKey) -> Result<String, ClewdrError> {
         let auth = ServiceAccountAuthenticator::builder(sa_key).build().await?;
         auth.token(&SCOPES).await?
     };
-    let token = token.token().ok_or(ClewdrError::UnexpectedNone)?;
+    let token = token.token().ok_or(ClewdrError::UnexpectedNone {
+        msg: "Oauth token is None",
+    })?;
     Ok(token.into())
 }
 
@@ -113,7 +118,9 @@ impl GeminiState {
         } else {
             client
         };
-        self.client = client.build()?;
+        self.client = client.build().context(RquestSnafu {
+            msg: "Failed to build Gemini client",
+        })?;
         Ok(())
     }
 
@@ -136,7 +143,9 @@ impl GeminiState {
         } else {
             client
         };
-        self.client = client.build()?;
+        self.client = client.build().context(RquestSnafu {
+            msg: "Failed to build Gemini client",
+        })?;
         let method = if self.stream {
             "streamGenerateContent"
         } else {
@@ -145,9 +154,9 @@ impl GeminiState {
 
         // Get an access token
         let Some(cred) = CLEWDR_CONFIG.load().vertex.credential.to_owned() else {
-            return Err(ClewdrError::BadRequest(
-                "Vertex credential not found".to_string(),
-            ));
+            return Err(ClewdrError::BadRequest {
+                msg: "Vertex credential not found",
+            });
         };
 
         let access_token = get_token(cred.to_owned()).await?;
@@ -167,7 +176,10 @@ impl GeminiState {
                     .header(AUTHORIZATION, bearer)
                     .json(&p)
                     .send()
-                    .await?
+                    .await
+                    .context(RquestSnafu {
+                        msg: "Failed to send request to Gemini Vertex API",
+                    })?
             }
             GeminiApiFormat::OpenAI => {
                 self.client
@@ -178,7 +190,10 @@ impl GeminiState {
                     .header(AUTHORIZATION, bearer)
                     .json(&p)
                     .send()
-                    .await?
+                    .await
+                    .context(RquestSnafu {
+                        msg: "Failed to send request to Gemini Vertex OpenAI API",
+                    })?
             }
         };
         let res = res.check_gemini().await?;
@@ -195,7 +210,9 @@ impl GeminiState {
         }
         self.request_key().await?;
         let Some(key) = self.key.to_owned() else {
-            return Err(ClewdrError::UnexpectedNone);
+            return Err(ClewdrError::UnexpectedNone {
+                msg: "Key is None, did you request a key?",
+            });
         };
         info!("[KEY] {}", key.key.ellipse().green());
         let key = key.key.to_string();
@@ -208,19 +225,24 @@ impl GeminiState {
                     .query(&query_vec)
                     .json(&p)
                     .send()
-                    .await?
+                    .await
+                    .context(RquestSnafu {
+                        msg: "Failed to send request to Gemini API",
+                    })?
             }
-            GeminiApiFormat::OpenAI => {
-                self.client
-                    .post(format!(
-                        "{}/v1beta/openai/chat/completions",
-                        GEMINI_ENDPOINT,
-                    ))
-                    .header(AUTHORIZATION, format!("Bearer {}", key))
-                    .json(&p)
-                    .send()
-                    .await?
-            }
+            GeminiApiFormat::OpenAI => self
+                .client
+                .post(format!(
+                    "{}/v1beta/openai/chat/completions",
+                    GEMINI_ENDPOINT,
+                ))
+                .header(AUTHORIZATION, format!("Bearer {}", key))
+                .json(&p)
+                .send()
+                .await
+                .context(RquestSnafu {
+                    msg: "Failed to send request to Gemini OpenAI API",
+                })?,
         };
         let res = res.check_gemini().await?;
         Ok(res)
@@ -255,8 +277,8 @@ impl GeminiState {
                         error!("{}", e);
                     }
                     match e {
-                        ClewdrError::GeminiHttpError(s, _) => {
-                            if s == 403 {
+                        ClewdrError::GeminiHttpError { code, .. } => {
+                            if code == 403 {
                                 spawn(async move {
                                     state.report_403().await.unwrap_or_else(|e| {
                                         error!("Failed to report 403: {}", e);
@@ -305,7 +327,9 @@ impl GeminiState {
         if self.stream {
             return Ok(Either::Left(resp.bytes_stream()));
         }
-        let bytes = resp.bytes().await?;
+        let bytes = resp.bytes().await.context(RquestSnafu {
+            msg: "Failed to get bytes from Gemini response",
+        })?;
 
         match self.api_format {
             GeminiApiFormat::Gemini => {

@@ -1,8 +1,13 @@
-use axum::{Json, extract::rejection::JsonRejection, response::IntoResponse};
+use axum::{
+    Json,
+    extract::rejection::{JsonRejection, PathRejection, QueryRejection},
+    response::IntoResponse,
+};
 use colored::Colorize;
 use rquest::{Response, StatusCode, header::InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use snafu::Location;
 use std::fmt::Display;
 use strum::IntoStaticStr;
 use tokio::sync::oneshot;
@@ -14,99 +19,148 @@ use crate::{
     types::claude_message::Message,
 };
 
-#[derive(thiserror::Error, Debug, IntoStaticStr)]
+#[derive(Debug, IntoStaticStr, snafu::Snafu)]
+#[snafu(visibility(pub(crate)))]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
-    #[error(transparent)]
-    InvalidUri(#[from] http::uri::InvalidUri),
-    #[error(transparent)]
-    YuOAuth2Error(#[from] yup_oauth2::Error),
-    #[error("API returns no choice")]
+    #[snafu(display("Invalid URI: {}", uri))]
+    InvalidUri {
+        uri: String,
+        source: http::uri::InvalidUri,
+    },
+    #[snafu(display("YuOAuth2 error: {}", source))]
+    #[snafu(context(false))]
+    YuOAuth2Error { source: yup_oauth2::Error },
+    #[snafu(display("Empty choices"))]
     EmptyChoices,
-    #[error(transparent)]
-    JsonError(#[from] serde_json::Error),
-    #[error(transparent)]
-    PathRejection(#[from] axum::extract::rejection::PathRejection),
-    #[error(transparent)]
-    QueryRejection(#[from] axum::extract::rejection::QueryRejection),
-    #[error("Cache found")]
-    CacheFound(axum::response::Response),
-    #[error("Test Message")]
+    #[snafu(display("JSON error: {}", source))]
+    #[snafu(context(false))]
+    JsonError { source: serde_json::Error },
+    #[snafu(transparent)]
+    PathRejection { source: PathRejection },
+    #[snafu(transparent)]
+    QueryRejection { source: QueryRejection },
+    #[snafu(display("Cache found"))]
+    CacheFound { res: Box<axum::response::Response> },
+    #[snafu(display("Test Message"))]
     TestMessage,
-    #[error(transparent)]
-    FmtError(#[from] std::fmt::Error),
-    #[error(transparent)]
-    InvalidHeaderValue(#[from] InvalidHeaderValue),
-    #[error("Bad request: {0}")]
-    BadRequest(String),
-    #[error("Pad text too short")]
+    #[snafu(display("FmtError: {}", source))]
+    #[snafu(context(false))]
+    FmtError {
+        #[snafu(implicit)]
+        loc: Location,
+        source: std::fmt::Error,
+    },
+    #[snafu(display("Invalid header value: {}", source))]
+    #[snafu(context(false))]
+    InvalidHeaderValue { source: InvalidHeaderValue },
+    #[snafu(display("Bad request: {}", msg))]
+    BadRequest { msg: &'static str },
+    #[snafu(display("Pad text too short"))]
     PadtxtTooShort,
-    #[error(transparent)]
-    FigmentError(#[from] figment::Error),
-    #[error(transparent)]
-    KeySendError(#[from] tokio::sync::mpsc::error::SendError<KeyEvent>),
-    #[error(transparent)]
-    CookieSendError(#[from] tokio::sync::mpsc::error::SendError<CookieEvent>),
-    #[error("Retries exceeded")]
+    #[snafu(display("Key send error: {}", source))]
+    #[snafu(context(false))]
+    KeySendError {
+        source: tokio::sync::mpsc::error::SendError<KeyEvent>,
+    },
+    #[snafu(display("Cookie send error: {}", source))]
+    #[snafu(context(false))]
+    CookieSendError {
+        source: tokio::sync::mpsc::error::SendError<CookieEvent>,
+    },
+    #[snafu(display("Retries exceeded"))]
     TooManyRetries,
-    #[error(transparent)]
-    EventSourceError(#[from] eventsource_stream::EventStreamError<axum::Error>),
-    #[error(transparent)]
-    ZipError(#[from] zip::result::ZipError),
-    #[error("Asset Error: {0}")]
-    AssetError(String),
-    #[error("Invalid version: {0}")]
-    InvalidVersion(String),
-    #[error(transparent)]
-    ParseIntError(#[from] std::num::ParseIntError),
-    #[error(transparent)]
-    CookieDispatchError(#[from] oneshot::error::RecvError),
-    #[error("No cookie available")]
+    #[snafu(display("EventSource error: {}", source))]
+    #[snafu(context(false))]
+    EventSourceError {
+        source: eventsource_stream::EventStreamError<axum::Error>,
+    },
+    #[snafu(display("Zip error: {}", source))]
+    #[snafu(context(false))]
+    ZipError { source: zip::result::ZipError },
+    #[snafu(display("Asset Error: {}", msg))]
+    AssetError { msg: String },
+    #[snafu(display("Invalid version: {}", version))]
+    InvalidVersion { version: String },
+    #[snafu(display("ParseInt error: {}", source))]
+    #[snafu(context(false))]
+    ParseIntError { source: std::num::ParseIntError },
+    #[snafu(display("Cookie dispatch error: {}", source))]
+    #[snafu(context(false))]
+    CookieDispatchError { source: oneshot::error::RecvError },
+    #[snafu(display("No cookie available"))]
     NoCookieAvailable,
-    #[error("No key available")]
+    #[snafu(display("No key available"))]
     NoKeyAvailable,
-    #[error("Invalid Cookie: {0}")]
-    InvalidCookie(Reason),
-    #[error(transparent)]
-    TomlDeError(#[from] toml::de::Error),
-    #[error(transparent)]
-    TomlSeError(#[from] toml::ser::Error),
-    #[error(transparent)]
-    JsonRejection(#[from] JsonRejection),
-    #[error(transparent)]
-    RquestError(#[from] rquest::Error),
-    #[error(transparent)]
-    UTF8Error(#[from] std::string::FromUtf8Error),
-    #[error("Http error: code: {}, body: {}", .0.to_string().red(), .1.to_string())]
-    ClaudeHttpError(StatusCode, ClaudeErrorBody),
-    #[error("Http error: code: {}, body: {}", .0.to_string().red(), serde_json::to_string_pretty(&.1).unwrap_or_default())]
-    GeminiHttpError(StatusCode, Value),
-    #[error("Unexpected None")]
-    UnexpectedNone,
-    #[error(transparent)]
-    IoError(#[from] std::io::Error),
-    #[error("Config error: {0}")]
-    PathNotFound(String),
-    #[error("Invalid timestamp: {0}")]
-    TimestampError(i64),
-    #[error("Key/Password Invalid")]
+    #[snafu(display("Invalid Cookie: {}", reason))]
+    #[snafu(context(false))]
+    InvalidCookie {
+        #[snafu(source)]
+        reason: Reason,
+    },
+    #[snafu(display("Failed to parse TOML: {}", source))]
+    #[snafu(context(false))]
+    TomlDeError { source: toml::de::Error },
+    #[snafu(transparent)]
+    TomlSeError { source: toml::ser::Error },
+    #[snafu(transparent)]
+    JsonRejection { source: JsonRejection },
+    #[snafu(display("Rquest error: {}, source: {}", msg, source))]
+    RquestError {
+        msg: &'static str,
+        source: rquest::Error,
+    },
+    #[snafu(display("UTF-8 error: {}", source))]
+    #[snafu(context(false))]
+    UTF8Error {
+        #[snafu(implicit)]
+        loc: Location,
+        source: std::string::FromUtf8Error,
+    },
+    #[snafu(display("Http error: code: {}, body: {}", code.to_string().red(), inner.to_string()))]
+    ClaudeHttpError {
+        code: StatusCode,
+        inner: ClaudeErrorBody,
+    },
+    #[snafu(display("Http error: code: {}, body: {}", code.to_string().red(), serde_json::to_string_pretty(&inner).unwrap_or_default()))]
+    GeminiHttpError { code: StatusCode, inner: Value },
+    #[snafu(display("Unexpected None: {}", msg))]
+    UnexpectedNone { msg: &'static str },
+    #[snafu(display("IO error: {}", source))]
+    #[snafu(context(false))]
+    IoError {
+        #[snafu(implicit)]
+        loc: Location,
+        source: std::io::Error,
+    },
+    #[snafu(display("{}", msg))]
+    PathNotFound { msg: String },
+    #[snafu(display("Invalid timestamp: {}", timestamp))]
+    TimestampError { timestamp: i64 },
+    #[snafu(display("Key/Password Invalid"))]
     InvalidKey,
 }
 
 impl IntoResponse for ClewdrError {
     fn into_response(self) -> axum::response::Response {
         let (status, msg) = match self {
-            ClewdrError::InvalidUri(ref r) => (StatusCode::BAD_REQUEST, json!(r.to_string())),
-            ClewdrError::YuOAuth2Error(ref r) => (StatusCode::BAD_REQUEST, json!(r.to_string())),
-            ClewdrError::PathRejection(ref r) => (r.status(), json!(r.body_text())),
-            ClewdrError::QueryRejection(ref r) => (r.status(), json!(r.body_text())),
-            ClewdrError::ClaudeHttpError(status, inner) => {
-                return (status, Json(ClaudeError { error: inner })).into_response();
+            ClewdrError::InvalidUri { .. } => (StatusCode::BAD_REQUEST, json!(self.to_string())),
+            ClewdrError::YuOAuth2Error { .. } => {
+                (StatusCode::UNAUTHORIZED, json!(self.to_string()))
             }
-            ClewdrError::GeminiHttpError(status, inner) => {
-                return (status, Json(inner)).into_response();
+            ClewdrError::PathRejection { ref source } => {
+                (source.status(), json!(source.body_text()))
             }
-            ClewdrError::CacheFound(res) => return (StatusCode::OK, res).into_response(),
+            ClewdrError::QueryRejection { ref source } => {
+                (source.status(), json!(source.body_text()))
+            }
+            ClewdrError::ClaudeHttpError { code, inner } => {
+                return (code, Json(ClaudeError { error: inner })).into_response();
+            }
+            ClewdrError::GeminiHttpError { code, inner } => {
+                return (code, Json(inner)).into_response();
+            }
+            ClewdrError::CacheFound { res } => return (StatusCode::OK, *res).into_response(),
             ClewdrError::TestMessage => {
                 return (
                     StatusCode::OK,
@@ -116,14 +170,16 @@ impl IntoResponse for ClewdrError {
                 )
                     .into_response();
             }
-            ClewdrError::JsonRejection(ref r) => (r.status(), json!(r.body_text())),
+            ClewdrError::JsonRejection { ref source } => {
+                (source.status(), json!(source.body_text()))
+            }
             ClewdrError::PadtxtTooShort => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::TooManyRetries => (StatusCode::GATEWAY_TIMEOUT, json!(self.to_string())),
-            ClewdrError::InvalidCookie(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
-            ClewdrError::PathNotFound(_) => (StatusCode::NOT_FOUND, json!(self.to_string())),
+            ClewdrError::InvalidCookie { .. } => (StatusCode::BAD_REQUEST, json!(self.to_string())),
+            ClewdrError::PathNotFound { .. } => (StatusCode::NOT_FOUND, json!(self.to_string())),
             ClewdrError::InvalidKey => (StatusCode::UNAUTHORIZED, json!(self.to_string())),
-            ClewdrError::BadRequest(_) => (StatusCode::BAD_REQUEST, json!(self.to_string())),
-            ClewdrError::InvalidHeaderValue(_) => {
+            ClewdrError::BadRequest { .. } => (StatusCode::BAD_REQUEST, json!(self.to_string())),
+            ClewdrError::InvalidHeaderValue { .. } => {
                 (StatusCode::BAD_REQUEST, json!(self.to_string()))
             }
             ClewdrError::EmptyChoices => (StatusCode::NO_CONTENT, json!(self.to_string())),
@@ -221,7 +277,10 @@ impl CheckGeminiErr for Response {
                     "status": "error_get_error_body",
                     "code": status.as_u16()
                 });
-                return Err(ClewdrError::GeminiHttpError(status, error));
+                return Err(ClewdrError::GeminiHttpError {
+                    code: status,
+                    inner: error,
+                });
             }
         };
         let Ok(error) = serde_json::from_str::<Value>(&text) else {
@@ -230,9 +289,15 @@ impl CheckGeminiErr for Response {
                 "status": "error_parse_error_body",
                 "code": Some(status.as_u16()),
             });
-            return Err(ClewdrError::GeminiHttpError(status, error));
+            return Err(ClewdrError::GeminiHttpError {
+                code: status,
+                inner: error,
+            });
         };
-        Err(ClewdrError::GeminiHttpError(status, error))
+        Err(ClewdrError::GeminiHttpError {
+            code: status,
+            inner: error,
+        })
     }
 }
 
@@ -259,7 +324,10 @@ impl CheckClaudeErr for Response {
                 r#type: "error".to_string(),
                 code: Some(status.as_u16()),
             };
-            return Err(ClewdrError::ClaudeHttpError(status, error));
+            return Err(ClewdrError::ClaudeHttpError {
+                code: status,
+                inner: error,
+            });
         }
         let text = match self.text().await {
             Ok(text) => text,
@@ -269,7 +337,10 @@ impl CheckClaudeErr for Response {
                     r#type: "error_get_error_body".to_string(),
                     code: Some(status.as_u16()),
                 };
-                return Err(ClewdrError::ClaudeHttpError(status, error));
+                return Err(ClewdrError::ClaudeHttpError {
+                    code: status,
+                    inner: error,
+                });
             }
         };
         let Ok(err) = serde_json::from_str::<ClaudeError>(&text) else {
@@ -278,11 +349,14 @@ impl CheckClaudeErr for Response {
                 r#type: "error_parse_error_body".to_string(),
                 code: Some(status.as_u16()),
             };
-            return Err(ClewdrError::ClaudeHttpError(status, error));
+            return Err(ClewdrError::ClaudeHttpError {
+                code: status,
+                inner: error,
+            });
         };
         if status == 400 && err.error.message == json!("This organization has been disabled.") {
             // account disabled
-            return Err(ClewdrError::InvalidCookie(Reason::Disabled));
+            return Err(Reason::Disabled.into());
         }
         let inner_error = err.error;
         // check if the error is a rate limit error
@@ -290,15 +364,20 @@ impl CheckClaudeErr for Response {
             // get the reset time from the error message
             if let Some(time) = inner_error.message["resetsAt"].as_i64() {
                 let reset_time = chrono::DateTime::from_timestamp(time, 0)
-                    .ok_or(ClewdrError::TimestampError(time))?
+                    .ok_or(ClewdrError::TimestampError { timestamp: time })?
                     .to_utc();
                 let now = chrono::Utc::now();
                 let diff = reset_time - now;
                 let hours = diff.num_hours();
                 error!("Rate limit exceeded, expires in {} hours", hours);
-                return Err(ClewdrError::InvalidCookie(Reason::TooManyRequest(time)));
+                return Err(ClewdrError::InvalidCookie {
+                    reason: Reason::TooManyRequest(time),
+                });
             }
         }
-        Err(ClewdrError::ClaudeHttpError(status, inner_error))
+        Err(ClewdrError::ClaudeHttpError {
+            code: status,
+            inner: inner_error,
+        })
     }
 }

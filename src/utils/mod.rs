@@ -30,7 +30,9 @@ pub fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
         // In production use the directory of the executable
         std::env::current_exe()?
             .parent()
-            .ok_or_else(|| ClewdrError::PathNotFound("exec dir".to_string()))?
+            .ok_or_else(|| ClewdrError::PathNotFound {
+                msg: "Failed to get parent directory".to_string(),
+            })?
             .canonicalize()?
             .to_path_buf()
     };

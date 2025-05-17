@@ -70,6 +70,7 @@ yup-oauth2 = "12"
 hyper-util = "0.1"
 hyper-http-proxy = "1"
 http = "1"
+snafu = { version = "0.8", features = ["futures", "rust_1_81"] }
 
 [features]
 no_fs = []

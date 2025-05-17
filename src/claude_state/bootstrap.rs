@@ -1,12 +1,13 @@
 use colored::Colorize;
 use rquest::Method;
 use serde_json::Value;
+use snafu::ResultExt;
 use std::fmt::Write;
 
 use crate::{
     claude_state::ClaudeState,
     config::{CLEWDR_CONFIG, Reason},
-    error::{CheckClaudeErr, ClewdrError},
+    error::{CheckClaudeErr, ClewdrError, RquestSnafu},
     utils::print_out_json,
 };
 
@@ -27,17 +28,25 @@ impl ClaudeState {
         let res = self
             .build_request(Method::GET, end_point)
             .send()
-            .await?
+            .await
+            .context(RquestSnafu {
+                msg: "Failed to bootstrap",
+            })?
             .check_claude()
             .await?;
-        let bootstrap = res.json::<Value>().await?;
+        let bootstrap = res.json::<Value>().await.context(RquestSnafu {
+            msg: "Failed to parse bootstrap response",
+        })?;
         print_out_json(&bootstrap, "bootstrap_res.json");
         if bootstrap["account"].is_null() {
-            return Err(ClewdrError::InvalidCookie(Reason::Null));
+            return Err(Reason::Null.into());
         }
-        let memberships = bootstrap["account"]["memberships"]
-            .as_array()
-            .ok_or(ClewdrError::UnexpectedNone)?;
+        let memberships =
+            bootstrap["account"]["memberships"]
+                .as_array()
+                .ok_or(ClewdrError::UnexpectedNone {
+                    msg: "Failed to get memberships from bootstrap",
+                })?;
         let boot_acc_info = memberships
             .iter()
             .find(|m| {
@@ -46,7 +55,9 @@ impl ClaudeState {
                     .is_some_and(|c| c.iter().any(|c| c.as_str() == Some("chat")))
             })
             .and_then(|m| m["organization"].as_object())
-            .ok_or(ClewdrError::UnexpectedNone)?;
+            .ok_or(ClewdrError::UnexpectedNone {
+                msg: "Failed to find a valid organization in bootstrap",
+            })?;
         let email = bootstrap["account"]["email_address"]
             .as_str()
             .unwrap_or_default();
@@ -60,7 +71,7 @@ impl ClaudeState {
             })
             .unwrap_or_default();
         if !self.is_pro() && CLEWDR_CONFIG.load().skip_non_pro {
-            return Err(ClewdrError::InvalidCookie(Reason::NonPro));
+            return Err(Reason::NonPro.into());
         }
         let mut w = String::new();
         writeln!(
@@ -76,10 +87,15 @@ impl ClaudeState {
         let res = self
             .build_request(Method::GET, end_point)
             .send()
-            .await?
+            .await
+            .context(RquestSnafu {
+                msg: "Failed to get organizations",
+            })?
             .check_claude()
             .await?;
-        let ret_json = res.json::<Value>().await?;
+        let ret_json = res.json::<Value>().await.context(RquestSnafu {
+            msg: "Failed to parse organizations response",
+        })?;
         print_out_json(&ret_json, "org.json");
         let acc_info = ret_json
             .as_array()
@@ -97,14 +113,19 @@ impl ClaudeState {
                             .unwrap_or_default()
                     })
             })
-            .ok_or(ClewdrError::UnexpectedNone)?;
+            .ok_or(ClewdrError::UnexpectedNone {
+                msg: "Failed to find a valid organization in response",
+            })?;
 
         self.check_flags(acc_info, w)?;
 
-        let u = acc_info
-            .get("uuid")
-            .and_then(|u| u.as_str())
-            .ok_or(ClewdrError::UnexpectedNone)?;
+        let u =
+            acc_info
+                .get("uuid")
+                .and_then(|u| u.as_str())
+                .ok_or(ClewdrError::UnexpectedNone {
+                    msg: "Failed to find UUID in organization response",
+                })?;
         self.org_uuid = Some(u.to_string());
         Ok(())
     }
@@ -162,31 +183,25 @@ impl ClaudeState {
                 "Your account is banned, please use another account.".red()
             )?;
             print!("{}", w);
-            return Err(ClewdrError::InvalidCookie(Reason::Banned));
+            return Err(Reason::Banned.into());
         }
         if !w.is_empty() {
             print!("{}", w);
         }
         if let Some((_, expire)) = restricted {
             if CLEWDR_CONFIG.load().skip_restricted {
-                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
-                    expire.timestamp(),
-                )));
+                return Err(Reason::Restricted(expire.timestamp()).into());
             }
         } else if let Some((_, expire)) = second {
             if CLEWDR_CONFIG.load().skip_second_warning {
-                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
-                    expire.timestamp(),
-                )));
+                return Err(Reason::Restricted(expire.timestamp()).into());
             }
         } else if let Some((_, expire)) = first {
             if CLEWDR_CONFIG.load().skip_first_warning {
-                return Err(ClewdrError::InvalidCookie(Reason::Restricted(
-                    expire.timestamp(),
-                )));
+                return Err(Reason::Restricted(expire.timestamp()).into());
             }
         } else if CLEWDR_CONFIG.load().skip_normal_pro {
-            return Err(ClewdrError::InvalidCookie(Reason::NormalPro));
+            return Err(Reason::NormalPro.into());
         }
         Ok(())
     }

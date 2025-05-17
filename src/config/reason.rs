@@ -4,13 +4,14 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
 };
+use thiserror::Error;
 
 use crate::config::ClewdrCookie;
 
 use super::CookieStatus;
 
 /// Reason why a cookie is considered useless
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Error)]
 pub enum Reason {
     NormalPro,
     NonPro,

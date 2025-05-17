@@ -323,7 +323,9 @@ impl ClewdrConfig {
             return Ok(());
         };
         if !padtxt.exists() {
-            return Err(ClewdrError::PathNotFound(padtxt.display().to_string()));
+            return Err(ClewdrError::PathNotFound {
+                msg: format!("Pad txt file not found: {}", padtxt.display()),
+            });
         }
         let padtxt_string = std::fs::read_to_string(padtxt.as_path())?;
 

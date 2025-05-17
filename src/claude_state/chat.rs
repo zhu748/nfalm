@@ -3,12 +3,13 @@ use futures::TryFutureExt;
 use rquest::{Method, Response, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
+use snafu::ResultExt;
 use tokio::spawn;
 use tracing::{Instrument, Level, debug, error, info, span, warn};
 
 use crate::{
     config::CLEWDR_CONFIG,
-    error::{CheckClaudeErr, ClewdrError},
+    error::{CheckClaudeErr, ClewdrError, RquestSnafu},
     services::cache::{CACHE, GetHashKey},
     types::claude_message::CreateMessageParams,
     utils::print_out_json,
@@ -108,8 +109,8 @@ impl ClaudeState {
                         e
                     );
                     // 429 error
-                    if let ClewdrError::InvalidCookie(ref r) = e {
-                        state.return_cookie(Some(r.to_owned())).await;
+                    if let ClewdrError::InvalidCookie { reason } = e {
+                        state.return_cookie(Some(reason.to_owned())).await;
                         continue;
                     }
                     return Err(e);
@@ -142,7 +143,9 @@ impl ClaudeState {
         let org_uuid = self
             .org_uuid
             .to_owned()
-            .ok_or(ClewdrError::UnexpectedNone)?;
+            .ok_or(ClewdrError::UnexpectedNone {
+                msg: "Organization UUID is not set",
+            })?;
 
         // Create a new conversation
         let new_uuid = uuid::Uuid::new_v4().to_string();
@@ -158,7 +161,10 @@ impl ClaudeState {
         self.build_request(Method::POST, endpoint)
             .json(&body)
             .send()
-            .await?
+            .await
+            .context(RquestSnafu {
+                msg: "Failed to create new conversation",
+            })?
             .check_claude()
             .await?;
         self.conv_uuid = Some(new_uuid.to_string());
@@ -183,9 +189,9 @@ impl ClaudeState {
             .await;
         // generate the request body
         // check if the request is empty
-        let mut body = self
-            .transform_request(p)
-            .ok_or(ClewdrError::BadRequest("Empty request".to_string()))?;
+        let mut body = self.transform_request(p).ok_or(ClewdrError::BadRequest {
+            msg: "Request body is empty",
+        })?;
 
         // check images
         let images = body.images.drain(..).collect::<Vec<_>>();
@@ -205,7 +211,10 @@ impl ClaudeState {
             .json(&body)
             .header_append(ACCEPT, "text/event-stream")
             .send()
-            .await?
+            .await
+            .context(RquestSnafu {
+                msg: "Failed to send chat request",
+            })?
             .check_claude()
             .await
     }

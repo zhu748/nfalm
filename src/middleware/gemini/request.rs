@@ -29,9 +29,9 @@ impl FromRequest<GeminiState> for GeminiPreprocess {
         let Path(path) = req.extract_parts::<Path<String>>().await?;
         let vertex = req.uri().to_string().contains("vertex");
         if vertex && !CLEWDR_CONFIG.load().vertex.validate() {
-            return Err(ClewdrError::BadRequest(
-                "Vertex is not configured".to_string(),
-            ));
+            return Err(ClewdrError::BadRequest {
+                msg: "Vertex is not configured",
+            });
         }
         let mut model = path
             .split('/')
@@ -41,9 +41,9 @@ impl FromRequest<GeminiState> for GeminiPreprocess {
             model = CLEWDR_CONFIG.load().vertex.model_id.to_owned().or(model)
         }
         let Some(model) = model else {
-            return Err(ClewdrError::BadRequest(
-                "Model not found in path or vertex config".to_string(),
-            ));
+            return Err(ClewdrError::BadRequest {
+                msg: "Model not found in path or vertex config",
+            });
         };
         let query = req.extract_parts::<GeminiArgs>().await?;
         let ctx = GeminiContext {
@@ -59,7 +59,7 @@ impl FromRequest<GeminiState> for GeminiPreprocess {
         let mut state = state.clone();
         state.update_from_ctx(&ctx);
         if let Some(res) = state.try_from_cache(&body).await {
-            return Err(ClewdrError::CacheFound(res));
+            return Err(ClewdrError::CacheFound { res: Box::new(res) });
         }
         Ok(GeminiPreprocess(body, ctx))
     }
@@ -73,9 +73,9 @@ impl FromRequest<GeminiState> for GeminiOaiPreprocess {
     async fn from_request(req: Request, state: &GeminiState) -> Result<Self, Self::Rejection> {
         let vertex = req.uri().to_string().contains("vertex");
         if vertex && !CLEWDR_CONFIG.load().vertex.validate() {
-            return Err(ClewdrError::BadRequest(
-                "Vertex is not configured".to_string(),
-            ));
+            return Err(ClewdrError::BadRequest {
+                msg: "Vertex is not configured",
+            });
         }
         let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
         let model = body.model.to_owned();
@@ -94,7 +94,7 @@ impl FromRequest<GeminiState> for GeminiOaiPreprocess {
         let mut state = state.clone();
         state.update_from_ctx(&ctx);
         if let Some(res) = state.try_from_cache(&body).await {
-            return Err(ClewdrError::CacheFound(res));
+            return Err(ClewdrError::CacheFound { res: Box::new(res) });
         }
         Ok(GeminiOaiPreprocess(body, ctx))
     }
