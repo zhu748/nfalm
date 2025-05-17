@@ -212,7 +212,7 @@ impl ClewdrUpdater {
                 let current_dir = env::current_exe()?
                     .parent()
                     .ok_or(ClewdrError::AssetError {
-                        msg: "Failed to get current directory",
+                        msg: "Failed to get current directory".to_string(),
                     })?
                     .to_path_buf();
                 let target_so_path = current_dir.join("libc++_shared.so");
