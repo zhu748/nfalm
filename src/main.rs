@@ -34,17 +34,22 @@ async fn main() -> Result<(), ClewdrError> {
     } else {
         tracing_subscriber::filter::LevelFilter::INFO
     };
+    let env_filter = tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(filter.into())
+        .from_env_lossy();
     let subscriber = Registry::default().with(
         fmt::Layer::default()
             .with_writer(std::io::stdout)
             .with_timer(timer.to_owned())
-            .with_filter(filter),
+            .with_filter(env_filter),
     );
     #[cfg(not(feature = "no_fs"))]
     let (subscriber, _guard) = {
         let file_appender = tracing_appender::rolling::daily(LOG_DIR, "clewdr.log");
         let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
-
+        let filter = tracing_subscriber::EnvFilter::builder()
+            .with_default_directive(filter.into())
+            .from_env_lossy();
         (
             subscriber.with(
                 fmt::Layer::default()

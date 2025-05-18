@@ -10,6 +10,7 @@ use rquest::{Proxy, Url};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
+    env,
     fmt::{Debug, Display},
     net::{IpAddr, SocketAddr},
     path::PathBuf,
@@ -281,6 +282,12 @@ impl ClewdrConfig {
                 error!("Failed to load config: {}", e);
             })
             .unwrap_or_default();
+        let credential = env::var("CLEWDR_VERTEX_CREDENTIAL").ok().and_then(|v| {
+            serde_json::from_str::<ServiceAccountKey>(&v)
+                .map_err(|e| error!("Failed to parse vertex credential: {}", e))
+                .ok()
+        });
+        config.vertex.credential = credential;
         if let Some(ref f) = *ARG_COOKIE_FILE {
             // load cookies from file
             if f.exists() {
