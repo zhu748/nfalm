@@ -241,6 +241,9 @@ impl Display for ClewdrConfig {
                 self.pad_tokens.len().to_string().blue()
             )?
         }
+        if self.vertex.validate() {
+            writeln!(f, "Vertex {}", "Enabled".green().bold())?;
+        }
         writeln!(f, "Skip non Pro: {}", enabled(self.skip_non_pro))?;
         writeln!(f, "Skip restricted: {}", enabled(self.skip_restricted))?;
         writeln!(
