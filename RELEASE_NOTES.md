@@ -1,11 +1,9 @@
-# v0.9.14
+# v0.9.15
 
 ## Improvements
 
-- Add snafu error handling and improve error messages throughout the codebase
-- Improve error propagation in the retry logic
-- Change default max_tokens from 4096 to 8192
+- Support `RUST_LOG` environment variable to control logging level
 
 ## Features
 
-- Support listening IPv6
+- Support `CLEWDR_VERTEX_CREDENTIAL` environment variable to specify vertex credential
