@@ -1,6 +1,5 @@
-# v0.9.16
+# v0.9.17
 
 ## Features
 
-- Support multiple choices for Gemini OpenAI API format
-- Support Claude 4 (OpenAI Format Only)
+- Fix Claude Sonnet 4 model name

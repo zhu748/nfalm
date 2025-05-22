@@ -250,8 +250,8 @@ pub async fn api_auth(AuthBearer(t): AuthBearer) -> StatusCode {
 const MODEL_LIST: [&str; 6] = [
     "claude-3-7-sonnet-20250219",
     "claude-3-7-sonnet-20250219-thinking",
-    "claude-sonnet-4-20250514",
-    "claude-sonnet-4-20250514-thinking",
+    "claude-sonnet-4-20250514-claude-ai",
+    "claude-sonnet-4-20250514-claude-ai-thinking",
     "claude-opus-4-20250514",
     "claude-opus-4-20250514-thinking",
 ];
