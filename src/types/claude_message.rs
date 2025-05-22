@@ -59,6 +59,9 @@ pub struct CreateMessageParams {
     /// extra body for Gemini
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_body: Option<serde_json::Value>,
+    /// Number of completions to generate
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<u32>,
 }
 
 impl CreateMessageParams {
