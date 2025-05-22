@@ -1,9 +1,6 @@
-# v0.9.15
-
-## Improvements
-
-- Support `RUST_LOG` environment variable to control logging level
+# v0.9.16
 
 ## Features
 
-- Support `CLEWDR_VERTEX_CREDENTIAL` environment variable to specify vertex credential
+- Support multiple choices for Gemini OpenAI API format
+- Support Claude 4 (OpenAI Format Only)
