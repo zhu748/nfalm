@@ -377,26 +377,19 @@ impl CookieManager {
         let interval = tokio::time::interval(tokio::time::Duration::from_secs(INTERVAL));
         Self::spawn_timeout_checker(interval, event_sender);
 
-        // 事件处理主循环
         self.log();
         while let Some(res) = self.event_rx.recv().await {
-            // 尝试从队列中获取事件
             match res {
-                // 处理事件
                 CookieEvent::Return(cookie, reason) => {
-                    // 处理返回的cookie (最高优先级)
                     self.collect(cookie, reason);
                 }
                 CookieEvent::Submit(cookie) => {
-                    // 处理提交的新cookie (次高优先级)
                     self.accept(cookie);
                 }
                 CookieEvent::CheckReset => {
-                    // 处理超时检查 (中等优先级)
                     self.reset();
                 }
                 CookieEvent::Request(sender) => {
-                    // 处理请求 (最低优先级)
                     let cookie = self.dispatch();
                     sender.send(cookie).unwrap_or_else(|_| {
                         error!("Failed to send cookie");
