@@ -1,5 +1,5 @@
-# v0.9.18
+# v0.9.19
 
 ## Features
 
-- Fix Claude Sonnet 4 model name (again for API)
+- Add support for Gemini chain of thoughts.
