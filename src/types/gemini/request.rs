@@ -89,6 +89,11 @@ pub enum Part {
     functionCall(FunctionCall),
     functionResponse(FunctionResponse),
     fileData(FileData),
+    #[serde(untagged)]
+    thought {
+        text: String,
+        thought: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
