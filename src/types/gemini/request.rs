@@ -79,7 +79,6 @@ pub struct CodeExecuteResult {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash)]
 #[allow(non_camel_case_types)]
 pub enum Part {
-    text(String),
     #[serde(alias = "inlineData")]
     inline_data(InlineData),
     #[serde(alias = "executableCode")]
@@ -90,9 +89,10 @@ pub enum Part {
     functionResponse(FunctionResponse),
     fileData(FileData),
     #[serde(untagged)]
-    thought {
+    Text {
         text: String,
-        thought: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thought: Option<bool>,
     },
 }
 
@@ -110,7 +110,10 @@ pub struct SystemInstruction {
 impl SystemInstruction {
     pub fn from_string(prompt: impl Into<String>) -> Self {
         Self {
-            parts: vec![Part::text(prompt.into())],
+            parts: vec![Part::Text {
+                text: prompt.into(),
+                thought: None,
+            }],
         }
     }
 }
