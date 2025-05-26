@@ -1,5 +1,8 @@
 # Clewd<span style="color:#CE422B">R</span>
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Xerxes-2/clewdr)
+[![GitHub Release](https://img.shields.io/github/v/release/Xerxes-2/clewdr?style=flat-square)](https://github.com/Xerxes-2/clewdr/releases/latest)
+
 ## 高性能 LLM 代理
 
 专为 Claude (Claude.ai) 和 Gemini (Google AI Studio, Google Vertex AI) 打造
