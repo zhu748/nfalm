@@ -74,6 +74,10 @@ impl FromRequest<ClaudeState> for ClaudePreprocess {
             body.model = body.model.trim_end_matches("-thinking").to_string();
             body.thinking = Some(Default::default());
         }
+        if body.model.contains("sonnet-4") && !body.model.ends_with("-claude-ai") {
+            // Special handling for Sonnet-4 models
+            body.model = format!("{}-claude-ai", body.model);
+        }
 
         // Check for test messages and respond appropriately
         if !body.stream.unwrap_or_default()
