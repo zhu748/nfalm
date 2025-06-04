@@ -211,11 +211,6 @@ jobs:
       - name: Build for x86_64
         run: cargo build --release --target x86_64-unknown-linux-musl
         env:
-          CFLAGS_x86_64_unknown_linux_musl: -D__ARM_ARCH=8
-          CC: x86_64-linux-musl-gcc
-          CXX: x86_64-linux-musl-g++
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-g++
-          RUSTC_LINKER: x86_64-linux-musl-g++
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
 
@@ -261,11 +256,6 @@ jobs:
       - name: Build for aarch64
         run: cargo build --release --target aarch64-unknown-linux-musl
         env:
-          CFLAGS_aarch64_unknown_linux_musl: -D__ARM_ARCH=8
-          CC: aarch64-linux-musl-gcc
-          CXX: aarch64-linux-musl-g++
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-g++
-          RUSTC_LINKER: aarch64-linux-musl-g++
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
 
