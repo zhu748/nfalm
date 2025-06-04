@@ -187,38 +187,20 @@ jobs:
   musllinux-x86_64:
     name: Build Linux x86_64 (musl)
     needs: build-frontend
-    runs-on: ubuntu-latest
-    container: alpine:latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies and compile BoringSSL
+      - name: Install dependencies on Ubuntu
         run: |
-          apk update
-          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash go git ninja llvm17-dev
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools musl-dev zip
 
-          # Clone and build BoringSSL
-          git clone https://boringssl.googlesource.com/boringssl /tmp/boringssl
-          cd /tmp/boringssl
-          mkdir build
-          cd build
-          cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
-          ninja
+      - name: Add Rust target
+        run: rustup target add x86_64-unknown-linux-musl
 
-          # Create directories for installation
-          mkdir -p /usr/local/boringssl/lib
-          mkdir -p /usr/local/boringssl/include
-
-          # Copy libraries and headers
-          cp crypto/libcrypto.a ssl/libssl.a /usr/local/boringssl/lib/
-          cp -r ../include/openssl /usr/local/boringssl/include/
-
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source ~/.cargo/env
-          rustup target add x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
 
       - name: Download static files
         uses: actions/download-artifact@v4
@@ -226,17 +208,11 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for x86_64 with BoringSSL
-        run: |
-          source ~/.cargo/env
-          export LIBCLANG_PATH=/usr/lib/llvm17/lib
-          export BINDGEN_EXTRA_CLANG_ARGS="-I/usr/include/musl"
-          cargo build --release --target x86_64-unknown-linux-musl
+      - name: Build for x86_64
+        run: cargo build --release --target x86_64-unknown-linux-musl
         env:
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
-          BORING_BSSL_PATH: /usr/local/boringssl/lib
-          BORING_BSSL_INCLUDE_PATH: /usr/local/boringssl/include
 
       - name: Move artifact to work dir and zip
         run: |
