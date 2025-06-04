@@ -184,22 +184,12 @@ jobs:
           path: clewdr-android-${{ matrix.target }}.zip
           retention-days: 1
 
-  musllinux:
-    name: Build Linux (musl)
+  musllinux-x86_64:
+    name: Build Linux x86_64 (musl)
     needs: build-frontend
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - target: x86_64
-            target_triple: x86_64-unknown-linux-musl
-            container_image: alpine:latest
-          - target: aarch64
-            target_triple: aarch64-unknown-linux-musl
-            container_image: arm64v8/alpine:latest
-
     container:
-      image: ${{ matrix.container_image }}
+      image: alpine:latest
 
     steps:
       - uses: actions/checkout@v4
@@ -222,7 +212,7 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
           source $HOME/.cargo/env
-          rustup target add ${{ matrix.target_triple }}
+          rustup target add x86_64-unknown-linux-musl
 
       - name: Download static files
         uses: actions/download-artifact@v4
@@ -230,24 +220,66 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for ${{ matrix.target }}
+      - name: Build for x86_64
         run: |
           source $HOME/.cargo/env
-          cargo build --release --target ${{ matrix.target_triple }}
+          cargo build --release --target x86_64-unknown-linux-musl
 
       - name: Move artifact to work dir and zip
         run: |
-          mv target/${{ matrix.target_triple }}/release/clewdr .
+          mv target/x86_64-unknown-linux-musl/release/clewdr .
           mkdir -p release-package
           mv clewdr release-package/
           cd release-package
-          zip -r ../clewdr-musllinux-${{ matrix.target }} .
+          zip -r ../clewdr-musllinux-x86_64 .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clewdr-musllinux-${{ matrix.target }}
-          path: clewdr-musllinux-${{ matrix.target }}.zip
+          name: clewdr-musllinux-x86_64
+          path: clewdr-musllinux-x86_64.zip
+          retention-days: 1
+
+  musllinux-aarch64:
+    name: Build Linux aarch64 (musl)
+    needs: build-frontend
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies on Ubuntu ARM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools musl-dev zip
+
+      - name: Add Rust target
+        run: rustup target add aarch64-unknown-linux-musl
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Download static files
+        uses: actions/download-artifact@v4
+        with:
+          name: static-files
+          path: static
+
+      - name: Build for aarch64
+        run: cargo build --release --target aarch64-unknown-linux-musl
+
+      - name: Move artifact to work dir and zip
+        run: |
+          mv target/aarch64-unknown-linux-musl/release/clewdr .
+          mkdir -p release-package
+          mv clewdr release-package/
+          cd release-package
+          zip -r ../clewdr-musllinux-aarch64 .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clewdr-musllinux-aarch64
+          path: clewdr-musllinux-aarch64.zip
           retention-days: 1
 
   windows:
