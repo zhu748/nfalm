@@ -53,7 +53,6 @@ jobs:
           - target: x86_64
             target_triple: x86_64-unknown-linux-gnu
             apt_packages: ""
-            custom_env: {}
           - target: aarch64
             target_triple: aarch64-unknown-linux-gnu
             apt_packages: crossbuild-essential-arm64
@@ -89,9 +88,19 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for ${{ matrix.target }}
-        env: ${{ matrix.custom_env }}
+      - name: Build for ${{ matrix.target }} (x86_64)
         run: cargo build --release --target ${{ matrix.target_triple }}
+        if: ${{ matrix.target == 'x86_64' }}
+
+      - name: Build for ${{ matrix.target }} (aarch64)
+        run: cargo build --release --target ${{ matrix.target_triple }}
+        env:
+          CFLAGS_aarch64_unknown_linux_gnu: -D__ARM_ARCH=8
+          CC: aarch64-linux-gnu-gcc
+          CXX: aarch64-linux-gnu-g++
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-g++
+          RUSTC_LINKER: aarch64-linux-gnu-g++
+        if: ${{ matrix.target == 'aarch64' }}
 
       - name: Move artifact to work dir and zip
         run: |
@@ -184,47 +193,36 @@ jobs:
         include:
           - target: x86_64
             target_triple: x86_64-unknown-linux-musl
-            package: x86_64-linux-musl-cross
-            apt_packages: ""
-            custom_env:
-              CC: x86_64-linux-musl-gcc
-              CXX: x86_64-linux-musl-g++
-              CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-g++
-              RUSTC_LINKER: x86_64-linux-musl-g++
+            container_image: alpine:latest
           - target: aarch64
             target_triple: aarch64-unknown-linux-musl
-            package: aarch64-linux-musl-cross
-            apt_packages: crossbuild-essential-arm64
-            custom_env:
-              CC: aarch64-linux-musl-gcc
-              CXX: aarch64-linux-musl-g++
-              CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-g++
-              RUSTC_LINKER: aarch64-linux-musl-g++
+            container_image: arm64v8/alpine:latest
+
+    container:
+      image: ${{ matrix.container_image }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install base dependencies on Ubuntu
+      - name: Install dependencies in Alpine
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools
+          apk update
+          apk add --no-cache \
+            build-base \
+            cmake \
+            perl \
+            pkgconfig \
+            clang \
+            llvm \
+            curl \
+            zip \
+            git
 
-      - name: Install target-specific APT dependencies
-        if: ${{ matrix.apt_packages != '' }}
+      - name: Install Rust
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt_packages }}
-
-      - name: Prepare musl cross-compiler
-        run: |
-          curl -O http://musl.cc/${{ matrix.package }}.tgz
-          tar xzf ${{ matrix.package }}.tgz -C /opt
-          echo "/opt/${{ matrix.package }}/bin/" >> $GITHUB_PATH
-
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }}
-
-      - uses: Swatinem/rust-cache@v2
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          source $HOME/.cargo/env
+          rustup target add ${{ matrix.target_triple }}
 
       - name: Download static files
         uses: actions/download-artifact@v4
@@ -233,8 +231,9 @@ jobs:
           path: static
 
       - name: Build for ${{ matrix.target }}
-        env: ${{ matrix.custom_env }}
-        run: cargo build --release --target ${{ matrix.target_triple }}
+        run: |
+          source $HOME/.cargo/env
+          cargo build --release --target ${{ matrix.target_triple }}
 
       - name: Move artifact to work dir and zip
         run: |
