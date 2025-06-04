@@ -193,11 +193,13 @@ jobs:
         include:
           - target: x86_64
             target_triple: x86_64-unknown-linux-musl
+            container_image: alpine:latest
           - target: aarch64
             target_triple: aarch64-unknown-linux-musl
+            container_image: arm64v8/alpine:latest
 
     container:
-      image: alpine:latest
+      image: ${{ matrix.container_image }}
 
     steps:
       - uses: actions/checkout@v4
@@ -216,17 +218,6 @@ jobs:
             zip \
             git
 
-      - name: Install cross-compilation tools for aarch64
-        if: ${{ matrix.target == 'aarch64' }}
-        run: |
-          apk add --no-cache \
-            gcc-aarch64-none-elf \
-            binutils-aarch64-none-elf
-          # Create symlinks for cross-compilation
-          ln -sf /usr/bin/aarch64-none-elf-gcc /usr/local/bin/aarch64-linux-musl-gcc
-          ln -sf /usr/bin/aarch64-none-elf-ar /usr/local/bin/aarch64-linux-musl-ar
-          ln -sf /usr/bin/aarch64-none-elf-strip /usr/local/bin/aarch64-linux-musl-strip
-
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
@@ -239,21 +230,10 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for ${{ matrix.target }} (x86_64)
-        if: ${{ matrix.target == 'x86_64' }}
+      - name: Build for ${{ matrix.target }}
         run: |
           source $HOME/.cargo/env
           cargo build --release --target ${{ matrix.target_triple }}
-
-      - name: Build for ${{ matrix.target }} (aarch64)
-        if: ${{ matrix.target == 'aarch64' }}
-        run: |
-          source $HOME/.cargo/env
-          cargo build --release --target ${{ matrix.target_triple }}
-        env:
-          CC_aarch64_unknown_linux_musl: aarch64-linux-musl-gcc
-          AR_aarch64_unknown_linux_musl: aarch64-linux-musl-ar
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
 
       - name: Move artifact to work dir and zip
         run: |
