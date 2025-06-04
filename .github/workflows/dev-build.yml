@@ -213,6 +213,7 @@ jobs:
         env:
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
+          CXX: x86_64-linux-gnu-g++
 
       - name: Move artifact to work dir and zip
         run: |
