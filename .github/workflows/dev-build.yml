@@ -188,31 +188,19 @@ jobs:
     name: Build Linux x86_64 (musl)
     needs: build-frontend
     runs-on: ubuntu-latest
-    container:
-      image: alpine:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies in Alpine
+      - name: Install dependencies on Ubuntu ARM
         run: |
-          apk update
-          apk add --no-cache \
-            build-base \
-            cmake \
-            perl \
-            pkgconfig \
-            clang \
-            llvm \
-            curl \
-            zip \
-            git
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools musl-dev zip
 
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-          source $HOME/.cargo/env
-          rustup target add x86_64-unknown-linux-musl
+      - name: Add Rust target
+        run: rustup target add x86_64-unknown-linux-musl
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Download static files
         uses: actions/download-artifact@v4
@@ -221,9 +209,15 @@ jobs:
           path: static
 
       - name: Build for x86_64
-        run: |
-          source $HOME/.cargo/env
-          cargo build --release --target x86_64-unknown-linux-musl
+        run: cargo build --release --target x86_64-unknown-linux-musl
+        env:
+          CFLAGS_x86_64_unknown_linux_musl: -D__ARM_ARCH=8
+          CC: x86_64-linux-musl-gcc
+          CXX: x86_64-linux-musl-g++
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-g++
+          RUSTC_LINKER: x86_64-linux-musl-g++
+          CFLAGS: -D_FORTIFY_SOURCE=0
+          CXXFLAGS: -D_FORTIFY_SOURCE=0
 
       - name: Move artifact to work dir and zip
         run: |
@@ -266,6 +260,14 @@ jobs:
 
       - name: Build for aarch64
         run: cargo build --release --target aarch64-unknown-linux-musl
+        env:
+          CFLAGS_aarch64_unknown_linux_musl: -D__ARM_ARCH=8
+          CC: aarch64-linux-musl-gcc
+          CXX: aarch64-linux-musl-g++
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-g++
+          RUSTC_LINKER: aarch64-linux-musl-g++
+          CFLAGS: -D_FORTIFY_SOURCE=0
+          CXXFLAGS: -D_FORTIFY_SOURCE=0
 
       - name: Move artifact to work dir and zip
         run: |
