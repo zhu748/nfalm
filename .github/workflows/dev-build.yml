@@ -188,24 +188,31 @@ jobs:
     name: Build Linux x86_64 (musl)
     needs: build-frontend
     runs-on: ubuntu-latest
-    container: denji/nginx-boringssl:stable-alpine
+    container: alpine:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies on Alpine with BoringSSL
+      - name: Install dependencies and compile BoringSSL
         run: |
           apk update
-          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash go git
+          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash go git ninja llvm17-dev
 
-      - name: Locate BoringSSL binaries and headers
-        run: |
-          # Find BoringSSL installation paths
-          find /usr -name "*boring*" -o -name "*ssl*" 2>/dev/null | grep -E "(lib|include)" | head -20
-          # Check common locations
-          ls -la /usr/local/lib/ 2>/dev/null || echo "No /usr/local/lib"
-          ls -la /usr/local/include/ 2>/dev/null || echo "No /usr/local/include"
-          ls -la /opt/ 2>/dev/null || echo "No /opt"
+          # Clone and build BoringSSL
+          git clone https://boringssl.googlesource.com/boringssl /tmp/boringssl
+          cd /tmp/boringssl
+          mkdir build
+          cd build
+          cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+          ninja
+
+          # Create directories for installation
+          mkdir -p /usr/local/boringssl/lib
+          mkdir -p /usr/local/boringssl/include
+
+          # Copy libraries and headers
+          cp crypto/libcrypto.a ssl/libssl.a /usr/local/boringssl/lib/
+          cp -r ../include/openssl /usr/local/boringssl/include/
 
       - name: Install Rust
         run: |
@@ -219,15 +226,17 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for x86_64
+      - name: Build for x86_64 with BoringSSL
         run: |
           source ~/.cargo/env
+          export LIBCLANG_PATH=/usr/lib/llvm17/lib
+          export BINDGEN_EXTRA_CLANG_ARGS="-I/usr/include/musl"
           cargo build --release --target x86_64-unknown-linux-musl
         env:
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
-          BORING_BSSL_PATH: /usr/local/lib
-          BORING_BSSL_INCLUDE_PATH: /usr/local/include
+          BORING_BSSL_PATH: /usr/local/boringssl/lib
+          BORING_BSSL_INCLUDE_PATH: /usr/local/boringssl/include
 
       - name: Move artifact to work dir and zip
         run: |
