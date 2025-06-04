@@ -188,15 +188,24 @@ jobs:
     name: Build Linux x86_64 (musl)
     needs: build-frontend
     runs-on: ubuntu-latest
-    container: alpine:latest
+    container: denji/nginx-boringssl:stable-alpine
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies on Alpine
+      - name: Install dependencies on Alpine with BoringSSL
         run: |
           apk update
-          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash go
+          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash go git
+
+      - name: Locate BoringSSL binaries and headers
+        run: |
+          # Find BoringSSL installation paths
+          find /usr -name "*boring*" -o -name "*ssl*" 2>/dev/null | grep -E "(lib|include)" | head -20
+          # Check common locations
+          ls -la /usr/local/lib/ 2>/dev/null || echo "No /usr/local/lib"
+          ls -la /usr/local/include/ 2>/dev/null || echo "No /usr/local/include"
+          ls -la /opt/ 2>/dev/null || echo "No /opt"
 
       - name: Install Rust
         run: |
@@ -217,6 +226,8 @@ jobs:
         env:
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
+          BORING_BSSL_PATH: /usr/local/lib
+          BORING_BSSL_INCLUDE_PATH: /usr/local/include
 
       - name: Move artifact to work dir and zip
         run: |
