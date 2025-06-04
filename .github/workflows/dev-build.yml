@@ -193,21 +193,45 @@ jobs:
         include:
           - target: x86_64
             target_triple: x86_64-unknown-linux-musl
-            platform: linux/amd64
           - target: aarch64
             target_triple: aarch64-unknown-linux-musl
-            platform: linux/arm64
+
+    container:
+      image: alpine:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
+      - name: Install dependencies in Alpine
+        run: |
+          apk update
+          apk add --no-cache \
+            build-base \
+            cmake \
+            perl \
+            pkgconfig \
+            clang \
+            llvm \
+            curl \
+            zip \
+            git
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install cross-compilation tools for aarch64
+        if: ${{ matrix.target == 'aarch64' }}
+        run: |
+          apk add --no-cache \
+            gcc-aarch64-none-elf \
+            binutils-aarch64-none-elf
+          # Create symlinks for cross-compilation
+          ln -sf /usr/bin/aarch64-none-elf-gcc /usr/local/bin/aarch64-linux-musl-gcc
+          ln -sf /usr/bin/aarch64-none-elf-ar /usr/local/bin/aarch64-linux-musl-ar
+          ln -sf /usr/bin/aarch64-none-elf-strip /usr/local/bin/aarch64-linux-musl-strip
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          source $HOME/.cargo/env
+          rustup target add ${{ matrix.target_triple }}
 
       - name: Download static files
         uses: actions/download-artifact@v4
@@ -215,35 +239,29 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for ${{ matrix.target }} using Docker
+      - name: Build for ${{ matrix.target }} (x86_64)
+        if: ${{ matrix.target == 'x86_64' }}
         run: |
-          docker run --rm \
-            --platform ${{ matrix.platform }} \
-            -v "$PWD":/workspace \
-            -w /workspace \
-            alpine:latest \
-            sh -c "
-              apk update && \
-              apk add --no-cache \
-                build-base \
-                cmake \
-                perl \
-                pkgconfig \
-                clang \
-                llvm \
-                curl \
-                zip \
-                git && \
-              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
-              source \$HOME/.cargo/env && \
-              rustup target add ${{ matrix.target_triple }} && \
-              cargo build --release --target ${{ matrix.target_triple }} && \
-              mv target/${{ matrix.target_triple }}/release/clewdr . && \
-              mkdir -p release-package && \
-              mv clewdr release-package/ && \
-              cd release-package && \
-              zip -r ../clewdr-musllinux-${{ matrix.target }} .
-            "
+          source $HOME/.cargo/env
+          cargo build --release --target ${{ matrix.target_triple }}
+
+      - name: Build for ${{ matrix.target }} (aarch64)
+        if: ${{ matrix.target == 'aarch64' }}
+        run: |
+          source $HOME/.cargo/env
+          cargo build --release --target ${{ matrix.target_triple }}
+        env:
+          CC_aarch64_unknown_linux_musl: aarch64-linux-musl-gcc
+          AR_aarch64_unknown_linux_musl: aarch64-linux-musl-ar
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
+
+      - name: Move artifact to work dir and zip
+        run: |
+          mv target/${{ matrix.target_triple }}/release/clewdr .
+          mkdir -p release-package
+          mv clewdr release-package/
+          cd release-package
+          zip -r ../clewdr-musllinux-${{ matrix.target }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
