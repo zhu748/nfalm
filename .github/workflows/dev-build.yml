@@ -196,7 +196,7 @@ jobs:
       - name: Install dependencies on Alpine
         run: |
           apk update
-          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash
+          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash go
 
       - name: Install Rust
         run: |
