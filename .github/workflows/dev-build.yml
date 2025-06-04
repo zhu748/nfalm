@@ -188,19 +188,21 @@ jobs:
     name: Build Linux x86_64 (musl)
     needs: build-frontend
     runs-on: ubuntu-latest
+    container: alpine:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies on Ubuntu
+      - name: Install dependencies on Alpine
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools musl-dev zip
+          apk update
+          apk add --no-cache build-base cmake perl pkgconf clang-dev musl-dev zip curl bash
 
-      - name: Add Rust target
-        run: rustup target add x86_64-unknown-linux-musl
-
-      - uses: Swatinem/rust-cache@v2
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source ~/.cargo/env
+          rustup target add x86_64-unknown-linux-musl
 
       - name: Download static files
         uses: actions/download-artifact@v4
@@ -209,11 +211,12 @@ jobs:
           path: static
 
       - name: Build for x86_64
-        run: cargo build --release --target x86_64-unknown-linux-musl
+        run: |
+          source ~/.cargo/env
+          cargo build --release --target x86_64-unknown-linux-musl
         env:
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
-          CXX: musl-gcc
 
       - name: Move artifact to work dir and zip
         run: |
