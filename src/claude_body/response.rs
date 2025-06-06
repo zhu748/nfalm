@@ -34,7 +34,7 @@ pub async fn merge_sse(
                 .map(|data| data.completion)
                 .ok())
         })
-        .try_collect::<Vec<String>>()
+        .try_collect::<Vec<_>>()
         .await?
         .join(""))
 }
