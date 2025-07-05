@@ -109,10 +109,9 @@ pub fn build_event(content: EventContent) -> Event {
 /// # Type Parameters
 /// * `I` - The input stream type
 /// * `E` - The error type for the stream
-pub fn transform_stream<I, E>(s: I) -> impl Stream<Item = Result<Event, E>> + Send
+pub fn transform_stream<I, E>(s: I) -> impl Stream<Item = Result<Event, E>>
 where
-    I: Stream<Item = Result<eventsource_stream::Event, E>> + Send,
-    E: Send,
+    I: Stream<Item = Result<eventsource_stream::Event, E>>,
 {
     s.try_filter_map(async |eventsource_stream::Event { data, .. }| {
         let Ok(parsed) = serde_json::from_str::<StreamEvent>(&data) else {
