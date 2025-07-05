@@ -660,7 +660,6 @@ dependencies = [
  "thiserror 2.0.12",
  "tiktoken-rs",
  "tokio",
- "tokio-stream",
  "toml",
  "tower 0.5.2",
  "tower-http",

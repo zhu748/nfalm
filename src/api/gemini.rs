@@ -65,16 +65,15 @@ where
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
     let time_out = std::time::Duration::from_secs(360);
     stream! {
-        let stream = async move {
+        let future = async move {
             state
                 .try_chat(body.clone())
                 .await
                 .unwrap_or_else(|e| e.into_response())
                 .into_body()
                 .into_data_stream()
-        }
-        .into_stream()
-        .flatten();
+        };
+        let stream = future.into_stream().flatten();
         pin_mut!(stream);
         let start = std::time::Instant::now();
         loop {
