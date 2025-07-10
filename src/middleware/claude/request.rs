@@ -154,7 +154,7 @@ impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
         // Determine streaming status and API format
         let stream = body.stream.unwrap_or_default();
         let format = if uri.contains("chat/completions") {
-            body.stop_sequences = body.stop.to_owned();
+            body.stop_sequences = body.stop.take();
             // extract all system messages from the messages
             let (no_sys, sys) = body
                 .messages
