@@ -1,7 +1,7 @@
 use axum::{body::Body, response::IntoResponse};
 use colored::Colorize;
 use snafu::ResultExt;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     claude_code_state::{ClaudeCodeState, TokenStatus},
@@ -44,12 +44,20 @@ impl ClaudeCodeState {
             let retry = async || -> Result<axum::response::Response, ClewdrError> {
                 match state.check_token() {
                     TokenStatus::None => {
+                        debug!(
+                            "[{}] No token found, requesting new token",
+                            state.cookie.as_ref().unwrap().cookie.ellipse().green()
+                        );
                         let org = state.get_organization().await?;
                         let code_res = state.exchange_code(&org).await?;
                         state.exchange_token(code_res).await?;
                         state.return_cookie(None).await;
                     }
                     TokenStatus::Expired => {
+                        debug!(
+                            "[{}] Token expired, refreshing token",
+                            state.cookie.as_ref().unwrap().cookie.ellipse().green()
+                        );
                         state.refresh_token().await?;
                         state.return_cookie(None).await;
                     }

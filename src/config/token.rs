@@ -3,6 +3,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{DurationSeconds, TimestampSecondsWithFrac, serde_as};
+use tracing::debug;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Account {
@@ -61,6 +62,7 @@ impl TokenInfo {
     }
 
     pub fn is_expired(&self) -> bool {
+        debug!("Expires at: {}", self.expires_at.to_rfc3339());
         Utc::now() >= self.expires_at - Duration::from_secs(60 * 5) // 5 minutes
     }
 }
