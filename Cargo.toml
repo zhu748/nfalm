@@ -41,7 +41,7 @@ clap = { version = "4", features = ["derive"] }
 base64 = "0.22"
 itertools = "0.14"
 scopeguard = "1"
-toml = "0.8"
+toml = "0.9"
 eventsource-stream = "0.2"
 enable-ansi-support = "0.2"
 tracing-appender = "0.2"
