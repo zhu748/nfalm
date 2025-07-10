@@ -1,5 +1,5 @@
-# v0.10.2
+# v0.10.3
 
 ## 🐛 Bug Fixes
 
-- **Claude Processing**: Force `stop` field to be `null` in Claude Format.
+- **Claude Processing**: Fix `stop` field in Claude Format.
