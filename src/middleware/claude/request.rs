@@ -175,6 +175,7 @@ impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
             );
             ClaudeApiFormat::OpenAI
         } else {
+            body.stop = None;
             ClaudeApiFormat::Claude
         };
 
