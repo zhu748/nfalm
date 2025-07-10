@@ -10,7 +10,7 @@ use std::{
 };
 use tracing::info;
 
-use crate::{config::PLACEHOLDER_COOKIE, error::ClewdrError};
+use crate::{config::PLACEHOLDER_COOKIE, config::TokenInfo, error::ClewdrError};
 
 /// A struct representing a cookie
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -41,6 +41,8 @@ impl<'de> Deserialize<'de> for ClewdrCookie {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CookieStatus {
     pub cookie: ClewdrCookie,
+    #[serde(default)]
+    pub token: Option<TokenInfo>,
     #[serde(default)]
     pub reset_time: Option<i64>,
 }
@@ -82,7 +84,11 @@ impl CookieStatus {
     /// A new CookieStatus instance
     pub fn new(cookie: &str, reset_time: Option<i64>) -> Result<Self, ClewdrError> {
         let cookie = ClewdrCookie::from_str(cookie)?;
-        Ok(Self { cookie, reset_time })
+        Ok(Self {
+            cookie,
+            token: None,
+            reset_time,
+        })
     }
 
     /// Checks if the cookie's reset time has expired
@@ -101,6 +107,10 @@ impl CookieStatus {
             }
         }
         self
+    }
+
+    pub fn add_token(&mut self, token: TokenInfo) {
+        self.token = Some(token);
     }
 }
 

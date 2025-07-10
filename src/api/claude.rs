@@ -4,7 +4,7 @@ use scopeguard::defer;
 use tracing::info;
 
 use crate::{
-    claude_state::{ClaudeApiFormat, ClaudeState},
+    claude_web_state::{ClaudeApiFormat, ClaudeState},
     error::ClewdrError,
     middleware::claude::{ClaudeContext, ClaudePreprocess},
     utils::{enabled, print_out_json},

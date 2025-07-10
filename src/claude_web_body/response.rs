@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    claude_state::{ClaudeApiFormat, ClaudeState},
+    claude_web_state::{ClaudeApiFormat, ClaudeState},
     error::ClewdrError,
     services::cache::CACHE,
     types::claude_message::{ContentBlock, Message, Role},

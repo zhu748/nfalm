@@ -11,8 +11,8 @@ use std::{fmt::Write, mem};
 use tracing::warn;
 
 use crate::{
-    claude_body::{Attachment, RequestBody, Tool},
-    claude_state::{ClaudeApiFormat, ClaudeState},
+    claude_web_body::{Attachment, RequestBody, Tool},
+    claude_web_state::{ClaudeApiFormat, ClaudeState},
     config::CLEWDR_CONFIG,
     types::claude_message::{
         ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,

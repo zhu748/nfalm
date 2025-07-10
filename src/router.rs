@@ -15,7 +15,7 @@ use crate::{
         api_get_keys, api_get_models, api_post_config, api_post_cookie, api_post_gemini,
         api_post_gemini_oai, api_post_key, api_version,
     },
-    claude_state::ClaudeState,
+    claude_web_state::ClaudeState,
     gemini_state::GeminiState,
     middleware::{
         RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth,
