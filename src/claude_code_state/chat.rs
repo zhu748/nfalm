@@ -61,9 +61,9 @@ impl ClaudeCodeState {
                         msg: "No access token found in cookie",
                     });
                 };
-                Ok(state
+                state
                     .send_chat(access_token.access_token.to_owned(), p)
-                    .await?)
+                    .await
             };
             match retry().await {
                 Ok(res) => {

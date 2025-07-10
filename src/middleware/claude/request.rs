@@ -155,13 +155,12 @@ impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
             body.messages = no_sys;
             body.system = Some(
                 sys.into_iter()
-                    .map(|m| match m.content {
+                    .flat_map(|m| match m.content {
                         MessageContent::Text { content: text } => {
                             vec![ContentBlock::Text { text }]
                         }
                         MessageContent::Blocks { content } => content,
                     })
-                    .flatten()
                     .filter_map(|b| serde_json::to_value(b).ok())
                     .collect::<Vec<_>>()
                     .into(),
