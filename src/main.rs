@@ -6,12 +6,16 @@ use clewdr::{
     error::ClewdrError,
 };
 use colored::Colorize;
+use mimalloc::MiMalloc;
 use tracing::warn;
 use tracing_subscriber::{
     Layer, Registry,
     fmt::{self, time::ChronoLocal},
     layer::SubscriberExt,
 };
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 /// Application entry point
 /// Sets up logging, checks for updates, initializes the application state,
