@@ -11,8 +11,8 @@ use std::{fmt::Write, mem};
 use tracing::warn;
 
 use crate::{
-    claude_body::{Attachment, RequestBody, Tool},
-    claude_state::{ClaudeApiFormat, ClaudeState},
+    claude_web_body::{Attachment, RequestBody, Tool},
+    claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     config::CLEWDR_CONFIG,
     types::claude_message::{
         ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
@@ -28,7 +28,7 @@ struct Merged {
     pub images: Vec<ImageSource>,
 }
 
-impl ClaudeState {
+impl ClaudeWebState {
     pub fn transform_request(&self, mut value: CreateMessageParams) -> Option<RequestBody> {
         let (value, merged) = match self.api_format {
             ClaudeApiFormat::Claude => {

@@ -4,7 +4,7 @@ use scopeguard::defer;
 use tracing::info;
 
 use crate::{
-    claude_state::{ClaudeApiFormat, ClaudeState},
+    claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     error::ClewdrError,
     middleware::claude::{ClaudeContext, ClaudePreprocess},
     utils::{enabled, print_out_json},
@@ -20,8 +20,8 @@ use crate::{
 ///
 /// # Returns
 /// * `Response` - Stream or JSON response from Claude
-pub async fn api_claude(
-    State(mut state): State<ClaudeState>,
+pub async fn api_claude_web(
+    State(mut state): State<ClaudeWebState>,
     ClaudePreprocess(p, f): ClaudePreprocess,
 ) -> (Extension<ClaudeContext>, Result<Response, ClewdrError>) {
     // Check if the request is a test message

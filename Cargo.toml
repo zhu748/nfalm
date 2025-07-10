@@ -1,6 +1,6 @@
 [package]
 name = "clewdr"
-version = "0.9.22"
+version = "0.10.0"
 edition = "2024"
 authors = ["Xerxes-2"]
 
@@ -75,6 +75,8 @@ hyper-util = "0.1"
 hyper-http-proxy = "1"
 http = "1"
 snafu = { version = "0.8", features = ["futures", "rust_1_81"] }
+pkce-std = "0.2"
+serde_with = { version = "3", features = ["chrono_0_4"] }
 
 [features]
 no_fs = []

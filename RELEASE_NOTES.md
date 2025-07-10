@@ -1,9 +1,5 @@
-# v0.9.22
+# v0.10.0
 
-## Enhancements
+## CLAUDE CODE SUPPORT
 
-- Improve cookie extraction and parsing with better error handling.
-
-## Bug Fixes
-
-- Fix gemini inline data field name.
+- Added support for Claude Code API, allowing users to interact with Claude Code API with Cookie authentication.

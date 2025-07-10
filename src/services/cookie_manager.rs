@@ -243,6 +243,11 @@ impl CookieManager {
     /// * `reason` - Optional reason for the return that determines how the cookie is processed
     fn collect(&mut self, mut cookie: CookieStatus, reason: Option<Reason>) {
         let Some(reason) = reason else {
+            // replace the cookie in valid collection
+            if let Some(c) = self.valid.iter_mut().find(|c| *c == &cookie) {
+                *c = cookie;
+                self.save();
+            }
             return;
         };
         let mut find_remove = |cookie: &CookieStatus| {

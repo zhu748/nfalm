@@ -1,0 +1,116 @@
+mod chat;
+mod exchange;
+mod organization;
+use http::{
+    HeaderValue, Method,
+    header::{ORIGIN, REFERER},
+};
+use rquest::{ClientBuilder, IntoUrl, RequestBuilder};
+use rquest_util::Emulation;
+use snafu::ResultExt;
+use tracing::error;
+
+use crate::{
+    claude_web_state::{ClaudeApiFormat, SUPER_CLIENT},
+    config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},
+    error::{ClewdrError, RquestSnafu},
+    services::cookie_manager::CookieEventSender,
+};
+
+#[derive(Clone)]
+pub struct ClaudeCodeState {
+    pub event_sender: CookieEventSender,
+    pub cookie: Option<CookieStatus>,
+    pub cookie_header_value: HeaderValue,
+    pub proxy: Option<rquest::Proxy>,
+    pub endpoint: url::Url,
+    pub client: rquest::Client,
+    pub api_format: ClaudeApiFormat,
+    pub stream: bool,
+}
+
+impl ClaudeCodeState {
+    /// Create a new ClaudeCodeState instance
+    pub fn new(event_sender: CookieEventSender) -> Self {
+        ClaudeCodeState {
+            event_sender,
+            cookie: None,
+            cookie_header_value: HeaderValue::from_static(""),
+            proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
+            endpoint: CLEWDR_CONFIG.load().endpoint(),
+            client: SUPER_CLIENT.to_owned(),
+            api_format: ClaudeApiFormat::Claude,
+            stream: false,
+        }
+    }
+
+    /// Returns the current cookie to the cookie manager
+    /// Optionally provides a reason for returning the cookie (e.g., invalid, banned)
+    pub async fn return_cookie(&self, reason: Option<Reason>) {
+        // return the cookie to the cookie manager
+        if let Some(ref cookie) = self.cookie {
+            self.event_sender
+                .return_cookie(cookie.to_owned(), reason)
+                .await
+                .unwrap_or_else(|e| {
+                    error!("Failed to send cookie: {}", e);
+                });
+        }
+    }
+
+    /// Build a request with the current cookie and proxy settings
+    pub fn build_request(&self, method: Method, url: impl IntoUrl) -> RequestBuilder {
+        // let r = SUPER_CLIENT.cloned();
+        self.client
+            .set_cookie(&self.endpoint, &self.cookie_header_value);
+        self.client
+            .request(method, url)
+            .header(ORIGIN, CLAUDE_ENDPOINT)
+            .header(REFERER, format!("{CLAUDE_ENDPOINT}/new"))
+    }
+
+    /// Set the cookie header value
+    pub fn set_cookie_header_value(&mut self, value: HeaderValue) {
+        self.cookie_header_value = value;
+    }
+
+    /// Requests a new cookie from the cookie manager
+    /// Updates the internal state with the new cookie and proxy configuration
+    pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
+        let res = self.event_sender.request().await?;
+        self.cookie = Some(res.to_owned());
+        self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
+        let mut client = ClientBuilder::new()
+            .cookie_store(true)
+            .emulation(Emulation::Chrome136);
+        if let Some(ref proxy) = self.proxy {
+            client = client.proxy(proxy.to_owned());
+        }
+        self.client = client.build().context(RquestSnafu {
+            msg: "Failed to build client with new cookie",
+        })?;
+        // load newest config
+        self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
+        Ok(())
+    }
+
+    pub fn check_token(&self) -> TokenStatus {
+        let Some(cookie) = &self.cookie else {
+            return TokenStatus::None;
+        };
+        let Some(ref token_info) = cookie.token else {
+            return TokenStatus::None;
+        };
+        if token_info.is_expired() {
+            TokenStatus::Expired
+        } else {
+            TokenStatus::Valid
+        }
+    }
+}
+
+pub enum TokenStatus {
+    None,
+    Expired,
+    Valid,
+}

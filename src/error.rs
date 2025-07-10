@@ -23,6 +23,13 @@ use crate::{
 #[snafu(visibility(pub(crate)))]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[snafu(display("URL parse error: {}, at: {}", source, loc))]
+    UrlError {
+        #[snafu(implicit)]
+        loc: Location,
+        url: String,
+        source: url::ParseError,
+    },
     #[snafu(display("Parse cookie error: {}, at: {}", msg, loc))]
     ParseCookieError {
         #[snafu(implicit)]
@@ -72,7 +79,8 @@ pub enum ClewdrError {
     #[snafu(display("Cookie send error: {}", source))]
     #[snafu(context(false))]
     CookieSendError {
-        source: tokio::sync::mpsc::error::SendError<CookieEvent>,
+        #[snafu(source(from(tokio::sync::mpsc::error::SendError<CookieEvent>, Box::new)))]
+        source: Box<tokio::sync::mpsc::error::SendError<CookieEvent>>,
     },
     #[snafu(display("Retries exceeded"))]
     TooManyRetries,
@@ -154,6 +162,14 @@ pub enum ClewdrError {
 impl IntoResponse for ClewdrError {
     fn into_response(self) -> axum::response::Response {
         let (status, msg) = match self {
+            ClewdrError::UrlError {
+                loc,
+                source,
+                ref url,
+            } => (
+                StatusCode::BAD_REQUEST,
+                json!(format!("{}: {} (URL: {})", loc, source, url)),
+            ),
             ClewdrError::ParseCookieError { .. } => {
                 (StatusCode::BAD_REQUEST, json!(self.to_string()))
             }

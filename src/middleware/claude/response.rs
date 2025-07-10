@@ -4,7 +4,7 @@ use futures::{Stream, TryStreamExt};
 use serde::Serialize;
 
 use crate::{
-    claude_state::ClaudeApiFormat,
+    claude_web_state::ClaudeApiFormat,
     types::claude_message::{ContentBlockDelta, StreamEvent},
 };
 
