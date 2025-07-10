@@ -68,3 +68,8 @@ Specifically built for Claude (Claude.ai) and Gemini (Google AI Studio, Google V
 ## Community Resources
 
 **Github Aggregated Wiki**: <https://github.com/Xerxes-2/clewdr/wiki>
+
+## Acknowledgements
+
+- [Clewd Modified Version](https://github.com/teralomaniac/clewd) - A modified version of the original Clewd, providing many inspirations and foundational features.
+- [Clove](https://github.com/mirrorange/clove) - Provides the support logic for Claude Code.

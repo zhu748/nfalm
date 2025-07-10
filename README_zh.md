@@ -66,3 +66,8 @@
 ## 社区资源
 
 **Github 聚合 Wiki**：<https://github.com/Xerxes-2/clewdr/wiki>
+
+## 致谢
+
+- [Clewd 修改版](https://github.com/teralomaniac/clewd) - 原始 Clewd 的修改版，提供了许多灵感和基础功能
+- [Clove](https://github.com/mirrorange/clove) - 提供了 Claude Code 的支持逻辑

@@ -5,6 +5,7 @@ use axum::{
     extract::{FromRequest, Request},
     response::IntoResponse,
 };
+use serde_json::json;
 
 use crate::{
     claude_code_state::ClaudeCodeState,
@@ -131,7 +132,14 @@ impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
 
         // Handle thinking mode by modifying the model name
 
-        body.model = body.model.trim_end_matches("-thinking").to_string();
+        if body.model.ends_with("-thinking") {
+            body.model = body.model.trim_end_matches("-thinking").to_string();
+            body.thinking = serde_json::from_value(json!({
+                "budget_tokens": 1024,
+                "type": "enabled",
+            }))
+            .ok();
+        }
         body.model = body.model.trim_end_matches("-claude-ai").to_string();
 
         // Check for test messages and respond appropriately

@@ -244,7 +244,9 @@ impl CookieManager {
     fn collect(&mut self, mut cookie: CookieStatus, reason: Option<Reason>) {
         let Some(reason) = reason else {
             // replace the cookie in valid collection
-            if let Some(c) = self.valid.iter_mut().find(|c| *c == &cookie) {
+            if cookie.token.is_some()
+                && let Some(c) = self.valid.iter_mut().find(|c| *c == &cookie)
+            {
                 *c = cookie;
                 self.save();
             }
