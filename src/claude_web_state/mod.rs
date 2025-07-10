@@ -20,7 +20,7 @@ use crate::{
 pub mod bootstrap;
 pub mod chat;
 /// Placeholder
-static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
+pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
 /// Represents the format of the API response
 ///

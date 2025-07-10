@@ -59,4 +59,8 @@ impl TokenInfo {
             expires_at,
         }
     }
+
+    pub fn is_expired(&self) -> bool {
+        Utc::now() >= self.expires_at - Duration::from_secs(60 * 5) // 5 minutes
+    }
 }

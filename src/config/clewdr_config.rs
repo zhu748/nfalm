@@ -22,8 +22,9 @@ use yup_oauth2::ServiceAccountKey;
 
 use crate::{
     config::{
-        CookieStatus, UselessCookie, default_check_update, default_ip, default_max_retries,
-        default_padtxt_len, default_port, default_skip_cool_down, default_use_real_roles,
+        CC_CLIENT_ID, CookieStatus, UselessCookie, default_check_update, default_ip,
+        default_max_retries, default_padtxt_len, default_port, default_skip_cool_down,
+        default_use_real_roles,
     },
     error::ClewdrError,
     utils::enabled,
@@ -143,6 +144,12 @@ pub struct ClewdrConfig {
     #[serde(default = "default_padtxt_len")]
     pub padtxt_len: usize,
 
+    // Claude Code settings, can hot reload
+    #[serde(default)]
+    pub claude_code_client_id: Option<String>,
+    #[serde(default)]
+    pub custom_system: Option<String>,
+
     // Skip field, can hot reload
     #[serde(skip)]
     pub rquest_proxy: Option<Proxy>,
@@ -185,6 +192,8 @@ impl Default for ClewdrConfig {
             skip_non_pro: false,
             skip_rate_limit: default_skip_cool_down(),
             skip_normal_pro: false,
+            claude_code_client_id: None,
+            custom_system: None,
         }
     }
 }
@@ -269,6 +278,13 @@ impl ClewdrConfig {
 
     pub fn admin_auth(&self, key: &str) -> bool {
         key == self.admin_password
+    }
+
+    pub fn cc_client_id(&self) -> String {
+        self.claude_code_client_id
+            .as_deref()
+            .unwrap_or(CC_CLIENT_ID)
+            .to_string()
     }
 
     /// Loads configuration from files and environment variables

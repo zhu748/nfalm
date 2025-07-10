@@ -20,7 +20,7 @@ use crate::{
 ///
 /// # Returns
 /// * `Response` - Stream or JSON response from Claude
-pub async fn api_claude(
+pub async fn api_claude_web(
     State(mut state): State<ClaudeWebState>,
     ClaudePreprocess(p, f): ClaudePreprocess,
 ) -> (Extension<ClaudeContext>, Result<Response, ClewdrError>) {

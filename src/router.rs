@@ -10,11 +10,8 @@ use tower_http::{compression::CompressionLayer, cors::CorsLayer, services::Serve
 
 use crate::{
     IS_DEBUG,
-    api::{
-        api_auth, api_claude, api_delete_cookie, api_delete_key, api_get_config, api_get_cookies,
-        api_get_keys, api_get_models, api_post_config, api_post_cookie, api_post_gemini,
-        api_post_gemini_oai, api_post_key, api_version,
-    },
+    api::*,
+    claude_code_state::ClaudeCodeState,
     claude_web_state::ClaudeWebState,
     gemini_state::GeminiState,
     middleware::{
@@ -29,7 +26,8 @@ use crate::{
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
-    claude_state: ClaudeWebState,
+    claude_web_state: ClaudeWebState,
+    claude_code_state: ClaudeCodeState,
     cookie_event_sender: CookieEventSender,
     key_event_sender: KeyEventSender,
     gemini_state: GeminiState,
@@ -50,11 +48,13 @@ impl RouterBuilder {
     /// * `state` - The application state containing client information
     pub fn new() -> Self {
         let cookie_tx = CookieManager::start();
-        let claude_state = ClaudeWebState::new(cookie_tx.to_owned());
+        let claude_web_state = ClaudeWebState::new(cookie_tx.to_owned());
+        let claude_code_state = ClaudeCodeState::new(cookie_tx.to_owned());
         let key_tx = KeyManager::start();
         let gemini_state = GeminiState::new(key_tx.to_owned());
         RouterBuilder {
-            claude_state,
+            claude_web_state,
+            claude_code_state,
             cookie_event_sender: cookie_tx,
             key_event_sender: key_tx,
             gemini_state,
@@ -65,9 +65,11 @@ impl RouterBuilder {
     /// Creates a new RouterBuilder instance
     /// Sets up routes for API endpoints and static file serving
     pub fn with_default_setup(self) -> Self {
-        self.route_claude_endpoints()
-            .route_api_endpoints()
-            .route_oai_comp_claude_endpoints()
+        self.route_claude_code_endpoints()
+            .route_claude_web_endpoints()
+            .route_admin_endpoints()
+            .route_claude_web_oai_endpoints()
+            .route_claude_code_oai_endpoints()
             .route_gemini_endpoints()
             .setup_static_serving()
             .with_tower_trace()
@@ -93,22 +95,36 @@ impl RouterBuilder {
     }
 
     /// Sets up routes for v1 endpoints
-    fn route_claude_endpoints(mut self) -> Self {
+    fn route_claude_web_endpoints(mut self) -> Self {
         let router = Router::new()
-            .route("/v1/messages", post(api_claude))
+            .route("/v1/messages", post(api_claude_web))
             .layer(
                 ServiceBuilder::new()
                     .layer(from_extractor::<RequireXApiKeyAuth>())
                     .layer(CompressionLayer::new())
                     .layer(map_response(apply_stop_sequences)),
             )
-            .with_state(self.claude_state.to_owned().with_claude_format());
+            .with_state(self.claude_web_state.to_owned().with_claude_format());
+        self.inner = self.inner.merge(router);
+        self
+    }
+
+    /// Sets up routes for v1 endpoints
+    fn route_claude_code_endpoints(mut self) -> Self {
+        let router = Router::new()
+            .route("/code/v1/messages", post(api_claude_code))
+            .layer(
+                ServiceBuilder::new()
+                    .layer(from_extractor::<RequireXApiKeyAuth>())
+                    .layer(CompressionLayer::new()),
+            )
+            .with_state(self.claude_code_state.to_owned());
         self.inner = self.inner.merge(router);
         self
     }
 
     /// Sets up routes for API endpoints
-    fn route_api_endpoints(mut self) -> Self {
+    fn route_admin_endpoints(mut self) -> Self {
         let cookie_router = Router::new()
             .route("/cookies", get(api_get_cookies))
             .route("/cookie", delete(api_delete_cookie).post(api_post_cookie))
@@ -133,10 +149,10 @@ impl RouterBuilder {
         self
     }
 
-    /// Optionally sets up routes for OpenAI compatible endpoints
-    fn route_oai_comp_claude_endpoints(mut self) -> Self {
+    /// Sets up routes for OpenAI compatible endpoints
+    fn route_claude_web_oai_endpoints(mut self) -> Self {
         let router = Router::new()
-            .route("/v1/chat/completions", post(api_claude))
+            .route("/v1/chat/completions", post(api_claude_web))
             .route("/v1/models", get(api_get_models))
             .layer(
                 ServiceBuilder::new()
@@ -145,7 +161,23 @@ impl RouterBuilder {
                     .layer(map_response(to_oai))
                     .layer(map_response(apply_stop_sequences)),
             )
-            .with_state(self.claude_state.to_owned().with_openai_format());
+            .with_state(self.claude_web_state.to_owned().with_openai_format());
+        self.inner = self.inner.merge(router);
+        self
+    }
+
+    /// Sets up routes for OpenAI compatible endpoints
+    fn route_claude_code_oai_endpoints(mut self) -> Self {
+        let router = Router::new()
+            .route("/code/v1/chat/completions", post(api_claude_code))
+            .route("/code/v1/models", get(api_get_models))
+            .layer(
+                ServiceBuilder::new()
+                    .layer(from_extractor::<RequireBearerAuth>())
+                    .layer(CompressionLayer::new())
+                    .layer(map_response(to_oai)),
+            )
+            .with_state(self.claude_code_state.to_owned());
         self.inner = self.inner.merge(router);
         self
     }

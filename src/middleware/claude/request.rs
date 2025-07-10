@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{sync::LazyLock, vec};
 
 use axum::{
     Json,
@@ -7,9 +7,10 @@ use axum::{
 };
 
 use crate::{
+    claude_code_state::ClaudeCodeState,
     claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     error::ClewdrError,
-    types::claude_message::{ContentBlock, CreateMessageParams, Message, Role},
+    types::claude_message::{ContentBlock, CreateMessageParams, Message, MessageContent, Role},
 };
 
 use super::to_oai;
@@ -116,6 +117,69 @@ impl FromRequest<ClaudeWebState> for ClaudePreprocess {
             let r = to_oai(r).await.into_response();
             return Err(ClewdrError::CacheFound { res: Box::new(r) });
         }
+
+        Ok(Self(body, info))
+    }
+}
+
+impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
+    type Rejection = ClewdrError;
+
+    async fn from_request(req: Request, state: &ClaudeCodeState) -> Result<Self, Self::Rejection> {
+        let uri = req.uri().to_string();
+        let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
+
+        // Handle thinking mode by modifying the model name
+
+        body.model = body.model.trim_end_matches("-thinking").to_string();
+        body.model = body.model.trim_end_matches("-claude-ai").to_string();
+
+        // Check for test messages and respond appropriately
+        if !body.stream.unwrap_or_default()
+            && (body.messages == vec![TEST_MESSAGE_CLAUDE.to_owned()]
+                || body.messages == vec![TEST_MESSAGE_OAI.to_owned()])
+        {
+            // Respond with a test message
+            return Err(ClewdrError::TestMessage);
+        }
+
+        // Determine streaming status and API format
+        let stream = body.stream.unwrap_or_default();
+        let format = if uri.contains("chat/completions") {
+            body.stop_sequences = body.stop.to_owned();
+            // extract all system messages from the messages
+            let (no_sys, sys) = body
+                .messages
+                .into_iter()
+                .partition::<Vec<_>, _>(|m| m.role != Role::System);
+            body.messages = no_sys;
+            body.system = Some(
+                sys.into_iter()
+                    .map(|m| match m.content {
+                        MessageContent::Text { content: text } => {
+                            vec![ContentBlock::Text { text }]
+                        }
+                        MessageContent::Blocks { content } => content,
+                    })
+                    .flatten()
+                    .filter_map(|b| serde_json::to_value(b).ok())
+                    .collect::<Vec<_>>()
+                    .into(),
+            );
+            ClaudeApiFormat::OpenAI
+        } else {
+            ClaudeApiFormat::Claude
+        };
+
+        // Update state with format information
+        let mut state = state.to_owned();
+        state.api_format = format;
+        state.stream = stream;
+        let info = ClaudeContext {
+            stream,
+            api_format: format,
+            stop_sequences: vec![],
+        };
 
         Ok(Self(body, info))
     }
