@@ -218,6 +218,7 @@ impl Display for ClewdrConfig {
         write!(
             f,
             "Claude(Claude and OpenAI format) / Gemini(Gemini format) Endpoint: {}\n\
+            Claude Code(Claude and OpenAI format) Endpoint: {}\n\
             Vertex(Gemini format) Endpoint: {}\n\
             Gemini(OpenAI format) Endpoint: {}\n\
             Vertex(OpenAI format) Endpoint: {}\n\
@@ -225,6 +226,7 @@ impl Display for ClewdrConfig {
             Web Admin Endpoint: {}\n\
             Web Admin Password: {}\n",
             api_url.to_string().green().underline(),
+            (web_url.to_string() + "code/v1/").green().underline(),
             (api_url.to_string() + "/vertex").green().underline(),
             (web_url.to_string() + "gemini").green().underline(),
             (web_url.to_string() + "gemini/vertex").green().underline(),
