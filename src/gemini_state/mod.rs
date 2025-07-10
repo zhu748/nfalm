@@ -44,7 +44,7 @@ async fn get_token(sa_key: ServiceAccountKey) -> Result<String, ClewdrError> {
             .trim_start_matches("http://")
             .trim_start_matches("https://")
             .trim_start_matches("socks5://");
-        let proxy = format!("http://{}", proxy);
+        let proxy = format!("http://{proxy}");
         let proxy_uri = proxy.parse().context(InvalidUriSnafu {
             uri: proxy.to_owned(),
         })?;
@@ -160,7 +160,7 @@ impl GeminiState {
         };
 
         let access_token = get_token(cred.to_owned()).await?;
-        let bearer = format!("Bearer {}", access_token);
+        let bearer = format!("Bearer {access_token}");
         let res = match self.api_format {
             GeminiApiFormat::Gemini => {
                 let endpoint = format!(
@@ -233,10 +233,9 @@ impl GeminiState {
             GeminiApiFormat::OpenAI => self
                 .client
                 .post(format!(
-                    "{}/v1beta/openai/chat/completions",
-                    GEMINI_ENDPOINT,
+                    "{GEMINI_ENDPOINT}/v1beta/openai/chat/completions",
                 ))
-                .header(AUTHORIZATION, format!("Bearer {}", key))
+                .header(AUTHORIZATION, format!("Bearer {key}"))
                 .json(&p)
                 .send()
                 .await

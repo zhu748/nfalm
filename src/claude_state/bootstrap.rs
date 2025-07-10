@@ -182,11 +182,11 @@ impl ClaudeState {
                 "{}",
                 "Your account is banned, please use another account.".red()
             )?;
-            print!("{}", w);
+            print!("{w}");
             return Err(Reason::Banned.into());
         }
         if !w.is_empty() {
-            print!("{}", w);
+            print!("{w}");
         }
         if let Some((_, expire)) = restricted {
             if CLEWDR_CONFIG.load().skip_restricted {

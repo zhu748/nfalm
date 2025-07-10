@@ -358,7 +358,7 @@ impl CheckClaudeErr for Response {
         };
         let Ok(err) = serde_json::from_str::<ClaudeError>(&text) else {
             let error = ClaudeErrorBody {
-                message: format!("Unknown error: {}", text).into(),
+                message: format!("Unknown error: {text}").into(),
                 r#type: "error_parse_error_body".to_string(),
                 code: Some(status.as_u16()),
             };

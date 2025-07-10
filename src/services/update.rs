@@ -191,7 +191,7 @@ impl ClewdrUpdater {
 
         if !binary_path.exists() {
             return Err(ClewdrError::AssetError {
-                msg: format!("Binary not found in the update package: {}", binary_name),
+                msg: format!("Binary not found in the update package: {binary_name}"),
             });
         }
 
@@ -267,7 +267,7 @@ impl ClewdrUpdater {
             ("android", "aarch64") => "android-aarch64",
             _ => {
                 return Err(ClewdrError::AssetError {
-                    msg: format!("Unsupported platform: {}-{}", os, arch),
+                    msg: format!("Unsupported platform: {os}-{arch}"),
                 });
             }
         };
@@ -277,7 +277,7 @@ impl ClewdrUpdater {
             .iter()
             .find(|asset| asset.name.contains(target) && asset.name.ends_with(".zip"))
             .ok_or(ClewdrError::AssetError {
-                msg: format!("No suitable asset found for platform: {}", target),
+                msg: format!("No suitable asset found for platform: {target}"),
             })
     }
 

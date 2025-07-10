@@ -159,6 +159,18 @@ impl FromStr for ClewdrCookie {
     }
 }
 
+impl Display for ClewdrCookie {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "sessionKey=sk-ant-sid01-{}", self.inner)
+    }
+}
+
+impl Debug for ClewdrCookie {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,17 +191,5 @@ mod tests {
     fn test_invalid_cookie() {
         let result = ClewdrCookie::from_str("invalid-cookie");
         assert!(result.is_err());
-    }
-}
-
-impl Display for ClewdrCookie {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "sessionKey=sk-ant-sid01-{}", self.inner)
-    }
-}
-
-impl Debug for ClewdrCookie {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(self, f)
     }
 }

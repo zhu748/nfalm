@@ -91,9 +91,9 @@ impl ClaudeState {
             .request(method, url)
             .header(ORIGIN, CLAUDE_ENDPOINT);
         if let Some(uuid) = self.conv_uuid.to_owned() {
-            req.header(REFERER, format!("{}/chat/{}", CLAUDE_ENDPOINT, uuid))
+            req.header(REFERER, format!("{CLAUDE_ENDPOINT}/chat/{uuid}"))
         } else {
-            req.header(REFERER, format!("{}/new", CLAUDE_ENDPOINT))
+            req.header(REFERER, format!("{CLAUDE_ENDPOINT}/new"))
         }
     }
 

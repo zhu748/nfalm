@@ -238,10 +238,10 @@ fn merge_messages(msgs: Vec<Message>, system: String) -> Option<Merged> {
                 warn!("System message should be merged into the first message");
                 continue;
             }
-            Role::User => format!("{}: ", h),
-            Role::Assistant => format!("{}: ", a),
+            Role::User => format!("{h}: "),
+            Role::Assistant => format!("{a}: "),
         };
-        write!(w, "{}{}{}", line_breaks, prefix, text).ok()?;
+        write!(w, "{line_breaks}{prefix}{text}").ok()?;
     }
     print_out_text(w.as_str(), "paste.txt");
 

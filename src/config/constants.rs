@@ -15,7 +15,7 @@ pub const CLAUDE_ENDPOINT: &str = "https://api.anthropic.com";
 pub const GEMINI_ENDPOINT: &str = "https://generativelanguage.googleapis.com";
 pub static ENDPOINT_URL: LazyLock<Url> = LazyLock::new(|| {
     Url::parse(CLAUDE_ENDPOINT).unwrap_or_else(|_| {
-        panic!("Failed to parse endpoint URL: {}", CLAUDE_ENDPOINT);
+        panic!("Failed to parse endpoint URL: {CLAUDE_ENDPOINT}");
     })
 });
 pub const LOG_DIR: &str = "log";
