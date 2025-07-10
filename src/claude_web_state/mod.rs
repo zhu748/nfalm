@@ -37,7 +37,7 @@ pub enum ClaudeApiFormat {
 
 /// State of current connection
 #[derive(Clone)]
-pub struct ClaudeState {
+pub struct ClaudeWebState {
     pub cookie: Option<CookieStatus>,
     cookie_header_value: HeaderValue,
     pub event_sender: CookieEventSender,
@@ -52,10 +52,10 @@ pub struct ClaudeState {
     pub key: Option<(u64, usize)>,
 }
 
-impl ClaudeState {
+impl ClaudeWebState {
     /// Create a new AppState instance
     pub fn new(event_sender: CookieEventSender) -> Self {
-        ClaudeState {
+        ClaudeWebState {
             event_sender,
             cookie: None,
             org_uuid: None,

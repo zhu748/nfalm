@@ -15,7 +15,7 @@ use crate::{
         api_get_keys, api_get_models, api_post_config, api_post_cookie, api_post_gemini,
         api_post_gemini_oai, api_post_key, api_version,
     },
-    claude_web_state::ClaudeState,
+    claude_web_state::ClaudeWebState,
     gemini_state::GeminiState,
     middleware::{
         RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth,
@@ -29,7 +29,7 @@ use crate::{
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
-    claude_state: ClaudeState,
+    claude_state: ClaudeWebState,
     cookie_event_sender: CookieEventSender,
     key_event_sender: KeyEventSender,
     gemini_state: GeminiState,
@@ -50,7 +50,7 @@ impl RouterBuilder {
     /// * `state` - The application state containing client information
     pub fn new() -> Self {
         let cookie_tx = CookieManager::start();
-        let claude_state = ClaudeState::new(cookie_tx.to_owned());
+        let claude_state = ClaudeWebState::new(cookie_tx.to_owned());
         let key_tx = KeyManager::start();
         let gemini_state = GeminiState::new(key_tx.to_owned());
         RouterBuilder {

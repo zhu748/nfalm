@@ -5,13 +5,13 @@ use snafu::ResultExt;
 use std::fmt::Write;
 
 use crate::{
-    claude_web_state::ClaudeState,
+    claude_web_state::ClaudeWebState,
     config::{CLEWDR_CONFIG, Reason},
     error::{CheckClaudeErr, ClewdrError, RquestSnafu},
     utils::print_out_json,
 };
 
-impl ClaudeState {
+impl ClaudeWebState {
     /// Bootstraps the application state by initializing connections to Claude.ai
     ///
     /// This function performs the following operations:

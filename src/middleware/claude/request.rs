@@ -7,7 +7,7 @@ use axum::{
 };
 
 use crate::{
-    claude_web_state::{ClaudeApiFormat, ClaudeState},
+    claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     error::ClewdrError,
     types::claude_message::{ContentBlock, CreateMessageParams, Message, Role},
 };
@@ -62,10 +62,10 @@ static TEST_MESSAGE_CLAUDE: LazyLock<Message> = LazyLock::new(|| {
 /// Predefined test message in OpenAI format for connection testing
 static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
 
-impl FromRequest<ClaudeState> for ClaudePreprocess {
+impl FromRequest<ClaudeWebState> for ClaudePreprocess {
     type Rejection = ClewdrError;
 
-    async fn from_request(req: Request, state: &ClaudeState) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, state: &ClaudeWebState) -> Result<Self, Self::Rejection> {
         let uri = req.uri().to_string();
         let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
 

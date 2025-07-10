@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    claude_web_state::{ClaudeApiFormat, ClaudeState},
+    claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     error::ClewdrError,
     services::cache::CACHE,
     types::claude_message::{ContentBlock, Message, Role},
@@ -57,7 +57,7 @@ where
     }
 }
 
-impl ClaudeState {
+impl ClaudeWebState {
     /// Converts the response from the Claude Web into Claude API or OpenAI API format
     ///
     /// This method transforms streams of bytes from Claude's web response into the appropriate
