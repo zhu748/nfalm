@@ -16,7 +16,6 @@ pub async fn api_claude_code(
     ClaudePreprocess(mut p, f): ClaudePreprocess,
 ) -> (Extension<ClaudeContext>, Result<Response, ClewdrError>) {
     print_out_json(&p, "client_req.json");
-    p.stop = p.stop_sequences.clone();
     info!(
         "[{}] stream: {}, msgs: {}, model: {}, think: {}",
         "CLAUDE CODE".red(),
