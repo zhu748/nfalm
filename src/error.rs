@@ -79,7 +79,8 @@ pub enum ClewdrError {
     #[snafu(display("Cookie send error: {}", source))]
     #[snafu(context(false))]
     CookieSendError {
-        source: tokio::sync::mpsc::error::SendError<CookieEvent>,
+        #[snafu(source(from(tokio::sync::mpsc::error::SendError<CookieEvent>, Box::new)))]
+        source: Box<tokio::sync::mpsc::error::SendError<CookieEvent>>,
     },
     #[snafu(display("Retries exceeded"))]
     TooManyRetries,
