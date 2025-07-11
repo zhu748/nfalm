@@ -406,7 +406,7 @@ impl CheckClaudeErr for Response {
             } else {
                 error!("Rate limit exceeded, but no reset time found in error message");
                 return Err(ClewdrError::InvalidCookie {
-                    reason: Reason::TooManyRequest(Utc::now().timestamp()),
+                    reason: Reason::TooManyRequest(Utc::now().timestamp() + 3600),
                 });
             }
         }
