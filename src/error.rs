@@ -3,6 +3,7 @@ use axum::{
     extract::rejection::{JsonRejection, PathRejection, QueryRejection},
     response::IntoResponse,
 };
+use chrono::Utc;
 use colored::Colorize;
 use rquest::{Response, StatusCode, header::InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
@@ -401,6 +402,11 @@ impl CheckClaudeErr for Response {
                 error!("Rate limit exceeded, expires in {} hours", hours);
                 return Err(ClewdrError::InvalidCookie {
                     reason: Reason::TooManyRequest(time),
+                });
+            } else {
+                error!("Rate limit exceeded, but no reset time found in error message");
+                return Err(ClewdrError::InvalidCookie {
+                    reason: Reason::TooManyRequest(Utc::now().timestamp()),
                 });
             }
         }
