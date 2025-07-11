@@ -95,10 +95,11 @@ impl ClaudeCodeState {
     }
 
     pub fn check_token(&self) -> TokenStatus {
-        let Some(cookie) = &self.cookie else {
-            return TokenStatus::None;
-        };
-        let Some(ref token_info) = cookie.token else {
+        let Some(CookieStatus {
+            token: Some(token_info),
+            ..
+        }) = &self.cookie
+        else {
             return TokenStatus::None;
         };
         if token_info.is_expired() {
