@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::{
     claude_web_state::ClaudeApiFormat,
+    middleware::claude::ClaudeCodeContext,
     types::claude_message::{ContentBlockDelta, StreamEvent},
 };
 
@@ -29,18 +30,30 @@ use super::ClaudeWebContext;
 ///
 /// The original or transformed response as appropriate
 pub async fn to_oai(resp: Response) -> impl IntoResponse {
-    let Some(f) = resp.extensions().get::<ClaudeWebContext>() else {
-        return resp;
-    };
-    if ClaudeApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
-        return resp;
+    if let Some(f) = resp.extensions().get::<ClaudeWebContext>() {
+        if ClaudeApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
+            return resp;
+        }
+        let body = resp.into_body();
+        let stream = body.into_data_stream().eventsource();
+        let stream = transform_stream(stream);
+        Sse::new(stream)
+            .keep_alive(Default::default())
+            .into_response()
+    } else {
+        let Some(ex) = resp.extensions().get::<ClaudeCodeContext>() else {
+            return resp;
+        };
+        if ClaudeApiFormat::Claude == ex.api_format || !ex.stream || resp.status() != 200 {
+            return resp;
+        }
+        let body = resp.into_body();
+        let stream = body.into_data_stream().eventsource();
+        let stream = transform_stream(stream);
+        return Sse::new(stream)
+            .keep_alive(Default::default())
+            .into_response();
     }
-    let body = resp.into_body();
-    let stream = body.into_data_stream().eventsource();
-    let stream = transform_stream(stream);
-    Sse::new(stream)
-        .keep_alive(Default::default())
-        .into_response()
 }
 
 /// Represents the data structure for streaming events in OpenAI API format
