@@ -6,7 +6,7 @@ use tracing::info;
 use crate::{
     claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     error::ClewdrError,
-    middleware::claude::{ClaudeContext, ClaudePreprocess},
+    middleware::claude::{ClaudeWebContext, ClaudeWebPreprocess},
     utils::{enabled, print_out_json},
 };
 /// Axum handler for the API messages
@@ -22,8 +22,8 @@ use crate::{
 /// * `Response` - Stream or JSON response from Claude
 pub async fn api_claude_web(
     State(mut state): State<ClaudeWebState>,
-    ClaudePreprocess(p, f): ClaudePreprocess,
-) -> (Extension<ClaudeContext>, Result<Response, ClewdrError>) {
+    ClaudeWebPreprocess(p, f): ClaudeWebPreprocess,
+) -> (Extension<ClaudeWebContext>, Result<Response, ClewdrError>) {
     // Check if the request is a test message
     let stream = p.stream.unwrap_or_default();
     print_out_json(&p, "client_req.json");

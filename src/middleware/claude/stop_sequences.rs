@@ -7,7 +7,7 @@ use crate::types::claude_message::{
     ContentBlockDelta, MessageDeltaContent, StopReason, StreamEvent,
 };
 
-use super::ClaudeContext;
+use super::ClaudeWebContext;
 
 type EventResult<T> = Result<T, eventsource_stream::EventStreamError<axum::Error>>;
 
@@ -87,7 +87,7 @@ fn stop_stream(
 }
 
 pub async fn apply_stop_sequences(resp: Response) -> Response {
-    let Some(f) = resp.extensions().get::<ClaudeContext>().cloned() else {
+    let Some(f) = resp.extensions().get::<ClaudeWebContext>().cloned() else {
         return resp;
     };
     if !f.stream || resp.status() != 200 || f.stop_sequences.is_empty() {

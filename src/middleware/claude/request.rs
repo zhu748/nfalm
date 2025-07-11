@@ -31,7 +31,7 @@ use super::to_oai;
 /// - Identifies test messages and handles them appropriately
 /// - Attempts to retrieve responses from cache before processing requests
 /// - Provides format information via the FormatInfo extension
-pub struct ClaudePreprocess(pub CreateMessageParams, pub ClaudeContext);
+pub struct ClaudeWebPreprocess(pub CreateMessageParams, pub ClaudeWebContext);
 
 /// Contains information about the API format and streaming status
 ///
@@ -39,7 +39,7 @@ pub struct ClaudePreprocess(pub CreateMessageParams, pub ClaudeContext);
 /// handlers and response processors about the API format being used
 /// and whether the response should be streamed.
 #[derive(Debug, Clone)]
-pub struct ClaudeContext {
+pub struct ClaudeWebContext {
     /// Whether the response should be streamed
     pub stream: bool,
     /// The API format being used (Claude or OpenAI)
@@ -65,7 +65,7 @@ static TEST_MESSAGE_CLAUDE: LazyLock<Message> = LazyLock::new(|| {
 /// Predefined test message in OpenAI format for connection testing
 static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
 
-impl FromRequest<ClaudeWebState> for ClaudePreprocess {
+impl FromRequest<ClaudeWebState> for ClaudeWebPreprocess {
     type Rejection = ClewdrError;
 
     async fn from_request(req: Request, state: &ClaudeWebState) -> Result<Self, Self::Rejection> {
@@ -107,7 +107,7 @@ impl FromRequest<ClaudeWebState> for ClaudePreprocess {
         stop.extend_from_slice(body.stop.to_owned().unwrap_or_default().as_slice());
         stop.sort();
         stop.dedup();
-        let info = ClaudeContext {
+        let info = ClaudeWebContext {
             stream,
             api_format: format,
             stop_sequences: stop,
@@ -124,10 +124,20 @@ impl FromRequest<ClaudeWebState> for ClaudePreprocess {
     }
 }
 
-impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
+#[derive(Debug, Clone)]
+pub struct ClaudeCodeContext {
+    /// Whether the response should be streamed
+    pub stream: bool,
+    /// The API format being used (Claude or OpenAI)
+    pub api_format: ClaudeApiFormat,
+}
+
+pub struct ClaudeCodePreprocess(pub CreateMessageParams, pub ClaudeCodeContext);
+
+impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
     type Rejection = ClewdrError;
 
-    async fn from_request(req: Request, state: &ClaudeCodeState) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, _: &ClaudeCodeState) -> Result<Self, Self::Rejection> {
         let uri = req.uri().to_string();
         let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
 
@@ -200,14 +210,9 @@ impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
         }
         body.system = Some(Value::Array(system));
 
-        // Update state with format information
-        let mut state = state.to_owned();
-        state.api_format = format;
-        state.stream = stream;
-        let info = ClaudeContext {
+        let info = ClaudeCodeContext {
             stream,
             api_format: format,
-            stop_sequences: vec![],
         };
 
         Ok(Self(body, info))

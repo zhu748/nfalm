@@ -1,7 +1,7 @@
 use crate::{
     claude_code_state::ClaudeCodeState,
     error::ClewdrError,
-    middleware::claude::{ClaudeContext, ClaudePreprocess},
+    middleware::claude::{ClaudeCodeContext, ClaudeCodePreprocess},
     utils::{enabled, print_out_json},
 };
 use axum::{Extension, extract::State, response::Response};
@@ -10,8 +10,8 @@ use tracing::info;
 
 pub async fn api_claude_code(
     State(mut state): State<ClaudeCodeState>,
-    ClaudePreprocess(p, f): ClaudePreprocess,
-) -> (Extension<ClaudeContext>, Result<Response, ClewdrError>) {
+    ClaudeCodePreprocess(p, f): ClaudeCodePreprocess,
+) -> (Extension<ClaudeCodeContext>, Result<Response, ClewdrError>) {
     print_out_json(&p, "client_req.json");
     info!(
         "[{}] stream: {}, msgs: {}, model: {}, think: {}",
