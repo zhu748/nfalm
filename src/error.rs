@@ -346,6 +346,10 @@ impl CheckClaudeErr for Response {
         if status.is_success() {
             return Ok(self);
         }
+        let reset_header = self
+            .headers()
+            .get("anthropic-ratelimit-unified-reset")
+            .cloned();
         debug!("Error response status: {}", status);
         if status == 302 {
             // blocked by cloudflare
@@ -392,19 +396,25 @@ impl CheckClaudeErr for Response {
         // check if the error is a rate limit error
         if status == 429 {
             // get the reset time from the error message
-            if let Some(time) = inner_error.message["resetsAt"].as_i64() {
-                let reset_time = chrono::DateTime::from_timestamp(time, 0)
-                    .ok_or(ClewdrError::TimestampError { timestamp: time })?
+            let ts = inner_error.message["resetsAt"]
+                .as_i64()
+                .or_else(|| reset_header.and_then(|h| h.to_str().ok()?.parse::<i64>().ok()));
+            if let Some(ts) = ts {
+                let reset_time = chrono::DateTime::from_timestamp(ts, 0)
+                    .ok_or(ClewdrError::TimestampError { timestamp: ts })?
                     .to_utc();
                 let now = chrono::Utc::now();
                 let diff = reset_time - now;
-                let hours = diff.num_hours();
-                error!("Rate limit exceeded, expires in {} hours", hours);
+                let mins = diff.num_minutes();
+                error!(
+                    "Rate limit exceeded, expires in {} hours",
+                    mins as f64 / 60.0
+                );
                 return Err(ClewdrError::InvalidCookie {
-                    reason: Reason::TooManyRequest(time),
+                    reason: Reason::TooManyRequest(ts),
                 });
             } else {
-                error!("Rate limit exceeded, but no reset time found in error message");
+                error!("Rate limit exceeded, but no reset time provided");
                 return Err(ClewdrError::InvalidCookie {
                     reason: Reason::TooManyRequest(Utc::now().timestamp() + 3600),
                 });
