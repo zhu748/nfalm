@@ -5,11 +5,12 @@ use axum::{
     extract::{FromRequest, Request},
     response::IntoResponse,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::{
     claude_code_state::ClaudeCodeState,
     claude_web_state::{ClaudeApiFormat, ClaudeWebState},
+    config::CLEWDR_CONFIG,
     error::ClewdrError,
     types::claude_message::{ContentBlock, CreateMessageParams, Message, MessageContent, Role},
 };
@@ -177,6 +178,27 @@ impl FromRequest<ClaudeCodeState> for ClaudePreprocess {
         } else {
             ClaudeApiFormat::Claude
         };
+
+        // Add a prelude text block to the system messages
+        let prelude = ContentBlock::Text {
+            text: CLEWDR_CONFIG
+                .load()
+                .custom_system
+                .clone()
+                .unwrap_or_else(|| {
+                    "You are Claude Code, Anthropic's official CLI for Claude.".into()
+                }),
+        };
+        let mut system = vec![serde_json::to_value(prelude).unwrap()];
+        match body.system {
+            Some(Value::String(text)) => {
+                let text_content = ContentBlock::Text { text };
+                system.push(serde_json::to_value(text_content).unwrap());
+            }
+            Some(Value::Array(a)) => system.extend(a),
+            _ => {}
+        }
+        body.system = Some(Value::Array(system));
 
         // Update state with format information
         let mut state = state.to_owned();
