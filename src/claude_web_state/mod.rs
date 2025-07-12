@@ -1,9 +1,9 @@
 use axum::http::HeaderValue;
-use rquest::{
+use wreq::{
     Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder,
     header::{ORIGIN, REFERER},
 };
-use rquest_util::Emulation;
+use wreq_util::Emulation;
 use snafu::ResultExt;
 use strum::Display;
 use tracing::{debug, error};

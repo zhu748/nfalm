@@ -6,7 +6,7 @@ use figment::{
 };
 use http::uri::Authority;
 use passwords::PasswordGenerator;
-use rquest::{Proxy, Url};
+use wreq::{Proxy, Url};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,

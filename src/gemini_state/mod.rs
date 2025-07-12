@@ -8,7 +8,7 @@ use bytes::Bytes;
 use colored::Colorize;
 use futures::{Stream, future::Either, stream};
 use hyper_util::client::legacy::connect::HttpConnector;
-use rquest::{Client, ClientBuilder, header::AUTHORIZATION};
+use wreq::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
 use serde_json::Value;
 use snafu::ResultExt;
@@ -136,7 +136,7 @@ impl GeminiState {
     async fn vertex_response(
         &mut self,
         p: impl Sized + Serialize,
-    ) -> Result<rquest::Response, ClewdrError> {
+    ) -> Result<wreq::Response, ClewdrError> {
         let client = ClientBuilder::new();
         let client = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
             client.proxy(proxy)
@@ -203,7 +203,7 @@ impl GeminiState {
     pub async fn send_chat(
         &mut self,
         p: impl Sized + Serialize,
-    ) -> Result<rquest::Response, ClewdrError> {
+    ) -> Result<wreq::Response, ClewdrError> {
         if self.vertex {
             let res = self.vertex_response(p).await?;
             return Ok(res);
@@ -320,8 +320,8 @@ impl GeminiState {
 
     async fn check_empty_choices(
         &self,
-        resp: rquest::Response,
-    ) -> Result<impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static, ClewdrError>
+        resp: wreq::Response,
+    ) -> Result<impl Stream<Item = Result<Bytes, wreq::Error>> + Send + 'static, ClewdrError>
     {
         if self.stream {
             return Ok(Either::Left(resp.bytes_stream()));
@@ -356,7 +356,7 @@ impl GeminiState {
 
 async fn transform_response(
     cache_key: Option<(u64, usize)>,
-    input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
+    input: impl Stream<Item = Result<Bytes, wreq::Error>> + Send + 'static,
 ) -> axum::response::Response {
     // response is used for caching
     if let Some((key, id)) = cache_key {

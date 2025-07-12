@@ -1,6 +1,6 @@
 use colored::Colorize;
 use futures::TryFutureExt;
-use rquest::{Method, Response, header::ACCEPT};
+use wreq::{Method, Response, header::ACCEPT};
 use scopeguard::defer;
 use serde_json::json;
 use snafu::ResultExt;

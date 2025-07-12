@@ -1,6 +1,6 @@
 use axum::Json;
 use axum_auth::AuthBearer;
-use rquest::StatusCode;
+use wreq::StatusCode;
 
 use crate::config::{CLEWDR_CONFIG, ClewdrConfig};
 

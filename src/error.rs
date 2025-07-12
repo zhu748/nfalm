@@ -5,7 +5,7 @@ use axum::{
 };
 use chrono::Utc;
 use colored::Colorize;
-use rquest::{Response, StatusCode, header::InvalidHeaderValue};
+use wreq::{Response, StatusCode, header::InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use snafu::Location;
@@ -92,7 +92,7 @@ pub enum ClewdrError {
     },
     #[snafu(context(false))]
     EventSourceRquestError {
-        source: eventsource_stream::EventStreamError<rquest::Error>,
+        source: eventsource_stream::EventStreamError<wreq::Error>,
     },
     #[snafu(display("Zip error: {}", source))]
     #[snafu(context(false))]
@@ -127,7 +127,7 @@ pub enum ClewdrError {
     #[snafu(display("Rquest error: {}, source: {}", msg, source))]
     RquestError {
         msg: &'static str,
-        source: rquest::Error,
+        source: wreq::Error,
     },
     #[snafu(display("UTF-8 error: {}", source))]
     #[snafu(context(false))]

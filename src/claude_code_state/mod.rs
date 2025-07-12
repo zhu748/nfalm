@@ -5,8 +5,8 @@ use http::{
     HeaderValue, Method,
     header::{ORIGIN, REFERER},
 };
-use rquest::{ClientBuilder, IntoUrl, RequestBuilder};
-use rquest_util::Emulation;
+use wreq::{ClientBuilder, IntoUrl, RequestBuilder};
+use wreq_util::Emulation;
 use snafu::ResultExt;
 use tracing::error;
 
@@ -22,9 +22,9 @@ pub struct ClaudeCodeState {
     pub event_sender: CookieEventSender,
     pub cookie: Option<CookieStatus>,
     pub cookie_header_value: HeaderValue,
-    pub proxy: Option<rquest::Proxy>,
+    pub proxy: Option<wreq::Proxy>,
     pub endpoint: url::Url,
-    pub client: rquest::Client,
+    pub client: wreq::Client,
     pub api_format: ClaudeApiFormat,
     pub stream: bool,
 }

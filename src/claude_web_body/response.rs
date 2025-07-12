@@ -22,7 +22,7 @@ use crate::{
 /// # Returns
 /// Combined completion text from all events
 pub async fn merge_sse(
-    stream: EventStream<impl Stream<Item = Result<Bytes, rquest::Error>>>,
+    stream: EventStream<impl Stream<Item = Result<Bytes, wreq::Error>>>,
 ) -> Result<String, ClewdrError> {
     #[derive(Deserialize)]
     struct Data {
@@ -71,7 +71,7 @@ impl ClaudeWebState {
     /// * `axum::response::Response` - Transformed response in the requested format
     pub async fn transform_response(
         &self,
-        input: impl Stream<Item = Result<Bytes, rquest::Error>> + Send + 'static,
+        input: impl Stream<Item = Result<Bytes, wreq::Error>> + Send + 'static,
     ) -> Result<axum::response::Response, ClewdrError> {
         // response is used for caching
         if let Some((key, id)) = self.key {

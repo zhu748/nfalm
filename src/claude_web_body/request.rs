@@ -2,7 +2,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::{StreamExt, stream};
 use itertools::Itertools;
 use rand::{Rng, rng};
-use rquest::{
+use wreq::{
     Method,
     multipart::{Form, Part},
 };
