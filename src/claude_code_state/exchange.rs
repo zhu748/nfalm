@@ -6,9 +6,11 @@ use oauth2::{
     HttpResponse, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenUrl, http,
 };
 use serde_json::Value;
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use url::Url;
 
+use crate::config::CookieStatus;
+use crate::error::UnexpectedNoneSnafu;
 use crate::{
     claude_code_state::ClaudeCodeState,
     config::{CC_REDIRECT_URI, CC_TOKEN_URL, CLEWDR_CONFIG, TokenInfo},
@@ -125,7 +127,7 @@ impl ClaudeCodeState {
         })?;
 
         let query = redirect_url.query_pairs().collect::<HashMap<_, _>>();
-        let code = query.get("code").ok_or(ClewdrError::UnexpectedNone {
+        let code = query.get("code").context(UnexpectedNoneSnafu {
             msg: "No code found in redirect URL",
         })?;
         let state = query.get("state");
@@ -167,11 +169,7 @@ impl ClaudeCodeState {
             token_request = token_request.add_extra_param("state", state);
         }
 
-        let token = token_request.request_async(&my_client).await.map_err(|_| {
-            ClewdrError::UnexpectedNone {
-                msg: "Failed to exchange code for token",
-            }
-        })?;
+        let token = token_request.request_async(&my_client).await?;
 
         if let Some(cookie) = self.cookie.as_mut() {
             cookie.token = Some(TokenInfo::new(token, code_res.org_uuid.clone()));
@@ -184,14 +182,14 @@ impl ClaudeCodeState {
     }
 
     pub async fn refresh_token(&mut self) -> Result<(), ClewdrError> {
-        let Some(cookie) = self.cookie.to_owned() else {
+        let wreq_client = self.get_wreq_client();
+        let Some(CookieStatus {
+            token: Some(ref mut token),
+            ..
+        }) = self.cookie
+        else {
             return Err(ClewdrError::UnexpectedNone {
-                msg: "No cookie found to refresh token",
-            });
-        };
-        let Some(token) = cookie.token else {
-            return Err(ClewdrError::UnexpectedNone {
-                msg: "No token found in cookie to refresh",
+                msg: "No token found to refresh token",
             });
         };
         if !token.is_expired() {
@@ -208,26 +206,16 @@ impl ClaudeCodeState {
                 }
             })?);
 
-        let wreq_client = self.get_wreq_client();
         let my_client = OauthClient {
             client: wreq_client.clone(),
         };
 
         let new_token = client
-            .exchange_refresh_token(&oauth2::RefreshToken::new(token.refresh_token))
+            .exchange_refresh_token(&oauth2::RefreshToken::new(token.refresh_token.to_owned()))
             .request_async(&my_client)
-            .await
-            .map_err(|_| ClewdrError::UnexpectedNone {
-                msg: "Failed to refresh token",
-            })?;
+            .await?;
 
-        if let Some(cookie) = self.cookie.as_mut() {
-            cookie.token = Some(TokenInfo::new(new_token, token.organization.uuid.clone()));
-        } else {
-            return Err(ClewdrError::UnexpectedNone {
-                msg: "No cookie found to update with refreshed token info",
-            });
-        }
+        *token = TokenInfo::new(new_token, token.organization.uuid.clone());
         Ok(())
     }
 
