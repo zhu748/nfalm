@@ -42,6 +42,8 @@
   - OpenAI 兼容模式 / Gemini 格式
   - 无痛 Http Keep-Alive 支持
 - Claude 额外支持：
+  - Claude Code
+  - 系统提示缓存
   - OpenAI 兼容模式 / Claude 格式
   - Extend Thinking 扩展思考
   - 代理端实现停止序列

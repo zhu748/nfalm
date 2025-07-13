@@ -44,6 +44,8 @@ Specifically built for Claude (Claude.ai) and Gemini (Google AI Studio, Google V
   - OpenAI compatible mode / Gemini format
   - Painless HTTP Keep-Alive support
 - Claude additional support:
+  - Claude Code
+  - System prompt caching
   - OpenAI compatible mode / Claude format
   - Extend Thinking
   - Stop sequences implemented on the proxy side
