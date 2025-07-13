@@ -1,4 +1,8 @@
-use std::{sync::LazyLock, vec};
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::LazyLock,
+    vec,
+};
 
 use axum::{
     Json,
@@ -130,6 +134,8 @@ pub struct ClaudeCodeContext {
     pub stream: bool,
     /// The API format being used (Claude or OpenAI)
     pub api_format: ClaudeApiFormat,
+    /// The hash of the system messages for caching purposes
+    pub cache_hash: Option<u64>,
 }
 
 pub struct ClaudeCodePreprocess(pub CreateMessageParams, pub ClaudeCodeContext);
@@ -180,7 +186,7 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
                         }
                         MessageContent::Blocks { content } => content,
                     })
-                    .filter_map(|b| serde_json::to_value(b).ok())
+                    .map(|b| json!(b))
                     .collect::<Vec<_>>()
                     .into(),
             );
@@ -199,20 +205,34 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
                     "You are Claude Code, Anthropic's official CLI for Claude.".into()
                 }),
         };
-        let mut system = vec![serde_json::to_value(prelude).unwrap()];
+        let mut system = vec![json!(prelude)];
         match body.system {
             Some(Value::String(text)) => {
                 let text_content = ContentBlock::Text { text };
-                system.push(serde_json::to_value(text_content).unwrap());
+                system.push(json!(text_content));
             }
             Some(Value::Array(a)) => system.extend(a),
             _ => {}
         }
+
+        let cache_systems = system
+            .iter()
+            .filter(|s| s["cache_control"].is_object())
+            .collect::<Vec<_>>();
+        let cache_hash = if !cache_systems.is_empty() {
+            let mut hasher = DefaultHasher::new();
+            cache_systems.hash(&mut hasher);
+            Some(hasher.finish())
+        } else {
+            None
+        };
+
         body.system = Some(Value::Array(system));
 
         let info = ClaudeCodeContext {
             stream,
             api_format: format,
+            cache_hash,
         };
 
         Ok(Self(body, info))
