@@ -68,14 +68,14 @@ impl ClaudeCodeState {
         };
         let cc_client_id = CLEWDR_CONFIG.load().cc_client_id();
 
-        let client = oauth2::basic::BasicClient::new(ClientId::new(cc_client_id.into()))
+        let client = oauth2::basic::BasicClient::new(ClientId::new(cc_client_id))
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_redirect_uri(RedirectUrl::new(CC_REDIRECT_URI.into()).map_err(|_| {
                 ClewdrError::UnexpectedNone {
                     msg: "Invalid redirect URI",
                 }
             })?)
-            .set_auth_uri(AuthUrl::new(authorize_url(org_uuid).into()).map_err(|_| {
+            .set_auth_uri(AuthUrl::new(authorize_url(org_uuid)).map_err(|_| {
                 ClewdrError::UnexpectedNone {
                     msg: "Invalid auth URI",
                 }
@@ -141,7 +141,7 @@ impl ClaudeCodeState {
     pub async fn exchange_token(&mut self, code_res: ExchangeResult) -> Result<(), ClewdrError> {
         let cc_client_id = CLEWDR_CONFIG.load().cc_client_id();
 
-        let client = oauth2::basic::BasicClient::new(ClientId::new(cc_client_id.into()))
+        let client = oauth2::basic::BasicClient::new(ClientId::new(cc_client_id))
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_redirect_uri(RedirectUrl::new(CC_REDIRECT_URI.into()).map_err(|_| {
                 ClewdrError::UnexpectedNone {
@@ -200,7 +200,7 @@ impl ClaudeCodeState {
 
         let cc_client_id = CLEWDR_CONFIG.load().cc_client_id();
 
-        let client = oauth2::basic::BasicClient::new(ClientId::new(cc_client_id.into()))
+        let client = oauth2::basic::BasicClient::new(ClientId::new(cc_client_id))
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_token_uri(TokenUrl::new(CC_TOKEN_URL.into()).map_err(|_| {
                 ClewdrError::UnexpectedNone {

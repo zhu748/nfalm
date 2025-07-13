@@ -38,7 +38,7 @@ impl TokenInfo {
             },
             refresh_token: raw
                 .refresh_token()
-                .map_or_else(|| Default::default(), |rt| rt.secret().to_string()),
+                .map_or_else(Default::default, |rt| rt.secret().to_string()),
             expires_at,
         }
     }

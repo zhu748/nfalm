@@ -50,9 +50,9 @@ pub async fn to_oai(resp: Response) -> impl IntoResponse {
         let body = resp.into_body();
         let stream = body.into_data_stream().eventsource();
         let stream = transform_stream(stream);
-        return Sse::new(stream)
+        Sse::new(stream)
             .keep_alive(Default::default())
-            .into_response();
+            .into_response()
     }
 }
 
