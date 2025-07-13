@@ -12,6 +12,7 @@ pub async fn api_claude_code(
     State(mut state): State<ClaudeCodeState>,
     ClaudeCodePreprocess(p, f): ClaudeCodePreprocess,
 ) -> (Extension<ClaudeCodeContext>, Result<Response, ClewdrError>) {
+    state.system_prompt_hash = f.system_prompt_hash;
     print_out_json(&p, "client_req.json");
     info!(
         "[{}] stream: {}, msgs: {}, model: {}, think: {}",

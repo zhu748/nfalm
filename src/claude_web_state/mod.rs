@@ -111,7 +111,7 @@ impl ClaudeWebState {
     /// Requests a new cookie from the cookie manager
     /// Updates the internal state with the new cookie and proxy configuration
     pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
-        let res = self.event_sender.request().await?;
+        let res = self.event_sender.request(None).await?;
         self.cookie = Some(res.to_owned());
         let mut client = ClientBuilder::new()
             .cookie_store(true)

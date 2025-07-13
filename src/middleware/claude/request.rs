@@ -135,7 +135,7 @@ pub struct ClaudeCodeContext {
     /// The API format being used (Claude or OpenAI)
     pub api_format: ClaudeApiFormat,
     /// The hash of the system messages for caching purposes
-    pub cache_hash: Option<u64>,
+    pub system_prompt_hash: Option<u64>,
 }
 
 pub struct ClaudeCodePreprocess(pub CreateMessageParams, pub ClaudeCodeContext);
@@ -219,7 +219,7 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
             .iter()
             .filter(|s| s["cache_control"].is_object())
             .collect::<Vec<_>>();
-        let cache_hash = if !cache_systems.is_empty() {
+        let system_prompt_hash = if !cache_systems.is_empty() {
             let mut hasher = DefaultHasher::new();
             cache_systems.hash(&mut hasher);
             Some(hasher.finish())
@@ -232,7 +232,7 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
         let info = ClaudeCodeContext {
             stream,
             api_format: format,
-            cache_hash,
+            system_prompt_hash,
         };
 
         Ok(Self(body, info))
