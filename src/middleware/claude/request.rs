@@ -219,13 +219,11 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
             .iter()
             .filter(|s| s["cache_control"].is_object())
             .collect::<Vec<_>>();
-        let system_prompt_hash = if !cache_systems.is_empty() {
+        let system_prompt_hash = (!cache_systems.is_empty()).then(|| {
             let mut hasher = DefaultHasher::new();
             cache_systems.hash(&mut hasher);
-            Some(hasher.finish())
-        } else {
-            None
-        };
+            hasher.finish()
+        });
 
         body.system = Some(Value::Array(system));
 
