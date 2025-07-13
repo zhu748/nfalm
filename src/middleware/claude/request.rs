@@ -216,8 +216,15 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
         }
 
         let cache_systems = system
-            .iter()
+            .iter_mut()
             .filter(|s| s["cache_control"].is_object())
+            .map(|s| {
+                if let Some(ephemeral) = s["cache_control"].as_object_mut() {
+                    // claude code does not support ttl
+                    ephemeral.remove("ttl");
+                }
+                s
+            })
             .collect::<Vec<_>>();
         let system_prompt_hash = (!cache_systems.is_empty()).then(|| {
             let mut hasher = DefaultHasher::new();
