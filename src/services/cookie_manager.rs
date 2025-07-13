@@ -209,8 +209,14 @@ impl CookieManager {
             config.wasted_cookie = self.invalid.to_owned();
             config
         });
-        CLEWDR_CONFIG.load().save().unwrap_or_else(|e| {
-            error!("Failed to save config: {}", e);
+        tokio::spawn(async move {
+            let result = tokio::task::spawn_blocking(|| CLEWDR_CONFIG.load().save()).await;
+
+            match result {
+                Ok(Ok(_)) => info!("Config saved successfully."),
+                Ok(Err(e)) => error!("Failed to save config: {}", e),
+                Err(e) => error!("Save task panicked: {}", e),
+            }
         });
     }
 
