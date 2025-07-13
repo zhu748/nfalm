@@ -167,8 +167,8 @@ impl CookieManager {
         let sender = CookieEventSender { sender: event_tx };
 
         let moka = Cache::builder()
-            .max_capacity(1000) // Set a reasonable cache size
-            .time_to_live(std::time::Duration::from_secs(60 * 60)) // 1 hour TTL
+            .max_capacity(1000) //
+            .time_to_idle(std::time::Duration::from_secs(60 * 60)) // 1 hour
             .build();
 
         let manager = Self {
@@ -237,7 +237,10 @@ impl CookieManager {
 
     /// Dispatches a cookie for use
     /// Gets a cookie from the valid collection
+    /// If a hash is provided, checks the cache first
     ///
+    /// # Arguments
+    /// * `hash` - Optional hash to check the cache for a cookie
     /// # Returns
     /// * `Result<CookieStatus, ClewdrError>` - A cookie if available, error otherwise
     fn dispatch(&mut self, hash: Option<u64>) -> Result<CookieStatus, ClewdrError> {
