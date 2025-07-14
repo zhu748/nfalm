@@ -12,9 +12,9 @@ use wreq_util::Emulation;
 
 use crate::{
     claude_web_state::{ClaudeApiFormat, SUPER_CLIENT},
-    config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},
+    config::{CookieStatus, Reason, CLAUDE_ENDPOINT, CLEWDR_CONFIG},
     error::{ClewdrError, RquestSnafu},
-    services::cookie_manager::CookieEventSender,
+    services::cookie_manager::CookieEventSender, types::claude_message::Usage,
 };
 
 #[derive(Clone)]
@@ -28,6 +28,7 @@ pub struct ClaudeCodeState {
     pub api_format: ClaudeApiFormat,
     pub stream: bool,
     pub system_prompt_hash: Option<u64>,
+    pub usage: Usage,
 }
 
 impl ClaudeCodeState {
@@ -43,6 +44,7 @@ impl ClaudeCodeState {
             api_format: ClaudeApiFormat::Claude,
             stream: false,
             system_prompt_hash: None,
+            usage: Usage::default(),
         }
     }
 

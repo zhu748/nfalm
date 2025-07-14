@@ -16,7 +16,9 @@ use crate::{
     claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     config::CLEWDR_CONFIG,
     error::ClewdrError,
-    types::claude_message::{ContentBlock, CreateMessageParams, Message, MessageContent, Role},
+    types::claude_message::{
+        ContentBlock, CreateMessageParams, Message, MessageContent, Role, Usage,
+    },
 };
 
 use super::to_oai;
@@ -50,6 +52,8 @@ pub struct ClaudeWebContext {
     pub api_format: ClaudeApiFormat,
     /// The stop sequence used for the request
     pub stop_sequences: Vec<String>,
+    /// User information about input and output tokens
+    pub usage: Usage,
 }
 
 /// Predefined test message in Claude format for connection testing
@@ -111,10 +115,15 @@ impl FromRequest<ClaudeWebState> for ClaudeWebPreprocess {
         stop.extend_from_slice(body.stop.to_owned().unwrap_or_default().as_slice());
         stop.sort();
         stop.dedup();
+        let input_tokens = body.count_tokens();
         let info = ClaudeWebContext {
             stream,
             api_format: format,
             stop_sequences: stop,
+            usage: Usage {
+                input_tokens,
+                output_tokens: 0, // Placeholder for output token count
+            },
         };
 
         // Try to retrieve from cache before processing
@@ -136,6 +145,8 @@ pub struct ClaudeCodeContext {
     pub api_format: ClaudeApiFormat,
     /// The hash of the system messages for caching purposes
     pub system_prompt_hash: Option<u64>,
+    // Usage information for the request
+    pub usage: Usage,
 }
 
 pub struct ClaudeCodePreprocess(pub CreateMessageParams, pub ClaudeCodeContext);
@@ -230,11 +241,16 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
         });
 
         body.system = Some(Value::Array(system));
+        let input_tokens = body.count_tokens();
 
         let info = ClaudeCodeContext {
             stream,
             api_format: format,
             system_prompt_hash,
+            usage: Usage {
+                input_tokens,
+                output_tokens: 0, // Placeholder for output token count
+            },
         };
 
         Ok(Self(body, info))

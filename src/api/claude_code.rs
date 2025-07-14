@@ -16,6 +16,7 @@ pub async fn api_claude_code(
     state.system_prompt_hash = f.system_prompt_hash;
     state.stream = p.stream.unwrap_or_default();
     state.api_format = f.api_format;
+    state.usage = f.usage.to_owned();
     print_out_json(&p, "client_req.json");
     let format_display = match f.api_format {
         ClaudeApiFormat::Claude => f.api_format.to_string().green(),

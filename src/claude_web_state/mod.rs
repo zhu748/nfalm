@@ -1,13 +1,13 @@
 use axum::http::HeaderValue;
+use snafu::ResultExt;
+use strum::Display;
+use tracing::{debug, error};
+use url::Url;
 use wreq::{
     Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder,
     header::{ORIGIN, REFERER},
 };
 use wreq_util::Emulation;
-use snafu::ResultExt;
-use strum::Display;
-use tracing::{debug, error};
-use url::Url;
 
 use std::sync::LazyLock;
 
@@ -15,6 +15,7 @@ use crate::{
     config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},
     error::{ClewdrError, RquestSnafu},
     services::cookie_manager::CookieEventSender,
+    types::claude_message::Usage,
 };
 
 pub mod bootstrap;
@@ -50,6 +51,7 @@ pub struct ClaudeWebState {
     pub stream: bool,
     pub client: Client,
     pub key: Option<(u64, usize)>,
+    pub usage: Usage,
 }
 
 impl ClaudeWebState {
@@ -68,6 +70,7 @@ impl ClaudeWebState {
             stream: false,
             client: SUPER_CLIENT.to_owned(),
             key: None,
+            usage: Usage::default(),
         }
     }
 

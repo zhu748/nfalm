@@ -28,6 +28,7 @@ pub async fn api_claude_web(
     print_out_json(&p, "client_req.json");
     state.api_format = f.api_format;
     state.stream = stream;
+    state.usage = f.usage.to_owned();
     let format_display = match f.api_format {
         ClaudeApiFormat::Claude => f.api_format.to_string().green(),
         ClaudeApiFormat::OpenAI => f.api_format.to_string().yellow(),
