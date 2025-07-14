@@ -217,13 +217,10 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
 
         let cache_systems = system
             .iter_mut()
-            .filter(|s| s["cache_control"].is_object())
-            .map(|s| {
-                if let Some(ephemeral) = s["cache_control"].as_object_mut() {
-                    // claude code does not support ttl
-                    ephemeral.remove("ttl");
-                }
-                s
+            .filter_map(|s| {
+                // Claude Code does not allow TTLs in system prompts
+                s["cache_control"].as_object_mut()?.remove("ttl");
+                Some(&*s)
             })
             .collect::<Vec<_>>();
         let system_prompt_hash = (!cache_systems.is_empty()).then(|| {
