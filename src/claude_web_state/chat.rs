@@ -3,7 +3,7 @@ use futures::TryFutureExt;
 use serde_json::json;
 use snafu::ResultExt;
 use tokio::spawn;
-use tracing::{Instrument, Level, debug, error, info, info_span, span, warn};
+use tracing::{Instrument, debug, error, error_span, info, info_span, warn};
 use wreq::{Method, Response, header::ACCEPT};
 
 use crate::{
@@ -45,7 +45,7 @@ impl ClaudeWebState {
             let mut state = self.to_owned();
             state.key = Some((key, id));
             let p = p.to_owned();
-            let cache_span = span!(Level::ERROR, "cache");
+            let cache_span = error_span!("cache");
             spawn(async move { state.try_chat(p).instrument(cache_span).await });
         }
         None
