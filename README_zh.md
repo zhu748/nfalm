@@ -414,5 +414,5 @@ graph TB
   
   <p><em>由ClewdR团队用❤️为AI社区构建</em></p>
   
-  <sub>© 2024 ClewdR项目。根据MIT许可证授权。</sub>
+  <sub>© 2024 ClewdR项目</sub>
 </div>

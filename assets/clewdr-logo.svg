@@ -9,7 +9,7 @@
   <!-- Red R -->
   <text x="97" y="30" 
         font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" 
-        font-size="32" 
+        font-size="33" 
         font-weight="700" 
         fill="#CE422B">R</text>
 </svg>
