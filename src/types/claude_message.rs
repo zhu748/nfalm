@@ -323,6 +323,23 @@ pub struct CreateMessageResponse {
 }
 
 impl CreateMessageResponse {
+    pub fn count_tokens(&self) -> u32 {
+        let bpe = o200k_base().expect("Failed to get encoding");
+        let content = self
+            .content
+            .iter()
+            .map(|block| match block {
+                ContentBlock::Text { text } => text,
+                ContentBlock::Image { source } => &source.data,
+                _ => "",
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        bpe.encode_with_special_tokens(&content).len() as u32
+    }
+}
+
+impl CreateMessageResponse {
     /// Create a new response with the given content blocks
     pub fn text(content: String, model: String, usage: Usage) -> Self {
         Self {

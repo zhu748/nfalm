@@ -4,13 +4,12 @@ use eventsource_stream::{EventStream, Eventsource};
 use futures::{Stream, TryStreamExt};
 use serde::Deserialize;
 use serde_json::json;
-use tiktoken_rs::o200k_base;
 
 use crate::{
     claude_web_state::{ClaudeApiFormat, ClaudeWebState},
     error::ClewdrError,
     services::cache::CACHE,
-    types::claude_message::{ContentBlock, CreateMessageResponse, Message, Role, Usage},
+    types::claude_message::{ContentBlock, CreateMessageResponse, Message, Role},
     utils::print_out_text,
 };
 
@@ -88,22 +87,14 @@ impl ClaudeWebState {
         let stream = input.eventsource();
         let text = merge_sse(stream).await?;
         print_out_text(&text, "non_stream.txt");
-        // count tokens
-        let bpe = o200k_base().unwrap();
-        let output_tokens = bpe.encode_with_special_tokens(&text).len() as u32;
         match self.api_format {
             // Claude API format
-            ClaudeApiFormat::Claude => {
-                return Ok(Json(CreateMessageResponse::text(
-                    text,
-                    Default::default(),
-                    Usage {
-                        output_tokens,
-                        input_tokens: self.usage.input_tokens,
-                    },
-                ))
-                .into_response());
-            }
+            ClaudeApiFormat::Claude => Ok(Json(CreateMessageResponse::text(
+                text,
+                Default::default(),
+                self.usage.to_owned(),
+            ))
+            .into_response()),
             // OpenAI API format
             ClaudeApiFormat::OpenAI => {
                 let json = json!({
@@ -120,7 +111,7 @@ impl ClaudeWebState {
                         "finish_reason": null
                     }],
                 });
-                return Ok(Json(json).into_response());
+                Ok(Json(json).into_response())
             }
         }
     }
