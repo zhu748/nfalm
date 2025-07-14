@@ -1,5 +1,5 @@
 <div align="center">
-  <h1> Clewd<span style="color:#CE422B">R</span></h1>
+  <img src="./assets/clewdr-logo.svg" alt="ClewdR" height="60">
   
   <p><em>High-Performance LLM Proxy for the Modern Era</em></p>
   

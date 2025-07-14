@@ -1,0 +1,15 @@
+<svg width="140" height="40" viewBox="0 0 140 40" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main text: Clewd -->
+  <text x="0" y="30" 
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" 
+        font-size="32" 
+        font-weight="700" 
+        fill="#333">Clewd</text>
+  
+  <!-- Red R -->
+  <text x="97" y="30" 
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" 
+        font-size="32" 
+        font-weight="700" 
+        fill="#CE422B">R</text>
+</svg>

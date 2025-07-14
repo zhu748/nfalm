@@ -1,5 +1,5 @@
 <div align="center">
-  <h1> Clewd<span style="color:#CE422B">R</span></h1>
+  <img src="./assets/clewdr-logo.svg" alt="ClewdR" height="60">
   
   <p><em>现代化高性能 LLM 代理服务器</em></p>
   
