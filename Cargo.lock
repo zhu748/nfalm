@@ -626,7 +626,6 @@ dependencies = [
  "const_format",
  "enable-ansi-support",
  "eventsource-stream",
- "figlet-rs",
  "figment",
  "futures",
  "http",
@@ -1058,12 +1057,6 @@ checksum = "a6956a1e60e2d1412b44b4169d44a03dae518f8583d3e10090c912c105e48447"
 dependencies = [
  "rayon",
 ]
-
-[[package]]
-name = "figlet-rs"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4742a071cd9694fc86f9fa1a08fa3e53d40cc899d7ee532295da2d085639fbc5"
 
 [[package]]
 name = "figment"
