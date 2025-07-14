@@ -11,7 +11,7 @@
 
   <h3>🌍 Language Support</h3>
   <p>
-    <a href="./README.md"><strong>🇺🇸 English</strong></a> | 
+    <a href="./README.md"><strong>🇺🇸 English</strong></a> |
     <a href="./README_zh.md"><strong>🇨🇳 简体中文</strong></a>
   </p>
 </div>
@@ -23,6 +23,7 @@
 **ClewdR** is a production-grade, high-performance proxy server engineered specifically for **Claude** (Claude.ai, Claude Code) and **Google Gemini** (AI Studio, Vertex AI). Built with **Rust** for maximum performance and minimal resource usage, it provides enterprise-level reliability with consumer-friendly simplicity.
 
 ### 🏆 **Why ClewdR?**
+
 - **🚄 10x Performance**: Outperforms script-language implementations
 - **💾 1/10th Memory**: Uses only single-digit MB in production
 - **🔧 Production Ready**: Handles thousands of requests per second
@@ -35,6 +36,7 @@
     <td width="50%">
 
 ### 🎨 **Full-Featured Web Interface**
+
 - **React-powered dashboard** with real-time monitoring
 - **Multi-language support** (English/Chinese)
 - **Secure authentication** with auto-generated passwords
@@ -42,6 +44,7 @@
 - **Visual cookie & key management**
 
 ### 🏗️ **Enterprise Architecture**
+
 - **Tokio + Axum** async runtime for maximum throughput
 - **Event-driven design** with decoupled components
 - **Moka-powered caching** with intelligent invalidation
@@ -49,6 +52,7 @@
 - **Multi-threaded processing** with optimal resource usage
 
 ### 🧠 **Intelligent Resource Management**
+
 - **Smart cookie rotation** with status classification
 - **API key health monitoring** and automatic failover
 - **Rate limiting protection** with exponential backoff
@@ -58,6 +62,7 @@
     <td width="50%">
 
 ### 🌍 **Universal Compatibility**
+
 - **Static compilation** - single binary, zero dependencies
 - **Cross-platform native** - Windows, macOS, Linux, Android
 - **Docker ready** with optimized images
@@ -66,6 +71,7 @@
 ### 🚀 **Protocol Support**
 
 #### **Claude Integration**
+
 - ✅ **Claude.ai** web interface
 - ✅ **Claude Code** specialized support
 - ✅ **System prompt caching** for efficiency
@@ -74,18 +80,21 @@
 - ✅ **Custom stop sequences**
 
 #### **Google Gemini Integration**
-- ✅ **AI Studio** & **Vertex AI** 
+
+- ✅ **AI Studio** & **Vertex AI**
 - ✅ **OAuth2 authentication** for Vertex
 - ✅ **HTTP Keep-Alive** optimization
 - ✅ **Model switching** with automatic detection
 
 #### **API Compatibility**
+
 - ✅ **OpenAI format** - drop-in replacement
 - ✅ **Native formats** - Claude & Gemini
 - ✅ **Streaming responses** with real-time processing
 
     </td>
   </tr>
+
 </table>
 
 ## 📊 **Performance Metrics**
@@ -105,9 +114,16 @@
 ## 🚀 **Quick Start Guide**
 
 ### **Step 1: Download & Run**
+
 ```bash
 # Download the latest release for your platform
 wget https://github.com/Xerxes-2/clewdr/releases/latest/download/clewdr-[platform]
+
+# Extract the binary (if necessary)
+tar -xzf clewdr-[platform].tar.gz
+
+# Navigate to the directory
+cd clewdr-[platform]
 
 # Make executable (Linux/macOS)
 chmod +x clewdr
@@ -131,11 +147,13 @@ chmod +x clewdr
 </details>
 
 ### **Step 2: Access Web Interface**
+
 1. 🌐 Open your browser to **`http://127.0.0.1:8484`**
 2. 🔐 Use the **Web Admin Password** displayed in the console
 3. 🎉 Welcome to ClewdR's management interface!
 
 > **💡 Pro Tips:**
+>
 > - **Forgot password?** Delete `clewdr.toml` and restart
 > - **Docker users:** Password appears in container logs
 > - **Change password:** Use the web interface settings
@@ -147,6 +165,7 @@ chmod +x clewdr
 <td width="50%">
 
 #### 🍃 **Claude Setup**
+
 1. **Add Cookies**: Paste your Claude.ai session cookies
 2. **Configure Proxy**: Set upstream proxy if needed
 3. **Test Connection**: Verify cookie status in dashboard
@@ -155,6 +174,7 @@ chmod +x clewdr
 <td width="50%">
 
 #### 🔹 **Gemini Setup**
+
 1. **Add API Keys**: Input your Google AI Studio keys
 2. **Vertex AI** (Optional): Configure OAuth2 for enterprise
 3. **Model Selection**: Choose your preferred models
@@ -168,6 +188,7 @@ chmod +x clewdr
 ClewdR provides multiple API endpoints. Check the console output for available endpoints:
 
 #### 🔗 **API Endpoints**
+
 ```bash
 # Claude Endpoints
 Claude Web:    http://127.0.0.1:8484/v1/messages          # Native format
@@ -227,6 +248,7 @@ Vertex AI:     http://127.0.0.1:8484/v1/vertex/v1beta/            # Vertex AI
 </details>
 
 ### **Step 5: Verify & Monitor**
+
 - ✅ Check cookie/key status in the web dashboard
 - ✅ Monitor request logs for successful connections
 - ✅ Test with a simple chat request

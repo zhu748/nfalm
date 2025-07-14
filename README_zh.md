@@ -11,7 +11,7 @@
 
   <h3>🌍 语言支持</h3>
   <p>
-    <a href="./README.md"><strong>🇺🇸 English</strong></a> | 
+    <a href="./README.md"><strong>🇺🇸 English</strong></a> |
     <a href="./README_zh.md"><strong>🇨🇳 简体中文</strong></a>
   </p>
 </div>
@@ -23,6 +23,7 @@
 **ClewdR** 是一个生产级的高性能代理服务器，专为 **Claude**（Claude.ai、Claude Code）和 **Google Gemini**（AI Studio、Vertex AI）设计。使用 **Rust** 构建，追求极致性能和最小资源占用，提供企业级可靠性和消费级友好体验。
 
 ### 🏆 **为什么选择 ClewdR？**
+
 - **🚄 10倍性能**: 超越脚本语言实现
 - **💾 1/10内存**: 生产环境仅占用个位数MB
 - **🔧 生产就绪**: 轻松处理每秒上千请求
@@ -35,6 +36,7 @@
     <td width="50%">
 
 ### 🎨 **全功能Web界面**
+
 - **React驱动的控制台** 实时监控
 - **多语言支持** 中英文界面
 - **安全认证** 自动生成密码
@@ -42,6 +44,7 @@
 - **可视化Cookie和Key管理**
 
 ### 🏗️ **企业级架构**
+
 - **Tokio + Axum** 异步运行时最大吞吐量
 - **事件驱动设计** 组件解耦
 - **Moka缓存技术** 智能失效机制
@@ -49,6 +52,7 @@
 - **多线程处理** 最优资源使用
 
 ### 🧠 **智能资源管理**
+
 - **智能Cookie轮换** 状态分类
 - **API密钥健康监控** 自动故障转移
 - **限流保护** 指数退避算法
@@ -58,6 +62,7 @@
     <td width="50%">
 
 ### 🌍 **通用兼容性**
+
 - **静态编译** 单文件部署，零依赖
 - **跨平台原生** Windows、macOS、Linux、Android
 - **Docker就绪** 优化镜像
@@ -66,6 +71,7 @@
 ### 🚀 **协议支持**
 
 #### **Claude集成**
+
 - ✅ **Claude.ai** Web界面
 - ✅ **Claude Code** 专门支持
 - ✅ **系统提示缓存** 提升效率
@@ -74,18 +80,21 @@
 - ✅ **自定义停止序列**
 
 #### **Google Gemini集成**
+
 - ✅ **AI Studio** 和 **Vertex AI**
 - ✅ **OAuth2认证** 企业级
 - ✅ **HTTP Keep-Alive** 优化
 - ✅ **模型切换** 自动检测
 
 #### **API兼容性**
+
 - ✅ **OpenAI格式** 直接替换
 - ✅ **原生格式** Claude和Gemini
 - ✅ **流式响应** 实时处理
 
     </td>
   </tr>
+
 </table>
 
 ## 📊 **性能指标**
@@ -105,9 +114,16 @@
 ## 🚀 **快速上手指南**
 
 ### **第一步：下载运行**
+
 ```bash
 # 下载对应平台的最新版本
 wget https://github.com/Xerxes-2/clewdr/releases/latest/download/clewdr-[平台]
+
+# 如果需要，解压二进制文件
+tar -xzf clewdr-[平台].tar.gz
+
+# 进入目录
+cd clewdr-[平台]
 
 # 赋予执行权限 (Linux/macOS)
 chmod +x clewdr
@@ -131,11 +147,13 @@ chmod +x clewdr
 </details>
 
 ### **第二步：访问Web界面**
+
 1. 🌐 在浏览器中打开 **`http://127.0.0.1:8484`**
 2. 🔐 使用控制台显示的 **Web Admin Password** 登录
 3. 🎉 欢迎来到 ClewdR 管理界面！
 
 > **💡 专业提示:**
+>
 > - **忘记密码？** 删除 `clewdr.toml` 文件并重启
 > - **Docker用户:** 密码显示在容器日志中
 > - **修改密码:** 使用Web界面设置
@@ -147,6 +165,7 @@ chmod +x clewdr
 <td width="50%">
 
 #### 🍃 **Claude 配置**
+
 1. **添加Cookie**: 粘贴您的 Claude.ai 会话cookie
 2. **配置代理**: 如需要设置上游代理
 3. **测试连接**: 在控制台验证cookie状态
@@ -155,6 +174,7 @@ chmod +x clewdr
 <td width="50%">
 
 #### 🔹 **Gemini 配置**
+
 1. **添加API密钥**: 输入您的 Google AI Studio 密钥
 2. **Vertex AI** (可选): 为企业配置OAuth2
 3. **模型选择**: 选择您偏好的模型
@@ -168,6 +188,7 @@ chmod +x clewdr
 ClewdR 提供多种API端点。查看控制台输出获取可用端点：
 
 #### 🔗 **API端点**
+
 ```bash
 # Claude 端点
 Claude Web:    http://127.0.0.1:8484/v1/messages          # 原生格式
@@ -227,6 +248,7 @@ Vertex AI:     http://127.0.0.1:8484/v1/vertex/v1beta/            # Vertex AI
 </details>
 
 ### **第五步：验证监控**
+
 - ✅ 在Web控制台检查cookie/密钥状态
 - ✅ 监控请求日志确认连接成功
 - ✅ 使用简单聊天请求测试
@@ -376,11 +398,13 @@ graph TB
 <div align="center">
 
 ### 📚 **文档**
+
 [![Wiki](https://img.shields.io/badge/📖_Wiki-GitHub-blue?style=for-the-badge)](https://github.com/Xerxes-2/clewdr/wiki)
 [![Issues](https://img.shields.io/badge/🐛_问题-GitHub-red?style=for-the-badge)](https://github.com/Xerxes-2/clewdr/issues)
 [![Discussions](https://img.shields.io/badge/💬_讨论-GitHub-green?style=for-the-badge)](https://github.com/Xerxes-2/clewdr/discussions)
 
 ### 🌟 **联系我们**
+
 [![DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-orange?style=for-the-badge)](https://deepwiki.com/Xerxes-2/clewdr)
 [![Telegram](https://img.shields.io/badge/聊天-Telegram-blue?style=for-the-badge&logo=telegram)](https://t.me/clewdr)
 
@@ -393,6 +417,7 @@ graph TB
 <td align="center" width="50%">
 
 ### 🎯 **灵感来源**
+
 **[Clewd 修改版](https://github.com/teralomaniac/clewd)**  
 *原始Clewd的增强版本，为ClewdR的架构提供了许多创新想法和基础概念。*
 
@@ -400,6 +425,7 @@ graph TB
 <td align="center" width="50%">
 
 ### 🔧 **技术基础**
+
 **[Clove](https://github.com/mirrorange/clove)**  
 *提供了重要的Claude Code集成逻辑和认证机制，驱动ClewdR的Claude Code支持。*
 
