@@ -5,10 +5,10 @@ use http::{
     HeaderValue, Method,
     header::{ORIGIN, REFERER},
 };
-use wreq::{ClientBuilder, IntoUrl, RequestBuilder};
-use wreq_util::Emulation;
 use snafu::ResultExt;
 use tracing::error;
+use wreq::{ClientBuilder, IntoUrl, RequestBuilder};
+use wreq_util::Emulation;
 
 use crate::{
     claude_web_state::{ClaudeApiFormat, SUPER_CLIENT},
@@ -78,7 +78,7 @@ impl ClaudeCodeState {
 
     /// Requests a new cookie from the cookie manager
     /// Updates the internal state with the new cookie and proxy configuration
-    pub async fn request_cookie(&mut self) -> Result<(), ClewdrError> {
+    pub async fn request_cookie(&mut self) -> Result<CookieStatus, ClewdrError> {
         let res = self.event_sender.request(self.system_prompt_hash).await?;
         self.cookie = Some(res.to_owned());
         self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
@@ -93,7 +93,7 @@ impl ClaudeCodeState {
         })?;
         // load newest config
         self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
-        Ok(())
+        Ok(res)
     }
 
     pub fn check_token(&self) -> TokenStatus {

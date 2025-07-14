@@ -640,7 +640,6 @@ dependencies = [
  "passwords",
  "rand 0.9.1",
  "regex",
- "scopeguard",
  "self-replace",
  "serde",
  "serde_json",
