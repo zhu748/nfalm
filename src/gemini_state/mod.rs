@@ -8,13 +8,13 @@ use bytes::Bytes;
 use colored::Colorize;
 use futures::{Stream, future::Either, stream};
 use hyper_util::client::legacy::connect::HttpConnector;
-use wreq::{Client, ClientBuilder, header::AUTHORIZATION};
 use serde::Serialize;
 use serde_json::Value;
 use snafu::ResultExt;
 use strum::Display;
 use tokio::spawn;
 use tracing::{Instrument, Level, error, info, span, warn};
+use wreq::{Client, ClientBuilder, header::AUTHORIZATION};
 use yup_oauth2::{CustomHyperClientBuilder, ServiceAccountAuthenticator, ServiceAccountKey};
 
 use crate::{
@@ -37,6 +37,7 @@ pub enum GeminiApiFormat {
 
 static DUMMY_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
+// TODO: replace yup-oauth2 with oauth2 crate
 async fn get_token(sa_key: ServiceAccountKey) -> Result<String, ClewdrError> {
     const SCOPES: [&str; 1] = ["https://www.googleapis.com/auth/cloud-platform"];
     let token = if let Some(proxy) = CLEWDR_CONFIG.load().proxy.to_owned() {
@@ -232,9 +233,7 @@ impl GeminiState {
             }
             GeminiApiFormat::OpenAI => self
                 .client
-                .post(format!(
-                    "{GEMINI_ENDPOINT}/v1beta/openai/chat/completions",
-                ))
+                .post(format!("{GEMINI_ENDPOINT}/v1beta/openai/chat/completions",))
                 .header(AUTHORIZATION, format!("Bearer {key}"))
                 .json(&p)
                 .send()
@@ -321,8 +320,7 @@ impl GeminiState {
     async fn check_empty_choices(
         &self,
         resp: wreq::Response,
-    ) -> Result<impl Stream<Item = Result<Bytes, wreq::Error>> + Send + 'static, ClewdrError>
-    {
+    ) -> Result<impl Stream<Item = Result<Bytes, wreq::Error>> + Send + 'static, ClewdrError> {
         if self.stream {
             return Ok(Either::Left(resp.bytes_stream()));
         }

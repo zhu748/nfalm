@@ -55,6 +55,7 @@ fn generate_password() -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct VertexConfig {
+    #[serde(default)]
     pub credential: Option<ServiceAccountKey>,
     pub model_id: Option<String>,
 }
