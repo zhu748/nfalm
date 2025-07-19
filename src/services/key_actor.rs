@@ -166,8 +166,7 @@ impl KeyActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with KeyActor for request operation: {}",
-                    e
+                    "Failed to communicate with KeyActor for request operation: {e}"
                 ),
             }
         })?
@@ -179,8 +178,7 @@ impl KeyActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with KeyActor for return operation: {}",
-                    e
+                    "Failed to communicate with KeyActor for return operation: {e}"
                 ),
             }
         })
@@ -192,8 +190,7 @@ impl KeyActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with KeyActor for submit operation: {}",
-                    e
+                    "Failed to communicate with KeyActor for submit operation: {e}"
                 ),
             }
         })
@@ -205,8 +202,7 @@ impl KeyActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with KeyActor for get status operation: {}",
-                    e
+                    "Failed to communicate with KeyActor for get status operation: {e}"
                 ),
             }
         })
@@ -218,8 +214,7 @@ impl KeyActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with KeyActor for delete operation: {}",
-                    e
+                    "Failed to communicate with KeyActor for delete operation: {e}"
                 ),
             }
         })?

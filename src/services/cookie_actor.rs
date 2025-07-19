@@ -348,8 +348,7 @@ impl CookieActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with CookieActor for request operation: {}",
-                    e
+                    "Failed to communicate with CookieActor for request operation: {e}"
                 ),
             }
         })?
@@ -365,8 +364,7 @@ impl CookieActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with CookieActor for return operation: {}",
-                    e
+                    "Failed to communicate with CookieActor for return operation: {e}"
                 ),
             }
         })
@@ -378,8 +376,7 @@ impl CookieActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with CookieActor for submit operation: {}",
-                    e
+                    "Failed to communicate with CookieActor for submit operation: {e}"
                 ),
             }
         })
@@ -391,8 +388,7 @@ impl CookieActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with CookieActor for get status operation: {}",
-                    e
+                    "Failed to communicate with CookieActor for get status operation: {e}"
                 ),
             }
         })
@@ -404,8 +400,7 @@ impl CookieActorHandle {
             ClewdrError::RactorError {
                 loc: Location::generate(),
                 msg: format!(
-                    "Failed to communicate with CookieActor for delete operation: {}",
-                    e
+                    "Failed to communicate with CookieActor for delete operation: {e}"
                 ),
             }
         })?
