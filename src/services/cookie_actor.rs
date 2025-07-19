@@ -347,9 +347,7 @@ impl CookieActorHandle {
         ractor::call!(self.actor_ref, CookieActorMessage::Request, cache_hash).map_err(|e| {
             ClewdrError::RactorError {
                 loc: Location::generate(),
-                msg: format!(
-                    "Failed to communicate with CookieActor for request operation: {e}"
-                ),
+                msg: format!("Failed to communicate with CookieActor for request operation: {e}"),
             }
         })?
     }
@@ -363,9 +361,7 @@ impl CookieActorHandle {
         ractor::cast!(self.actor_ref, CookieActorMessage::Return(cookie, reason)).map_err(|e| {
             ClewdrError::RactorError {
                 loc: Location::generate(),
-                msg: format!(
-                    "Failed to communicate with CookieActor for return operation: {e}"
-                ),
+                msg: format!("Failed to communicate with CookieActor for return operation: {e}"),
             }
         })
     }
@@ -375,9 +371,7 @@ impl CookieActorHandle {
         ractor::cast!(self.actor_ref, CookieActorMessage::Submit(cookie)).map_err(|e| {
             ClewdrError::RactorError {
                 loc: Location::generate(),
-                msg: format!(
-                    "Failed to communicate with CookieActor for submit operation: {e}"
-                ),
+                msg: format!("Failed to communicate with CookieActor for submit operation: {e}"),
             }
         })
     }
@@ -399,9 +393,7 @@ impl CookieActorHandle {
         ractor::call!(self.actor_ref, CookieActorMessage::Delete, cookie).map_err(|e| {
             ClewdrError::RactorError {
                 loc: Location::generate(),
-                msg: format!(
-                    "Failed to communicate with CookieActor for delete operation: {e}"
-                ),
+                msg: format!("Failed to communicate with CookieActor for delete operation: {e}"),
             }
         })?
     }
