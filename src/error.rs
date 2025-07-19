@@ -15,9 +15,7 @@ use tokio::sync::oneshot;
 use tracing::{debug, error};
 use wreq::{Response, StatusCode, header::InvalidHeaderValue};
 
-use crate::{
-    config::Reason, services::cookie_manager::CookieEvent, types::claude_message::Message,
-};
+use crate::{config::Reason, types::claude_message::Message};
 
 #[derive(Debug, IntoStaticStr, snafu::Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -87,12 +85,6 @@ pub enum ClewdrError {
     BadRequest { msg: &'static str },
     #[snafu(display("Pad text too short"))]
     PadtxtTooShort,
-    #[snafu(display("Cookie send error: {}", source))]
-    #[snafu(context(false))]
-    CookieSendError {
-        #[snafu(source(from(tokio::sync::mpsc::error::SendError<CookieEvent>, Box::new)))]
-        source: Box<tokio::sync::mpsc::error::SendError<CookieEvent>>,
-    },
     #[snafu(display("Retries exceeded"))]
     TooManyRetries,
     #[snafu(display("EventSource error: {}", source))]

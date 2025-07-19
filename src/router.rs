@@ -18,17 +18,14 @@ use crate::{
         RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth,
         claude::{add_usage_info, apply_stop_sequences, to_oai},
     },
-    services::{
-        cookie_manager::{CookieEventSender, CookieManager},
-        key_actor::KeyActorHandle,
-    },
+    services::{cookie_actor::CookieActorHandle, key_actor::KeyActorHandle},
 };
 
 /// RouterBuilder for the application
 pub struct RouterBuilder {
     claude_web_state: ClaudeWebState,
     claude_code_state: ClaudeCodeState,
-    cookie_event_sender: CookieEventSender,
+    cookie_actor_handle: CookieActorHandle,
     key_actor_handle: KeyActorHandle,
     gemini_state: GeminiState,
     inner: Router,
@@ -41,9 +38,11 @@ impl RouterBuilder {
     /// # Arguments
     /// * `state` - The application state containing client information
     pub async fn new() -> Self {
-        let cookie_tx = CookieManager::start();
-        let claude_web_state = ClaudeWebState::new(cookie_tx.to_owned());
-        let claude_code_state = ClaudeCodeState::new(cookie_tx.to_owned());
+        let cookie_handle = CookieActorHandle::start()
+            .await
+            .expect("Failed to start CookieActor");
+        let claude_web_state = ClaudeWebState::new(cookie_handle.to_owned());
+        let claude_code_state = ClaudeCodeState::new(cookie_handle.to_owned());
         let key_tx = KeyActorHandle::start()
             .await
             .expect("Failed to start KeyActorHandle");
@@ -51,7 +50,7 @@ impl RouterBuilder {
         RouterBuilder {
             claude_web_state,
             claude_code_state,
-            cookie_event_sender: cookie_tx,
+            cookie_actor_handle: cookie_handle,
             key_actor_handle: key_tx,
             gemini_state,
             inner: Router::new(),
@@ -126,7 +125,7 @@ impl RouterBuilder {
         let cookie_router = Router::new()
             .route("/cookies", get(api_get_cookies))
             .route("/cookie", delete(api_delete_cookie).post(api_post_cookie))
-            .with_state(self.cookie_event_sender.to_owned());
+            .with_state(self.cookie_actor_handle.to_owned());
         let key_router = Router::new()
             .route("/key", post(api_post_key).delete(api_delete_key))
             .route("/keys", get(api_get_keys))

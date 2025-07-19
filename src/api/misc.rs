@@ -8,7 +8,7 @@ use crate::{
     VERSION_INFO,
     config::{CLEWDR_CONFIG, CookieStatus, KeyStatus},
     services::{
-        cookie_manager::{CookieEventSender, CookieStatusInfo},
+        cookie_actor::{CookieActorHandle, CookieStatusInfo},
         key_actor::{KeyActorHandle, KeyStatusInfo},
     },
 };
@@ -24,7 +24,7 @@ use crate::{
 /// # Returns
 /// * `StatusCode` - HTTP status code indicating success or failure
 pub async fn api_post_cookie(
-    State(s): State<CookieEventSender>,
+    State(s): State<CookieActorHandle>,
     AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
 ) -> StatusCode {
@@ -80,7 +80,7 @@ pub async fn api_post_key(
 /// # Returns
 /// * `Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)>` - Cookie status info or error
 pub async fn api_get_cookies(
-    State(s): State<CookieEventSender>,
+    State(s): State<CookieActorHandle>,
     AuthBearer(t): AuthBearer,
 ) -> Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)> {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
@@ -138,7 +138,7 @@ pub async fn api_get_keys(
 /// # Returns
 /// * `Result<StatusCode, (StatusCode, Json<serde_json::Value>)>` - Success status or error
 pub async fn api_delete_cookie(
-    State(s): State<CookieEventSender>,
+    State(s): State<CookieActorHandle>,
     AuthBearer(t): AuthBearer,
     Json(c): Json<CookieStatus>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
