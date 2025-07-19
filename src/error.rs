@@ -16,15 +16,19 @@ use tracing::{debug, error};
 use wreq::{Response, StatusCode, header::InvalidHeaderValue};
 
 use crate::{
-    config::Reason,
-    services::{cookie_manager::CookieEvent, key_manager::KeyEvent},
-    types::claude_message::Message,
+    config::Reason, services::cookie_manager::CookieEvent, types::claude_message::Message,
 };
 
 #[derive(Debug, IntoStaticStr, snafu::Snafu)]
 #[snafu(visibility(pub(crate)))]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[snafu(display("Ractor error: {}", msg))]
+    RactorError {
+        #[snafu(implicit)]
+        loc: Location,
+        msg: String,
+    },
     #[snafu(display("Error requesting token: {}", source))]
     #[snafu(context(false))]
     RequestTokenError {
@@ -83,11 +87,6 @@ pub enum ClewdrError {
     BadRequest { msg: &'static str },
     #[snafu(display("Pad text too short"))]
     PadtxtTooShort,
-    #[snafu(display("Key send error: {}", source))]
-    #[snafu(context(false))]
-    KeySendError {
-        source: tokio::sync::mpsc::error::SendError<KeyEvent>,
-    },
     #[snafu(display("Cookie send error: {}", source))]
     #[snafu(context(false))]
     CookieSendError {
