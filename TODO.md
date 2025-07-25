@@ -9,9 +9,9 @@ This document outlines the key areas for improving the architecture of the Clewd
   - [ ] **Implement a safe context-passing mechanism:**
     - [ ] Create a `ResponseWithContext` wrapper that automatically attaches context data to a `Response` via an extension.
     - [ ] This will eliminate the need for handlers to manually insert context, preventing potential errors.
-  - [ ] **Unify Claude-related contexts:**
-    - [ ] Create a `ClaudeContext` enum to represent the different Claude contexts (e.g., `ClaudeWebContext`, `ClaudeCodeContext`).
-    - [ ] This will simplify the logic in the response middleware, which currently has to check for multiple context types.
+  - [x] **Unify Claude-related contexts:**
+    - [x] Create a `ClaudeContext` enum to represent the different Claude contexts (e.g., `ClaudeWebContext`, `ClaudeCodeContext`).
+    - [x] This will simplify the logic in the response middleware, which currently has to check for multiple context types.
   - [ ] **Refactor response middleware:**
     - [ ] Update the response middleware (`to_oai`, `add_usage_info`, `apply_stop_sequences`) to use the new `ResponseWithContext` and `ClaudeContext` types.
     - [ ] This will make the middleware more robust and easier to understand.
