@@ -8,12 +8,11 @@ use futures::{Stream, TryStreamExt};
 use serde::Serialize;
 
 use crate::{
-    claude_web_state::ClaudeApiFormat,
-    middleware::claude::ClaudeCodeContext,
+    middleware::claude::ClaudeContext,
     types::claude_message::{ContentBlockDelta, CreateMessageResponse, StreamEvent},
 };
 
-use super::ClaudeWebContext;
+use super::ClaudeApiFormat;
 
 /// Transforms responses to ensure compatibility with the OpenAI API format
 ///
@@ -34,47 +33,25 @@ use super::ClaudeWebContext;
 ///
 /// The original or transformed response as appropriate
 pub async fn to_oai(resp: Response) -> impl IntoResponse {
-    if let Some(f) = resp.extensions().get::<ClaudeWebContext>() {
-        if ClaudeApiFormat::Claude == f.api_format || !f.stream || resp.status() != 200 {
-            return resp;
-        }
-        let body = resp.into_body();
-        let stream = body.into_data_stream().eventsource();
-        let stream = transform_stream(stream);
-        Sse::new(stream)
-            .keep_alive(Default::default())
-            .into_response()
-    } else {
-        let Some(ex) = resp.extensions().get::<ClaudeCodeContext>() else {
-            return resp;
-        };
-        if ClaudeApiFormat::Claude == ex.api_format || !ex.stream || resp.status() != 200 {
-            return resp;
-        }
-        let body = resp.into_body();
-        let stream = body.into_data_stream().eventsource();
-        let stream = transform_stream(stream);
-        Sse::new(stream)
-            .keep_alive(Default::default())
-            .into_response()
+    let Some(cx) = resp.extensions().get::<ClaudeContext>() else {
+        return resp;
+    };
+    if ClaudeApiFormat::Claude == cx.api_format() || !cx.is_stream() || resp.status() != 200 {
+        return resp;
     }
+    let body = resp.into_body();
+    let stream = body.into_data_stream().eventsource();
+    let stream = transform_stream(stream);
+    Sse::new(stream)
+        .keep_alive(Default::default())
+        .into_response()
 }
 
 pub async fn add_usage_info(resp: Response) -> impl IntoResponse {
-    let (mut usage, stream) = if let Some(f) = resp.extensions().get::<ClaudeWebContext>() {
-        if ClaudeApiFormat::OpenAI == f.api_format || resp.status() != 200 {
-            return resp;
-        }
-        (f.usage.to_owned(), f.stream)
-    } else {
-        let Some(ex) = resp.extensions().get::<ClaudeCodeContext>() else {
-            return resp;
-        };
-        if ClaudeApiFormat::OpenAI == ex.api_format || resp.status() != 200 {
-            return resp;
-        }
-        (ex.usage.to_owned(), ex.stream)
+    let Some(cx) = resp.extensions().get::<ClaudeContext>() else {
+        return resp;
     };
+    let (mut usage, stream) = (cx.usage().to_owned(), cx.is_stream());
     if !stream {
         let data = body::to_bytes(resp.into_body(), usize::MAX)
             .await
