@@ -21,6 +21,13 @@ use crate::{config::Reason, types::claude_message::Message};
 #[snafu(visibility(pub(crate)))]
 #[strum(serialize_all = "snake_case")]
 pub enum ClewdrError {
+    #[snafu(display("HTTP error: {}, at: {}", source, loc))]
+    #[snafu(context(false))]
+    HttpError {
+        #[snafu(implicit)]
+        loc: Location,
+        source: http::Error,
+    },
     #[snafu(display("Ractor error: {}", msg))]
     RactorError {
         #[snafu(implicit)]
