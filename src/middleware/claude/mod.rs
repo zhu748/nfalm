@@ -41,8 +41,8 @@ impl ClaudeContext {
 
     pub fn api_format(&self) -> ClaudeApiFormat {
         match self {
-            ClaudeContext::Web(ctx) => ctx.api_format.clone(),
-            ClaudeContext::Code(ctx) => ctx.api_format.clone(),
+            ClaudeContext::Web(ctx) => ctx.api_format,
+            ClaudeContext::Code(ctx) => ctx.api_format,
         }
     }
 
