@@ -164,10 +164,15 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
         if body.model.ends_with("-thinking") {
             body.model = body.model.trim_end_matches("-thinking").to_string();
             body.thinking = serde_json::from_value(json!({
-                "budget_tokens": 1024,
+                "budget_tokens": Some(1024),
                 "type": "enabled",
             }))
             .ok();
+        }
+        if let Some(ref thinking) = body.thinking
+            && thinking.budget_tokens.is_none()
+        {
+            body.thinking = None; // Disable thinking mode if budget_tokens is not set
         }
         body.model = body.model.trim_end_matches("-claude-ai").to_string();
 

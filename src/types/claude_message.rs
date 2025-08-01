@@ -122,7 +122,7 @@ impl CreateMessageParams {
 /// Thinking mode in Claude API Request
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct Thinking {
-    budget_tokens: u64,
+    pub budget_tokens: Option<u64>,
     r#type: String,
 }
 
