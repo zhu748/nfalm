@@ -86,6 +86,15 @@ pub async fn add_usage_info(resp: Response) -> impl IntoResponse {
                         .json_data(StreamEvent::MessageStart { message })
                         .unwrap()
                 }
+                StreamEvent::MessageDelta { delta, usage } => {
+                    let usage = usage.unwrap_or_default();
+                    new_event
+                        .json_data(StreamEvent::MessageDelta {
+                            delta,
+                            usage: Some(usage),
+                        })
+                        .unwrap()
+                }
                 _ => new_event.data(event.data),
             }
         });
