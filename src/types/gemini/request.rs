@@ -157,4 +157,6 @@ pub enum Tool {
     functionDeclarations(Vec<Value>),
     /// Generally it can be `Tool::code_execution(json!({}))`,
     code_execution(Value),
+    #[serde(untagged)]
+    Unknown(Value),
 }
