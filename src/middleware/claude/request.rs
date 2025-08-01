@@ -7,7 +7,6 @@ use std::{
 use axum::{
     Json,
     extract::{FromRequest, Request},
-    response::IntoResponse,
 };
 use serde_json::{Value, json};
 
@@ -21,8 +20,6 @@ use crate::{
         ContentBlock, CreateMessageParams, Message, MessageContent, Role, Usage,
     },
 };
-
-use super::to_oai;
 
 /// A custom extractor that unifies different API formats
 ///
@@ -126,13 +123,6 @@ impl FromRequest<ClaudeWebState> for ClaudeWebPreprocess {
                 output_tokens: 0, // Placeholder for output token count
             },
         };
-
-        // Try to retrieve from cache before processing
-        if let Some(mut r) = state.try_from_cache(&body).await {
-            r.extensions_mut().insert(info.to_owned());
-            let r = to_oai(r).await.into_response();
-            return Err(ClewdrError::CacheFound { res: Box::new(r) });
-        }
 
         Ok(Self(body, ClaudeContext::Web(info)))
     }

@@ -9,7 +9,6 @@ use crate::{
     claude_web_state::ClaudeWebState,
     error::ClewdrError,
     middleware::claude::ClaudeApiFormat,
-    services::cache::CACHE,
     types::claude_message::{ContentBlock, CreateMessageResponse, Message, Role},
     utils::print_out_text,
 };
@@ -74,13 +73,6 @@ impl ClaudeWebState {
         &self,
         input: impl Stream<Item = Result<Bytes, wreq::Error>> + Send + 'static,
     ) -> Result<axum::response::Response, ClewdrError> {
-        // response is used for caching
-        if let Some((key, id)) = self.key {
-            CACHE.push(input, key, id);
-            // return whatever, not used
-            return Ok(Body::empty().into_response());
-        }
-        // response is used for returning
         if self.stream {
             return Ok(Body::from_stream(input).into_response());
         }

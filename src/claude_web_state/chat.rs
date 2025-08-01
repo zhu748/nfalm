@@ -2,14 +2,12 @@ use colored::Colorize;
 use futures::TryFutureExt;
 use serde_json::json;
 use snafu::ResultExt;
-use tokio::spawn;
-use tracing::{Instrument, debug, error, error_span, info, info_span, warn};
+use tracing::{Instrument, debug, error, info, info_span, warn};
 use wreq::{Method, Response, header::ACCEPT};
 
 use crate::{
     config::CLEWDR_CONFIG,
     error::{CheckClaudeErr, ClewdrError, RquestSnafu},
-    services::cache::{CACHE, GetHashKey},
     types::claude_message::CreateMessageParams,
     utils::print_out_json,
 };
@@ -17,40 +15,6 @@ use crate::{
 use super::ClaudeWebState;
 
 impl ClaudeWebState {
-    /// Attempts to retrieve a response from cache or initiates background caching
-    ///
-    /// This method tries to find a cached response for the given message parameters.
-    /// If found, it transforms and returns the response. Otherwise, it spawns
-    /// background tasks to generate and cache responses for future use.
-    ///
-    /// # Arguments
-    /// * `p` - The message parameters to use as a cache key
-    ///
-    /// # Returns
-    /// * `Option<axum::response::Response>` - The cached response if available, None otherwise
-    pub async fn try_from_cache(
-        &self,
-        p: &CreateMessageParams,
-    ) -> Option<axum::response::Response> {
-        let key = p.get_hash();
-        if let Some(stream) = CACHE.pop(key).await {
-            info!("Found response for key: {}", key);
-            let Ok(res) = self.transform_response(stream).await else {
-                error!("Failed to transform response for key: {}", key);
-                return None;
-            };
-            return Some(res);
-        }
-        for id in 0..CLEWDR_CONFIG.load().cache_response {
-            let mut state = self.to_owned();
-            state.key = Some((key, id));
-            let p = p.to_owned();
-            let cache_span = error_span!("cache");
-            spawn(async move { state.try_chat(p).instrument(cache_span).await });
-        }
-        None
-    }
-
     /// Attempts to send a chat message to Claude API with retry mechanism
     ///
     /// This method handles the complete chat flow including:

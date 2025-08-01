@@ -74,8 +74,6 @@ pub enum ClewdrError {
     PathRejection { source: PathRejection },
     #[snafu(transparent)]
     QueryRejection { source: QueryRejection },
-    #[snafu(display("Cache found"))]
-    CacheFound { res: Box<axum::response::Response> },
     #[snafu(display("Test Message"))]
     TestMessage,
     #[snafu(display("FmtError: {}", source))]
@@ -205,7 +203,6 @@ impl IntoResponse for ClewdrError {
             ClewdrError::GeminiHttpError { code, inner } => {
                 return (code, Json(inner)).into_response();
             }
-            ClewdrError::CacheFound { res } => return (StatusCode::OK, *res).into_response(),
             ClewdrError::TestMessage => {
                 return (
                     StatusCode::OK,
