@@ -142,7 +142,7 @@ impl GeminiRequestBody {
           { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF" },
           {
             "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
-            "threshold": "BLOCK_NONE"
+            "threshold": "OFF"
           }
         ]));
     }
