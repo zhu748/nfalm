@@ -7,7 +7,6 @@ use std::{
 use axum::{
     Json,
     extract::{FromRequest, Request},
-    response::IntoResponse,
 };
 use serde_json::{Value, json};
 
@@ -21,8 +20,6 @@ use crate::{
         ContentBlock, CreateMessageParams, Message, MessageContent, Role, Usage,
     },
 };
-
-use super::to_oai;
 
 /// A custom extractor that unifies different API formats
 ///
@@ -127,13 +124,6 @@ impl FromRequest<ClaudeWebState> for ClaudeWebPreprocess {
             },
         };
 
-        // Try to retrieve from cache before processing
-        if let Some(mut r) = state.try_from_cache(&body).await {
-            r.extensions_mut().insert(info.to_owned());
-            let r = to_oai(r).await.into_response();
-            return Err(ClewdrError::CacheFound { res: Box::new(r) });
-        }
-
         Ok(Self(body, ClaudeContext::Web(info)))
     }
 }
@@ -164,10 +154,15 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
         if body.model.ends_with("-thinking") {
             body.model = body.model.trim_end_matches("-thinking").to_string();
             body.thinking = serde_json::from_value(json!({
-                "budget_tokens": 1024,
+                "budget_tokens": Some(1024),
                 "type": "enabled",
             }))
             .ok();
+        }
+        if let Some(ref thinking) = body.thinking
+            && thinking.budget_tokens.is_none()
+        {
+            body.thinking = None; // Disable thinking mode if budget_tokens is not set
         }
         body.model = body.model.trim_end_matches("-claude-ai").to_string();
 
