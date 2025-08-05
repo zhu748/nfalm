@@ -8,7 +8,7 @@ use crate::{
     error::ClewdrError,
     gemini_body::GeminiArgs,
     gemini_state::{GeminiApiFormat, GeminiState},
-    types::{claude::CreateMessageParams, gemini::request::GeminiRequestBody},
+    types::{gemini::request::GeminiRequestBody, oai::CreateMessageParams},
 };
 
 pub struct GeminiContext {
