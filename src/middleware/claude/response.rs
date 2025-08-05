@@ -6,12 +6,11 @@ use axum::{
 use eventsource_stream::Eventsource;
 use futures::TryStreamExt;
 
+use super::{ClaudeApiFormat, transform_stream};
 use crate::{
     middleware::claude::ClaudeContext,
     types::claude_message::{CreateMessageResponse, StreamEvent},
 };
-
-use super::{ClaudeApiFormat, transform_stream};
 
 /// Transforms responses to ensure compatibility with the OpenAI API format
 ///

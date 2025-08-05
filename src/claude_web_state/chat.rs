@@ -5,14 +5,13 @@ use snafu::ResultExt;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use wreq::{Method, Response, header::ACCEPT};
 
+use super::ClaudeWebState;
 use crate::{
     config::CLEWDR_CONFIG,
     error::{CheckClaudeErr, ClewdrError, RquestSnafu},
     types::claude_message::CreateMessageParams,
     utils::print_out_json,
 };
-
-use super::ClaudeWebState;
 
 impl ClaudeWebState {
     /// Attempts to send a chat message to Claude API with retry mechanism

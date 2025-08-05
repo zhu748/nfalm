@@ -1,7 +1,6 @@
 use std::{fmt::Write, mem};
 
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
+use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::{StreamExt, stream};
 use itertools::Itertools;
 use rand::{Rng, rng};
@@ -9,15 +8,18 @@ use serde_json::Value;
 use tracing::warn;
 use wreq::multipart::{Form, Part};
 
-use crate::claude_web_state::ClaudeWebState;
-
-use crate::config::CLEWDR_CONFIG;
-use crate::middleware::claude::ClaudeApiFormat;
-use crate::types::claude_message::{
-    ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
+use crate::{
+    claude_web_state::ClaudeWebState,
+    config::CLEWDR_CONFIG,
+    middleware::claude::ClaudeApiFormat,
+    types::{
+        claude_message::{
+            ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
+        },
+        claude_web::request::*,
+    },
+    utils::{TIME_ZONE, print_out_text},
 };
-use crate::types::claude_web::request::*;
-use crate::utils::{TIME_ZONE, print_out_text};
 
 impl ClaudeWebState {
     pub fn transform_request(&self, mut value: CreateMessageParams) -> Option<WebRequestBody> {

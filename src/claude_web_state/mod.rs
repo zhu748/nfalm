@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use axum::http::HeaderValue;
 use snafu::ResultExt;
 use tracing::{debug, error};
@@ -7,8 +9,6 @@ use wreq::{
     header::{ORIGIN, REFERER},
 };
 use wreq_util::Emulation;
-
-use std::sync::LazyLock;
 
 use crate::{
     config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},

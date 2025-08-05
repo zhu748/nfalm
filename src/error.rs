@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use axum::{
     Json,
     extract::rejection::{JsonRejection, PathRejection, QueryRejection},
@@ -9,7 +11,6 @@ use oauth2::{RequestTokenError, StandardErrorResponse, basic::BasicErrorResponse
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use snafu::Location;
-use std::fmt::Display;
 use strum::IntoStaticStr;
 use tokio::sync::oneshot;
 use tracing::{debug, error};

@@ -7,7 +7,6 @@ pub(crate) use claude2oai::*;
 pub use request::*;
 pub use response::*;
 pub use stop_sequences::*;
-
 use strum::Display;
 
 use crate::types::claude_message::Usage;

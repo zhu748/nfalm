@@ -1,3 +1,12 @@
+use std::{
+    collections::HashSet,
+    env,
+    fmt::{Debug, Display},
+    net::{IpAddr, SocketAddr},
+    path::PathBuf,
+    sync::Arc,
+};
+
 use axum::http::{Uri, uri::Scheme};
 use colored::Colorize;
 use figment::{
@@ -7,20 +16,13 @@ use figment::{
 use http::uri::Authority;
 use passwords::PasswordGenerator;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashSet,
-    env,
-    fmt::{Debug, Display},
-    net::{IpAddr, SocketAddr},
-    path::PathBuf,
-    sync::Arc,
-};
 use tiktoken_rs::o200k_base;
 use tokio::spawn;
 use tracing::{error, warn};
 use wreq::{Proxy, Url};
 use yup_oauth2::ServiceAccountKey;
 
+use super::{ARG_COOKIE_FILE, CONFIG_PATH, ENDPOINT_URL, key::KeyStatus};
 use crate::{
     config::{
         CC_CLIENT_ID, CookieStatus, UselessCookie, default_check_update, default_ip,
@@ -30,8 +32,6 @@ use crate::{
     error::ClewdrError,
     utils::enabled,
 };
-
-use super::{ARG_COOKIE_FILE, CONFIG_PATH, ENDPOINT_URL, key::KeyStatus};
 
 /// Generates a random password for authentication
 /// Creates a secure 64-character password with mixed character types
