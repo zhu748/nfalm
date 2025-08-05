@@ -13,9 +13,7 @@ use crate::{
     config::CLEWDR_CONFIG,
     middleware::claude::ClaudeApiFormat,
     types::{
-        claude_message::{
-            ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role,
-        },
+        claude::{ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role},
         claude_web::request::*,
     },
     utils::{TIME_ZONE, print_out_text},

@@ -9,7 +9,7 @@ use crate::{
     claude_web_state::ClaudeWebState,
     error::ClewdrError,
     middleware::claude::ClaudeApiFormat,
-    types::claude_message::{ContentBlock, CreateMessageResponse, Message, Role},
+    types::claude::{ContentBlock, CreateMessageResponse, Message, Role},
     utils::print_out_text,
 };
 

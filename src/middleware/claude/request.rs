@@ -16,7 +16,7 @@ use crate::{
     config::CLEWDR_CONFIG,
     error::ClewdrError,
     middleware::claude::{ClaudeApiFormat, ClaudeContext},
-    types::claude_message::{
+    types::claude::{
         ContentBlock, CreateMessageParams, Message, MessageContent, Role, Usage,
     },
 };

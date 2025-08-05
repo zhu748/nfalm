@@ -9,7 +9,7 @@ use super::ClaudeWebState;
 use crate::{
     config::CLEWDR_CONFIG,
     error::{CheckClaudeErr, ClewdrError, RquestSnafu},
-    types::claude_message::CreateMessageParams,
+    types::claude::CreateMessageParams,
     utils::print_out_json,
 };
 

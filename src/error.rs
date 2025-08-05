@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 use tracing::{debug, error};
 use wreq::{Response, StatusCode, header::InvalidHeaderValue};
 
-use crate::{config::Reason, types::claude_message::Message};
+use crate::{config::Reason, types::claude::Message};
 
 #[derive(Debug, IntoStaticStr, snafu::Snafu)]
 #[snafu(visibility(pub(crate)))]

@@ -9,7 +9,7 @@ pub use response::*;
 pub use stop_sequences::*;
 use strum::Display;
 
-use crate::types::claude_message::Usage;
+use crate::types::claude::Usage;
 
 /// Represents the format of the API response
 ///
