@@ -20,6 +20,7 @@ use crate::{
 
 pub mod bootstrap;
 pub mod chat;
+mod transform;
 /// Placeholder
 pub static SUPER_CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
