@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use axum::{Extension, extract::State, response::Response};
 use colored::Colorize;
 use tracing::info;
@@ -40,13 +42,13 @@ pub async fn api_claude_web(
         enabled(p.thinking.is_some()),
         format_display
     );
-    let stopwatch = chrono::Utc::now();
+    let stopwatch = Instant::now();
     let res = state.try_chat(p).await;
 
-    let elapsed = chrono::Utc::now().signed_duration_since(stopwatch);
+    let elapsed = stopwatch.elapsed();
     info!(
         "[FIN] elapsed: {}s",
-        format!("{}", elapsed.num_milliseconds() as f64 / 1000.0).green()
+        format!("{}", elapsed.as_secs_f32()).green()
     );
 
     (Extension(f), res)
