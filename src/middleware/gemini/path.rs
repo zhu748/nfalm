@@ -25,7 +25,7 @@ where
         parts: &mut axum::http::request::Parts,
         _: &S,
     ) -> Result<Self, Self::Rejection> {
-        match Query::<GeminiArgs>::from_request_parts(parts, &()).await {
+        match Query::<Self>::from_request_parts(parts, &()).await {
             Ok(Query(q)) => Ok(q),
             Err(_) => {
                 let Query(q) = Query::<GeminiQueryAlt>::from_request_parts(parts, &()).await?;
@@ -35,7 +35,7 @@ where
                     .get("x-goog-api-key")
                     .and_then(|v| v.to_str().ok())
                     .ok_or(ClewdrError::InvalidAuth)?;
-                Ok(GeminiArgs {
+                Ok(Self {
                     key: key.to_string(),
                     alt: q.alt,
                 })
