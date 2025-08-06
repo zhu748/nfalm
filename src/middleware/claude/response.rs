@@ -37,8 +37,7 @@ pub async fn to_oai(resp: Response) -> impl IntoResponse {
     if ClaudeApiFormat::Claude == cx.api_format() || !cx.is_stream() || resp.status() != 200 {
         return resp;
     }
-    let body = resp.into_body();
-    let stream = body.into_data_stream().eventsource();
+    let stream = resp.into_body().into_data_stream().eventsource();
     let stream = transform_stream(stream);
     Sse::new(stream)
         .keep_alive(Default::default())
