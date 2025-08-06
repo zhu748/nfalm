@@ -11,8 +11,6 @@ use axum::{
 use serde_json::{Value, json};
 
 use crate::{
-    claude_code_state::ClaudeCodeState,
-    claude_web_state::ClaudeWebState,
     config::CLEWDR_CONFIG,
     error::ClewdrError,
     middleware::claude::{ClaudeApiFormat, ClaudeContext},
@@ -102,10 +100,13 @@ where
     }
 }
 
-impl FromRequest<ClaudeWebState> for ClaudeWebPreprocess {
+impl<S> FromRequest<S> for ClaudeWebPreprocess
+where
+    S: Send + Sync,
+{
     type Rejection = ClewdrError;
 
-    async fn from_request(req: Request, _: &ClaudeWebState) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, _: &S) -> Result<Self, Self::Rejection> {
         let NormalizeRequest(body, format) = NormalizeRequest::from_request(req, &()).await?;
 
         // Check for test messages and respond appropriately
@@ -149,10 +150,13 @@ pub struct ClaudeCodeContext {
 
 pub struct ClaudeCodePreprocess(pub CreateMessageParams, pub ClaudeContext);
 
-impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
+impl<S> FromRequest<S> for ClaudeCodePreprocess
+where
+    S: Send + Sync,
+{
     type Rejection = ClewdrError;
 
-    async fn from_request(req: Request, _: &ClaudeCodeState) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, _: &S) -> Result<Self, Self::Rejection> {
         let NormalizeRequest(mut body, format) = NormalizeRequest::from_request(req, &()).await?;
         // Handle thinking mode by modifying the model name
         if body.model.contains("opus-4-1") && body.temperature.is_some() {
