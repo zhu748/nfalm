@@ -12,7 +12,7 @@ use crate::{
 pub async fn api_claude_code(
     State(mut state): State<ClaudeCodeState>,
     ClaudeCodePreprocess(p, f): ClaudeCodePreprocess,
-) -> (Extension<ClaudeContext>, Result<Response, ClewdrError>) {
+) -> Result<(Extension<ClaudeContext>, Response), ClewdrError> {
     state.system_prompt_hash = f.system_prompt_hash();
     state.stream = p.stream.unwrap_or_default();
     state.api_format = f.api_format();
@@ -39,5 +39,5 @@ pub async fn api_claude_code(
         format!("{}", elapsed.num_milliseconds() as f64 / 1000.0).green()
     );
 
-    (Extension(f), res)
+    res.map(|r| (Extension(f), r))
 }
