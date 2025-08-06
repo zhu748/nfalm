@@ -1,4 +1,3 @@
-use axum::body::Body;
 use colored::Colorize;
 use snafu::ResultExt;
 use tracing::{Instrument, error, info};
@@ -8,6 +7,7 @@ use crate::{
     config::CLEWDR_CONFIG,
     error::{CheckClaudeErr, ClewdrError, RquestSnafu},
     types::claude::CreateMessageParams,
+    utils::forward_response,
 };
 
 impl ClaudeCodeState {
@@ -114,19 +114,6 @@ impl ClaudeCodeState {
             })?
             .check_claude()
             .await?;
-        // TODO: wrap this logic in a function
-        let status = api_res.status();
-        let header = api_res.headers().to_owned();
-        let stream = api_res.bytes_stream();
-        let mut res = http::Response::builder().status(status);
-        {
-            let headers = res.headers_mut().unwrap();
-            for (key, value) in header {
-                if let Some(key) = key {
-                    headers.insert(key, value);
-                }
-            }
-        }
-        Ok(res.body(Body::from_stream(stream))?)
+        forward_response(api_res)
     }
 }

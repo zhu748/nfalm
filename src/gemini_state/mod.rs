@@ -1,9 +1,7 @@
 use std::sync::LazyLock;
 
-use axum::{body::Body, response::Response};
-use bytes::Bytes;
+use axum::response::Response;
 use colored::Colorize;
-use futures::{Stream, future::Either, stream};
 use http::header::CONTENT_TYPE;
 use hyper_util::client::legacy::connect::HttpConnector;
 use serde::Serialize;
@@ -11,7 +9,7 @@ use serde_json::Value;
 use snafu::ResultExt;
 use strum::Display;
 use tokio::spawn;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use wreq::{Client, ClientBuilder, header::AUTHORIZATION};
 use yup_oauth2::{CustomHyperClientBuilder, ServiceAccountAuthenticator, ServiceAccountKey};
 
@@ -22,6 +20,7 @@ use crate::{
     middleware::gemini::GeminiContext,
     services::key_actor::KeyActorHandle,
     types::gemini::response::{FinishReason, GeminiResponse},
+    utils::forward_response,
 };
 
 #[derive(Clone, Display, PartialEq, Eq)]
@@ -249,17 +248,14 @@ impl GeminiState {
             let p = p.to_owned();
 
             match state.send_chat(p).await {
-                Ok(resp) => {
-                    let Ok(stream) = state.check_empty_choices(resp).await else {
-                        warn!("Empty choices");
-                        err = Some(ClewdrError::EmptyChoices);
+                Ok(resp) => match state.check_empty_choices(resp).await {
+                    Ok(resp) => return Ok(resp),
+                    Err(e) => {
+                        error!("Failed to check empty choices: {}", e);
+                        err = Some(e);
                         continue;
-                    };
-                    let res = Response::builder()
-                        .header(CONTENT_TYPE, "text/event-stream")
-                        .body(Body::from_stream(stream))?;
-                    return Ok(res);
-                }
+                    }
+                },
                 Err(e) => {
                     if let Some(key) = state.key.to_owned() {
                         error!("[{}] {}", key.key.ellipse().green(), e);
@@ -290,12 +286,9 @@ impl GeminiState {
         Err(ClewdrError::TooManyRetries)
     }
 
-    async fn check_empty_choices(
-        &self,
-        resp: wreq::Response,
-    ) -> Result<impl Stream<Item = Result<Bytes, wreq::Error>> + Send + 'static, ClewdrError> {
+    async fn check_empty_choices(&self, resp: wreq::Response) -> Result<Response, ClewdrError> {
         if self.stream {
-            return Ok(Either::Left(resp.bytes_stream()));
+            return forward_response(resp);
         }
         let bytes = resp.bytes().await.context(RquestSnafu {
             msg: "Failed to get bytes from Gemini response",
@@ -321,6 +314,8 @@ impl GeminiState {
                 }
             }
         }
-        Ok(Either::Right(stream::once(async { Ok(bytes) })))
+        Ok(Response::builder()
+            .header(CONTENT_TYPE, "application/json")
+            .body(bytes.into())?)
     }
 }

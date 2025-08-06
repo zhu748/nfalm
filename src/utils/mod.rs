@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf, str::FromStr};
 
+use axum::body::Body;
 use colored::{ColoredString, Colorize};
 use tokio::{io::AsyncWriteExt, spawn};
 use tracing::error;
@@ -97,3 +98,19 @@ pub fn print_out_text(text: String, file_name: &str) {
 
 /// Timezone for the API
 pub const TIME_ZONE: &str = "America/New_York";
+
+pub fn forward_response(in_: wreq::Response) -> Result<http::Response<Body>, ClewdrError> {
+    let status = in_.status();
+    let header = in_.headers().to_owned();
+    let stream = in_.bytes_stream();
+    let mut res = http::Response::builder().status(status);
+
+    let headers = res.headers_mut().unwrap();
+    for (key, value) in header {
+        if let Some(key) = key {
+            headers.insert(key, value);
+        }
+    }
+
+    Ok(res.body(Body::from_stream(stream))?)
+}

@@ -1,4 +1,4 @@
-use axum::{Json, body::Body, response::IntoResponse};
+use axum::{Json, response::IntoResponse};
 use bytes::Bytes;
 use eventsource_stream::{EventStream, Eventsource};
 use futures::{Stream, TryStreamExt};
@@ -10,7 +10,7 @@ use crate::{
     error::ClewdrError,
     middleware::claude::ClaudeApiFormat,
     types::claude::{ContentBlock, CreateMessageResponse, Message, Role},
-    utils::print_out_text,
+    utils::{forward_response, print_out_text},
 };
 
 /// Merges server-sent events (SSE) from a stream into a single string
@@ -73,11 +73,11 @@ impl ClaudeWebState {
         &self,
         wreq_res: wreq::Response,
     ) -> Result<axum::response::Response, ClewdrError> {
-        let stream = wreq_res.bytes_stream();
         if self.stream {
-            return Ok(Body::from_stream(stream).into_response());
+            return forward_response(wreq_res);
         }
 
+        let stream = wreq_res.bytes_stream();
         let stream = stream.eventsource();
         let text = merge_sse(stream).await?;
         print_out_text(text.to_owned(), "non_stream.txt");
