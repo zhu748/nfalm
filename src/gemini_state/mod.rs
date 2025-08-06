@@ -16,8 +16,7 @@ use yup_oauth2::{CustomHyperClientBuilder, ServiceAccountAuthenticator, ServiceA
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
     error::{CheckGeminiErr, ClewdrError, InvalidUriSnafu, RquestSnafu},
-    gemini_body::GeminiArgs,
-    middleware::gemini::GeminiContext,
+    middleware::gemini::*,
     services::key_actor::KeyActorHandle,
     types::gemini::response::{FinishReason, GeminiResponse},
     utils::forward_response,

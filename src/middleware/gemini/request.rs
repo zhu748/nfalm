@@ -3,10 +3,10 @@ use axum::{
     extract::{FromRequest, Path, Request},
 };
 
+use super::GeminiArgs;
 use crate::{
     config::CLEWDR_CONFIG,
     error::ClewdrError,
-    gemini_body::GeminiArgs,
     gemini_state::{GeminiApiFormat, GeminiState},
     types::{gemini::request::GeminiRequestBody, oai::CreateMessageParams},
 };

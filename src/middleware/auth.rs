@@ -2,7 +2,8 @@ use axum::extract::FromRequestParts;
 use axum_auth::AuthBearer;
 use tracing::warn;
 
-use crate::{config::CLEWDR_CONFIG, error::ClewdrError, gemini_body::GeminiArgs};
+use super::gemini::GeminiArgs;
+use crate::{config::CLEWDR_CONFIG, error::ClewdrError};
 
 /// Extractor for the X-API-Key header used in Claude API compatibility
 ///

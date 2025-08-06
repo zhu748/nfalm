@@ -7,7 +7,6 @@ pub mod claude_code_state;
 pub mod claude_web_state;
 pub mod config;
 pub mod error;
-pub mod gemini_body;
 pub mod gemini_state;
 pub mod middleware;
 pub mod router;
