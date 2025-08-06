@@ -24,7 +24,7 @@ use crate::{
 pub async fn api_claude_web(
     State(mut state): State<ClaudeWebState>,
     ClaudeWebPreprocess(p, f): ClaudeWebPreprocess,
-) -> (Extension<ClaudeContext>, Result<Response, ClewdrError>) {
+) -> Result<(Extension<ClaudeContext>, Response), ClewdrError> {
     let stream = p.stream.unwrap_or_default();
     print_out_json(&p, "client_req.json");
     state.api_format = f.api_format();
@@ -51,5 +51,5 @@ pub async fn api_claude_web(
         format!("{}", elapsed.as_secs_f32()).green()
     );
 
-    (Extension(f), res)
+    res.map(|r| (Extension(f), r))
 }
