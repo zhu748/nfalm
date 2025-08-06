@@ -231,7 +231,7 @@ impl IntoResponse for ClewdrError {
         let err = ClaudeError {
             error: ClaudeErrorBody {
                 message: msg,
-                r#type: <&'static str>::from(self).into(),
+                r#type: <&str>::from(self).into(),
                 code: Some(status.as_u16()),
             },
         };
