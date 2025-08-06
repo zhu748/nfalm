@@ -89,7 +89,7 @@ pub async fn apply_stop_sequences(resp: Response) -> Response {
     let Some(f) = resp.extensions().get::<ClaudeContext>().cloned() else {
         return resp;
     };
-    if !f.is_stream() || resp.status() != 200 || f.stop_sequences().is_empty() {
+    if !f.is_stream() || f.stop_sequences().is_empty() {
         return resp;
     }
 

@@ -1,4 +1,4 @@
-use super::claude::*;
+use super::claude::{CreateMessageParams as ClaudeCreateMessageParams, *};
 use crate::{config::CLEWDR_CONFIG, types::claude::Message};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -6,11 +6,54 @@ use tiktoken_rs::o200k_base;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "snake_case")]
-pub enum ReasoningEffort {
-    Low,
+pub enum Effort {
+    Low = 256,
     #[default]
-    Medium,
-    High,
+    Medium = 256 * 8,
+    High = 256 * 8 * 8,
+}
+
+impl From<CreateMessageParams> for ClaudeCreateMessageParams {
+    fn from(params: CreateMessageParams) -> Self {
+        let (systems, messages): (Vec<Message>, Vec<Message>) = params
+            .messages
+            .into_iter()
+            .partition(|m| m.role == Role::System);
+        let systems = systems
+            .into_iter()
+            .map(|m| m.content)
+            .flat_map(|c| match c {
+                MessageContent::Text { content } => vec![ContentBlock::Text { text: content }],
+                MessageContent::Blocks { content } => content,
+            })
+            .filter(|b| matches!(b, ContentBlock::Text { .. }))
+            .map(|b| json!(b))
+            .collect::<Vec<_>>();
+        let system = if !systems.is_empty() {
+            Some(Value::Array(systems))
+        } else {
+            None
+        };
+        Self {
+            max_tokens: (params.max_tokens.or(params.max_completion_tokens))
+                .unwrap_or_else(default_max_tokens),
+            system,
+            messages,
+            model: params.model,
+            stop_sequences: params.stop,
+            thinking: params
+                .thinking
+                .or_else(|| params.reasoning_effort.map(|e| Thinking::new(e as u64))),
+            temperature: params.temperature,
+            stream: params.stream,
+            top_k: params.top_k,
+            top_p: params.top_p,
+            tools: params.tools,
+            tool_choice: params.tool_choice,
+            metadata: params.metadata,
+            n: params.n,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -18,13 +61,15 @@ pub struct CreateMessageParams {
     /// Maximum number of tokens to generate
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_completion_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>,
     /// Input messages for the conversation
     pub messages: Vec<Message>,
     /// Model to use
     pub model: String,
     /// Reasoning effort for response generation
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_effort: Option<ReasoningEffort>,
+    pub reasoning_effort: Option<Effort>,
     /// Frequency penalty for response generation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frequency_penalty: Option<f32>,

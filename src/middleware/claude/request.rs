@@ -16,7 +16,10 @@ use crate::{
     config::CLEWDR_CONFIG,
     error::ClewdrError,
     middleware::claude::{ClaudeApiFormat, ClaudeContext},
-    types::claude::{ContentBlock, CreateMessageParams, Message, MessageContent, Role, Usage},
+    types::{
+        claude::{ContentBlock, CreateMessageParams, Message, Role, Thinking, Usage},
+        oai::CreateMessageParams as OaiCreateMessageParams,
+    },
 };
 
 /// A custom extractor that unifies different API formats
@@ -69,18 +72,41 @@ static TEST_MESSAGE_CLAUDE: LazyLock<Message> = LazyLock::new(|| {
 /// Predefined test message in OpenAI format for connection testing
 static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(Role::User, "Hi"));
 
+struct NormalizeRequest(CreateMessageParams, ClaudeApiFormat);
+
+impl<S> FromRequest<S> for NormalizeRequest
+where
+    S: Send + Sync,
+{
+    type Rejection = ClewdrError;
+
+    async fn from_request(req: Request, _: &S) -> Result<Self, Self::Rejection> {
+        let uri = req.uri().to_string();
+        let format = if uri.contains("chat/completions") {
+            ClaudeApiFormat::OpenAI
+        } else {
+            ClaudeApiFormat::Claude
+        };
+        let Json(mut body) = match format {
+            ClaudeApiFormat::OpenAI => {
+                let json = Json::<OaiCreateMessageParams>::from_request(req, &()).await?;
+                Json(json.0.into())
+            }
+            ClaudeApiFormat::Claude => Json::<CreateMessageParams>::from_request(req, &()).await?,
+        };
+        if body.model.ends_with("-thinking") {
+            body.model = body.model.trim_end_matches("-thinking").to_string();
+            body.thinking.get_or_insert(Thinking::new(4096));
+        }
+        Ok(Self(body, format))
+    }
+}
+
 impl FromRequest<ClaudeWebState> for ClaudeWebPreprocess {
     type Rejection = ClewdrError;
 
-    async fn from_request(req: Request, state: &ClaudeWebState) -> Result<Self, Self::Rejection> {
-        let uri = req.uri().to_string();
-        let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
-
-        // Handle thinking mode by modifying the model name
-        if body.model.ends_with("-thinking") {
-            body.model = body.model.trim_end_matches("-thinking").to_string();
-            body.thinking = Some(Default::default());
-        }
+    async fn from_request(req: Request, _: &ClaudeWebState) -> Result<Self, Self::Rejection> {
+        let NormalizeRequest(body, format) = NormalizeRequest::from_request(req, &()).await?;
 
         // Check for test messages and respond appropriately
         if !body.stream.unwrap_or_default()
@@ -93,25 +119,12 @@ impl FromRequest<ClaudeWebState> for ClaudeWebPreprocess {
 
         // Determine streaming status and API format
         let stream = body.stream.unwrap_or_default();
-        let format = if uri.contains("chat/completions") {
-            ClaudeApiFormat::OpenAI
-        } else {
-            ClaudeApiFormat::Claude
-        };
 
-        // Update state with format information
-        let mut state = state.to_owned();
-        state.api_format = format;
-        state.stream = stream;
-        let mut stop = body.stop_sequences.to_owned().unwrap_or_default();
-        stop.extend_from_slice(body.stop.to_owned().unwrap_or_default().as_slice());
-        stop.sort();
-        stop.dedup();
         let input_tokens = body.count_tokens();
         let info = ClaudeWebContext {
             stream,
             api_format: format,
-            stop_sequences: stop,
+            stop_sequences: body.stop_sequences.to_owned().unwrap_or_default(),
             usage: Usage {
                 input_tokens,
                 output_tokens: 0, // Placeholder for output token count
@@ -140,28 +153,11 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
     type Rejection = ClewdrError;
 
     async fn from_request(req: Request, _: &ClaudeCodeState) -> Result<Self, Self::Rejection> {
-        let uri = req.uri().to_string();
-        let Json(mut body) = Json::<CreateMessageParams>::from_request(req, &()).await?;
-
+        let NormalizeRequest(mut body, format) = NormalizeRequest::from_request(req, &()).await?;
         // Handle thinking mode by modifying the model name
-
-        if body.model.ends_with("-thinking") {
-            body.model = body.model.trim_end_matches("-thinking").to_string();
-            body.thinking = serde_json::from_value(json!({
-                "budget_tokens": Some(1024),
-                "type": "enabled",
-            }))
-            .ok();
-        }
         if body.model.contains("opus-4-1") && body.temperature.is_some() {
             body.top_p = None; // temperature and top_p cannot be used together in Opus-4-1
         }
-        if let Some(ref thinking) = body.thinking
-            && thinking.budget_tokens.is_none()
-        {
-            body.thinking = None; // Disable thinking mode if budget_tokens is not set
-        }
-        body.model = body.model.trim_end_matches("-claude-ai").to_string();
 
         // Check for test messages and respond appropriately
         if !body.stream.unwrap_or_default()
@@ -174,30 +170,6 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
 
         // Determine streaming status and API format
         let stream = body.stream.unwrap_or_default();
-        let format = if uri.contains("chat/completions") {
-            body.stop_sequences = body.stop.take();
-            // extract all system messages from the messages
-            let (no_sys, sys) = body
-                .messages
-                .into_iter()
-                .partition::<Vec<_>, _>(|m| m.role != Role::System);
-            body.messages = no_sys;
-            body.system = Some(
-                sys.into_iter()
-                    .flat_map(|m| match m.content {
-                        MessageContent::Text { content: text } => {
-                            vec![ContentBlock::Text { text }]
-                        }
-                        MessageContent::Blocks { content } => content,
-                    })
-                    .map(|b| json!(b))
-                    .collect::<Vec<_>>()
-                    .into(),
-            );
-            ClaudeApiFormat::OpenAI
-        } else {
-            ClaudeApiFormat::Claude
-        };
 
         // Add a prelude text block to the system messages
         let prelude = ContentBlock::Text {

@@ -240,7 +240,7 @@ const MODEL_LIST: [&str; 8] = [
     "claude-opus-4-20250514",
     "claude-opus-4-20250514-thinking",
     "claude-opus-4-1-20250805",
-    "claude-opus-4-1-20250805-thinking"
+    "claude-opus-4-1-20250805-thinking",
 ];
 
 /// API endpoint to get the list of available models

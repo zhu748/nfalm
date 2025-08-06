@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_with::{DefaultOnError, serde_as};
 use tiktoken_rs::o200k_base;
 
 #[derive(Debug)]
@@ -9,10 +10,11 @@ pub struct RequiredMessageParams {
     pub max_tokens: u32,
 }
 
-fn default_max_tokens() -> u32 {
+pub(super) fn default_max_tokens() -> u32 {
     8192
 }
 /// Parameters for creating a message
+#[serde_as]
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct CreateMessageParams {
     /// Maximum number of tokens to generate
@@ -31,14 +33,12 @@ pub struct CreateMessageParams {
     /// Custom stop sequences
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_sequences: Option<Vec<String>>,
-    /// Custom stop sequences
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stop: Option<Vec<String>>,
     /// Whether to stream the response
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
     /// Thinking mode configuration
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
     pub thinking: Option<Thinking>,
     /// Top-k sampling
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -55,9 +55,6 @@ pub struct CreateMessageParams {
     /// Request metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
-    /// extra body for Gemini
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub extra_body: Option<serde_json::Value>,
     /// Number of completions to generate
     #[serde(skip_serializing_if = "Option::is_none")]
     pub n: Option<u32>,
@@ -94,8 +91,17 @@ impl CreateMessageParams {
 /// Thinking mode in Claude API Request
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct Thinking {
-    pub budget_tokens: Option<u64>,
+    pub budget_tokens: u64,
     r#type: String,
+}
+
+impl Thinking {
+    pub fn new(budget_tokens: u64) -> Self {
+        Self {
+            budget_tokens,
+            r#type: String::from("enabled"),
+        }
+    }
 }
 
 impl From<RequiredMessageParams> for CreateMessageParams {
