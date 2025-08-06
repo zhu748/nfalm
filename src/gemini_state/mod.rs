@@ -1,12 +1,10 @@
 use std::sync::LazyLock;
 
-use axum::{
-    body::Body,
-    response::{IntoResponse, Response},
-};
+use axum::{body::Body, response::Response};
 use bytes::Bytes;
 use colored::Colorize;
 use futures::{Stream, future::Either, stream};
+use http::header::CONTENT_TYPE;
 use hyper_util::client::legacy::connect::HttpConnector;
 use serde::Serialize;
 use serde_json::Value;
@@ -257,7 +255,9 @@ impl GeminiState {
                         err = Some(ClewdrError::EmptyChoices);
                         continue;
                     };
-                    let res = Body::from_stream(stream).into_response();
+                    let res = Response::builder()
+                        .header(CONTENT_TYPE, "text/event-stream")
+                        .body(Body::from_stream(stream))?;
                     return Ok(res);
                 }
                 Err(e) => {

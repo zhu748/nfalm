@@ -7,6 +7,7 @@ use axum::{
 use bytes::Bytes;
 use colored::Colorize;
 use futures::{FutureExt, Stream, StreamExt, pin_mut};
+use http::header::CONTENT_TYPE;
 use serde::Serialize;
 use tokio::select;
 use tracing::info;
@@ -46,7 +47,10 @@ async fn handle_gemini_request<T: Serialize + Clone + Send + 'static>(
     // For non-streaming requests, we need to handle keep-alive differently
     if !stream {
         let stream = keep_alive_stream(state, body);
-        return Ok(Body::from_stream(stream).into_response());
+        let res = Response::builder()
+            .header(CONTENT_TYPE, "application/json")
+            .body(Body::from_stream(stream))?;
+        return Ok(res);
     }
 
     // For streaming requests, proceed as before
