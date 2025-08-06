@@ -13,7 +13,7 @@ fn default_max_tokens() -> u32 {
     8192
 }
 /// Parameters for creating a message
-#[derive(Debug, Deserialize, Default, Clone)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct CreateMessageParams {
     /// Maximum number of tokens to generate
     #[serde(default = "default_max_tokens")]
@@ -61,81 +61,6 @@ pub struct CreateMessageParams {
     /// Number of completions to generate
     #[serde(skip_serializing_if = "Option::is_none")]
     pub n: Option<u32>,
-}
-
-impl Serialize for CreateMessageParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // 辅助结构体，用于利用 derive(Serialize) 的便利性
-        #[derive(Serialize)]
-        struct Helper<'a> {
-            max_tokens: u32,
-            messages: &'a Vec<Message>,
-            model: &'a String,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            system: &'a Option<serde_json::Value>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            temperature: &'a Option<f32>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            stop_sequences: &'a Option<Vec<String>>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            stop: &'a Option<Vec<String>>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            stream: &'a Option<bool>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            thinking: &'a Option<Thinking>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            top_k: &'a Option<u32>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            top_p: Option<f32>, // 该字段是 owned，以便我们可以控制它的值
-            #[serde(skip_serializing_if = "Option::is_none")]
-            tools: &'a Option<Vec<Tool>>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            tool_choice: &'a Option<ToolChoice>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            metadata: &'a Option<Metadata>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            extra_body: &'a Option<serde_json::Value>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            n: &'a Option<u32>,
-        }
-
-        // 修改点 3: 应用条件逻辑
-        // 如果模型是目标模型之一且设置了 temperature，则忽略 top_p。
-        let top_p_to_serialize = if (&self.model == "claude-opus-4-1-20250805"
-            || &self.model == "claude-opus-4-1-20250805-thinking")
-            && self.temperature.is_some()
-        {
-            None
-        } else {
-            self.top_p
-        };
-
-        // 使用处理后的值创建辅助结构体实例
-        let helper = Helper {
-            max_tokens: self.max_tokens,
-            messages: &self.messages,
-            model: &self.model,
-            system: &self.system,
-            temperature: &self.temperature,
-            stop_sequences: &self.stop_sequences,
-            stop: &self.stop,
-            stream: &self.stream,
-            thinking: &self.thinking,
-            top_k: &self.top_k,
-            top_p: top_p_to_serialize, // 使用我们处理过的值
-            tools: &self.tools,
-            tool_choice: &self.tool_choice,
-            metadata: &self.metadata,
-            extra_body: &self.extra_body,
-            n: &self.n,
-        };
-
-        // 序列化辅助结构体
-        helper.serialize(serializer)
-    }
 }
 
 impl CreateMessageParams {

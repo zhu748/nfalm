@@ -16,9 +16,7 @@ use crate::{
     config::CLEWDR_CONFIG,
     error::ClewdrError,
     middleware::claude::{ClaudeApiFormat, ClaudeContext},
-    types::claude::{
-        ContentBlock, CreateMessageParams, Message, MessageContent, Role, Usage,
-    },
+    types::claude::{ContentBlock, CreateMessageParams, Message, MessageContent, Role, Usage},
 };
 
 /// A custom extractor that unifies different API formats
@@ -154,6 +152,9 @@ impl FromRequest<ClaudeCodeState> for ClaudeCodePreprocess {
                 "type": "enabled",
             }))
             .ok();
+        }
+        if body.model.contains("opus-4-1") && body.temperature.is_some() {
+            body.top_p = None; // temperature and top_p cannot be used together in Opus-4-1
         }
         if let Some(ref thinking) = body.thinking
             && thinking.budget_tokens.is_none()
