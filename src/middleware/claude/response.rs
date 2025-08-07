@@ -5,10 +5,11 @@ use axum::{
 };
 use eventsource_stream::Eventsource;
 use futures::TryStreamExt;
+use http::header::CONTENT_TYPE;
 
 use super::{ClaudeApiFormat, transform_stream};
 use crate::{
-    middleware::claude::ClaudeContext,
+    middleware::claude::{ClaudeContext, transforms_json},
     types::claude::{CreateMessageResponse, StreamEvent},
 };
 
@@ -34,8 +35,22 @@ pub async fn to_oai(resp: Response) -> impl IntoResponse {
     let Some(cx) = resp.extensions().get::<ClaudeContext>() else {
         return resp;
     };
-    if ClaudeApiFormat::Claude == cx.api_format() || !cx.is_stream() {
+    if ClaudeApiFormat::Claude == cx.api_format() {
         return resp;
+    }
+    if !cx.is_stream() {
+        let body = body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap_or_default();
+        let Ok(response) = serde_json::from_slice::<CreateMessageResponse>(&body) else {
+            return Response::builder()
+                .header(CONTENT_TYPE, "application/json")
+                .body(Body::from("Invalid response format"))
+                .unwrap()
+                .into_response();
+        };
+        let output = transforms_json(response);
+        return Json(output).into_response();
     }
     let stream = resp.into_body().into_data_stream().eventsource();
     let stream = transform_stream(stream);

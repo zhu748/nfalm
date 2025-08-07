@@ -1,8 +1,9 @@
 use axum::response::sse::Event;
 use futures::{Stream, TryStreamExt};
 use serde::Serialize;
+use serde_json::Value;
 
-use crate::types::claude::{ContentBlockDelta, StreamEvent};
+use crate::types::claude::{ContentBlockDelta, CreateMessageResponse, StreamEvent};
 
 /// Represents the data structure for streaming events in OpenAI API format
 /// Contains a choices array with deltas of content
@@ -92,5 +93,53 @@ where
             }
             _ => Ok(None),
         }
+    })
+}
+
+pub fn transforms_json(input: CreateMessageResponse) -> Value {
+    let content = input
+        .content
+        .iter()
+        .filter_map(|block| match block {
+            crate::types::claude::ContentBlock::Text { text } => Some(text.clone()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("");
+
+    let usage = input.usage.as_ref().map(|u| {
+        serde_json::json!({
+            "prompt_tokens": u.input_tokens,
+            "completion_tokens": u.output_tokens,
+            "total_tokens": u.input_tokens + u.output_tokens
+        })
+    });
+
+    let finish_reason = match input.stop_reason {
+        Some(crate::types::claude::StopReason::EndTurn) => "stop",
+        Some(crate::types::claude::StopReason::MaxTokens) => "length",
+        Some(crate::types::claude::StopReason::StopSequence) => "stop",
+        Some(crate::types::claude::StopReason::ToolUse) => "tool_calls",
+        Some(crate::types::claude::StopReason::Refusal) => "content_filter",
+        None => "stop",
+    };
+
+    serde_json::json!({
+        "id": input.id,
+        "object": "chat.completion",
+        "created": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        "model": input.model,
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": content
+            },
+            "finish_reason": finish_reason
+        }],
+        "usage": usage
     })
 }
