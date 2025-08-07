@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 use axum::body::Body;
 use colored::{ColoredString, Colorize};
@@ -43,10 +43,6 @@ pub fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
             .canonicalize()?
             .to_path_buf()
     };
-
-    if !LOG_DIR.exists() && !CLEWDR_CONFIG.load().no_fs {
-        fs::create_dir_all(LOG_DIR.as_path())?;
-    }
     Ok(dir)
 }
 
