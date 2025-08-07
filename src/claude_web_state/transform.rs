@@ -10,7 +10,6 @@ use wreq::multipart::{Form, Part};
 use crate::{
     claude_web_state::ClaudeWebState,
     config::CLEWDR_CONFIG,
-    middleware::claude::ClaudeApiFormat,
     types::{
         claude::{ContentBlock, CreateMessageParams, ImageSource, Message, MessageContent, Role},
         claude_web::request::*,
@@ -20,28 +19,11 @@ use crate::{
 
 impl ClaudeWebState {
     pub fn transform_request(&self, mut value: CreateMessageParams) -> Option<WebRequestBody> {
-        let (value, merged) = match self.api_format {
-            ClaudeApiFormat::Claude => {
-                let system = value.system.take();
-                let msgs = mem::take(&mut value.messages);
-                let system = merge_system(system.unwrap_or_default());
-                let merged = merge_messages(msgs, system)?;
-                (value, merged)
-            }
-            ClaudeApiFormat::OpenAI => {
-                let mut msgs = mem::take(&mut value.messages);
-                let mut role = msgs.first().map(|m| m.role)?;
-                for msg in msgs.iter_mut() {
-                    if msg.role != Role::System {
-                        role = msg.role;
-                    } else {
-                        msg.role = role;
-                    }
-                }
-                let merged = merge_messages(msgs, String::new())?;
-                (value, merged)
-            }
-        };
+        let system = value.system.take();
+        let msgs = mem::take(&mut value.messages);
+        let system = merge_system(system.unwrap_or_default());
+        let merged = merge_messages(msgs, system)?;
+
         let mut tools = vec![];
         if CLEWDR_CONFIG.load().web_search {
             tools.push(Tool::web_search());

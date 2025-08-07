@@ -51,9 +51,6 @@ pub const FIG: &str = r#"
 ((____/ / // ((____   ((__( (__/ / ((___/ / //    | |    
 "#;
 
-/// Header for the application
-pub static BANNER: LazyLock<String> = LazyLock::new(|| format!("{}\n{}", FIG, *VERSION_INFO));
-
 /// Command line arguments for the application
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

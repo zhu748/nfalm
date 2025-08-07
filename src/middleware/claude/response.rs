@@ -34,7 +34,7 @@ pub async fn to_oai(resp: Response) -> impl IntoResponse {
     let Some(cx) = resp.extensions().get::<ClaudeContext>() else {
         return resp;
     };
-    if ClaudeApiFormat::Claude == cx.api_format() || !cx.is_stream() || resp.status() != 200 {
+    if ClaudeApiFormat::Claude == cx.api_format() || !cx.is_stream() {
         return resp;
     }
     let stream = resp.into_body().into_data_stream().eventsource();

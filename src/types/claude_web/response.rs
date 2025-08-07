@@ -3,12 +3,10 @@ use bytes::Bytes;
 use eventsource_stream::{EventStream, Eventsource};
 use futures::{Stream, TryStreamExt};
 use serde::Deserialize;
-use serde_json::json;
 
 use crate::{
     claude_web_state::ClaudeWebState,
     error::ClewdrError,
-    middleware::claude::ClaudeApiFormat,
     types::claude::{ContentBlock, CreateMessageResponse, Message, Role},
     utils::{forward_response, print_out_text},
 };
@@ -81,32 +79,11 @@ impl ClaudeWebState {
         let stream = stream.eventsource();
         let text = merge_sse(stream).await?;
         print_out_text(text.to_owned(), "non_stream.txt");
-        match self.api_format {
-            // Claude API format
-            ClaudeApiFormat::Claude => Ok(Json(CreateMessageResponse::text(
-                text,
-                Default::default(),
-                self.usage.to_owned(),
-            ))
-            .into_response()),
-            // OpenAI API format
-            ClaudeApiFormat::OpenAI => {
-                let json = json!({
-                    "id": "chatcmpl-12345",
-                    "object": "chat.completion",
-                    "created": 1234567890,
-                    "model": "claude",
-                    "choices": [{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": text
-                        },
-                        "finish_reason": null
-                    }],
-                });
-                Ok(Json(json).into_response())
-            }
-        }
+        Ok(Json(CreateMessageResponse::text(
+            text,
+            Default::default(),
+            self.usage.to_owned(),
+        ))
+        .into_response())
     }
 }

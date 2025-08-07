@@ -1,7 +1,7 @@
 use std::{env, str::FromStr};
 
 use clewdr::{
-    self, BANNER, IS_DEBUG,
+    self, FIG, IS_DEBUG, VERSION_INFO,
     config::{CLEWDR_CONFIG, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
 };
@@ -85,7 +85,7 @@ async fn main() -> Result<(), ClewdrError> {
         None
     };
 
-    println!("{}", *BANNER);
+    println!("{}\n{}", FIG, *VERSION_INFO);
 
     let updater = clewdr::services::update::ClewdrUpdater::new()?;
     if let Err(e) = updater.check_for_updates().await {
