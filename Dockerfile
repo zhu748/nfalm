@@ -43,7 +43,7 @@ COPY --from=frontend-builder /usr/src/app/static ./static
 RUN cargo build --release --target x86_64-unknown-linux-musl --bin clewdr --features no_fs
 
 # 使用 distroless 静态镜像
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static
 WORKDIR /app
 # 从后端构建阶段复制编译好的二进制文件
 COPY --from=backend-builder /app/target/x86_64-unknown-linux-musl/release/clewdr .
