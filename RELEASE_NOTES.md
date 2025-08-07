@@ -1,9 +1,31 @@
-# v0.10.11
+# v0.11.0
 
-## Feature Updates
+## Features
 
-- Update Claude Opus 4.1
+- **OpenAI API Transform**: Add `transforms_json` function to convert Claude API responses to OpenAI format with proper usage mapping and finish reason conversion
+- **No-FS Configuration**: Replace compile-time `no_fs` feature with runtime configuration option for flexible deployment scenarios
+- **Enhanced Logging**: Automatic log directory creation and improved file logging setup with tokio console support
+- **Thinking Mode Support**: Add proper thinking mode configuration with budget token support and type validation
 
-## Removed Features
+## Improvements
 
-- Cache responses, as few users use it and hard to maintain.
+- **Request Processing**: Simplify Claude Web request transformation by removing API format branching and unused OpenAI compatibility layer
+- **UI Cleanup**: Remove padding text configuration from frontend components and related localization entries
+- **State Management**: Refactor middleware state handling with improved generic type support and cleaner FromRequest implementations
+- **Response Handling**: Unify response processing using `forward_response` utility and remove duplicate response transformation logic
+- **Performance**: Replace chrono with std::time::Instant for more accurate request timing measurements
+- **Code Organization**: Restructure Gemini middleware path handling and improve import organization
+
+## Fixes
+
+- **Dependencies**: Update multiple dependencies including clap, h2, ractor, security-framework, and zerovec to latest compatible versions
+- **Docker**: Complete overhaul of Dockerfile using distroless images, musl targeting, and optimized alpine-based cargo-chef builds
+- **Licensing**: Add proper AGPL-3.0 license declaration in Cargo.toml
+- **API Compatibility**: Fix return types across Claude API endpoints and correct error response type conversions
+- **Frontend Dependencies**: Update frontend package dependencies and resolve pnpm lock file conflicts
+
+## Removed
+
+- **Debug Dockerfile**: Remove separate debug Dockerfile in favor of unified build process
+- **Padding System**: Remove token padding configuration and random text generation functionality
+- **API Format Handling**: Remove dual API format support in favor of unified Claude API handling
