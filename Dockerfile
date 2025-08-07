@@ -9,7 +9,7 @@ COPY frontend/ .
 RUN pnpm install && pnpm run build
 # 注意：前端构建结果会输出到 ../static 目录中
 
-FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-alpine AS chef
 WORKDIR /app
 
 FROM chef AS planner
@@ -17,27 +17,22 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS backend-builder 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    cmake \
-    clang \
-    && rm -rf /var/lib/apt/lists/*
+# Install musl target and required dependencies
+RUN rustup target add x86_64-unknown-linux-musl
 COPY --from=planner /app/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
 # Build application
 COPY . .
 ENV RUSTFLAGS="-Awarnings"
 COPY --from=frontend-builder /usr/src/app/static ./static
-RUN cargo build --release --bin clewdr --features no_fs
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin clewdr --features no_fs
 
-# 使用更小的基础镜像
-FROM debian:bookworm-slim
+# 使用 distroless 静态镜像
+FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 # 从后端构建阶段复制编译好的二进制文件
-COPY --from=backend-builder /app/target/release/clewdr .
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=backend-builder /app/target/x86_64-unknown-linux-musl/release/clewdr .
 
 # 配置环境变量
 ENV CLEWDR_IP=0.0.0.0
