@@ -260,5 +260,6 @@ Vertex AI:     http://127.0.0.1:8484/v1/vertex/v1beta/            # Vertex AI
 
 ## Acknowledgements
 
+- [wreq](https://github.com/0x676e67/wreq) - Excellent browser fingerprinting library used for API access.
 - [Clewd Modified Version](https://github.com/teralomaniac/clewd) - A modified version of the original Clewd, providing many inspirations and foundational features.
 - [Clove](https://github.com/mirrorange/clove) - Provides the support logic for Claude Code.
