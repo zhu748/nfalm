@@ -1,3 +1,9 @@
+# v0.11.1
+
+## Fix
+
+- **Update Check**: Skip update check if `no_fs` feature is enabled to avoid unnecessary network requests and potential errors in environments where filesystem access is not available.
+
 # v0.11.0
 
 ## Features
