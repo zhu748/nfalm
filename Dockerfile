@@ -18,10 +18,23 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS backend-builder
 # Install musl target and required dependencies
-RUN apt-get update && apt-get install -y musl-tools musl-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    musl-tools \
+    musl-dev \
+    cmake \
+    clang \
+    libclang-dev \
+    perl \
+    pkg-config \
+    mold && rm -rf /var/lib/apt/lists/*
 RUN rustup target add x86_64-unknown-linux-musl
 COPY --from=planner /app/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
+ENV CXX=x86_64-linux-gnu-g++
+RUN mkdir -p ~/.cargo && \
+    echo '[target.x86_64-unknown-linux-musl]' >> ~/.cargo/config.toml && \
+    echo 'rustflags = ["-C", "link-arg=-fuse-ld=mold"]' >> ~/.cargo/config.toml
 RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
 # Build application
 COPY . .
