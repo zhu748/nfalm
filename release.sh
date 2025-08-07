@@ -6,8 +6,9 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 cargo update
+cargo set-version $VERSION
 cargo check
-cargo set-version $VERSION && git add RELEASE_NOTES.md Cargo.toml Cargo.lock
+git add RELEASE_NOTES.md Cargo.toml Cargo.lock
 git commit -m "Update to v$VERSION"
 git push
 git tag -a "v$VERSION" -m "Release v$VERSION"
