@@ -77,7 +77,7 @@ impl ClewdrUpdater {
     /// # Returns
     /// * `Result<bool, ClewdrError>` - True if update available, false otherwise
     pub async fn check_for_updates(&self) -> Result<bool, ClewdrError> {
-        if !CLEWDR_CONFIG.load().no_fs {
+        if CLEWDR_CONFIG.load().no_fs {
             // If no_fs feature is enabled, skip update check
             info!("Update check skipped due to no_fs feature");
             return Ok(false);
