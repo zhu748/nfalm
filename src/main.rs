@@ -2,7 +2,7 @@ use std::{env, str::FromStr};
 
 use clewdr::{
     self, BANNER, IS_DEBUG,
-    config::{ARG_CONFIG_FILE, ARG_COOKIE_FILE, CLEWDR_CONFIG, CLEWDR_DIR, CONFIG_PATH, LOG_DIR},
+    config::{CLEWDR_CONFIG, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
 };
 use colored::Colorize;
@@ -25,11 +25,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 /// Result indicating success or failure of the application execution
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {
-    let _ = enable_ansi_support::enable_ansi_support();
-    // setup dir
-    let _ = *ARG_COOKIE_FILE;
-    let _ = *ARG_CONFIG_FILE;
-    let _ = *CLEWDR_DIR;
+    _ = enable_ansi_support::enable_ansi_support();
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging
@@ -49,7 +45,7 @@ async fn main() -> Result<(), ClewdrError> {
     );
     #[cfg(not(feature = "no_fs"))]
     let (subscriber, _guard) = {
-        let file_appender = tracing_appender::rolling::daily(LOG_DIR, "clewdr.log");
+        let file_appender = tracing_appender::rolling::daily(LOG_DIR.as_path(), "clewdr.log");
         let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
         let filter = tracing_subscriber::EnvFilter::builder()
             .with_default_directive(filter.into())

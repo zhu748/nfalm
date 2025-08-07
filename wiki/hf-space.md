@@ -70,6 +70,7 @@ CLEWDR_ADMIN_PASSWORD=your_admin_password
 ```
 
 由于此cookie多个添加方法有些不同，可以使用js来批量处理(浏览器F12控制台运行)，可处理多行和`,`分割的格式
+
 ```
 (async function() {
   const raw = `
@@ -110,7 +111,6 @@ clewdr_skip_restricted = false
 clewdr_skip_non_pro = false
 clewdr_use_real_roles = true
 clewdr_custom_prompt = ""
-clewdr_padtxt_len = 4000
 ```
 
 ### 更新

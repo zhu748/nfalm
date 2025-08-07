@@ -3,8 +3,6 @@ use std::{
     env,
     fmt::{Debug, Display},
     net::{IpAddr, SocketAddr},
-    path::PathBuf,
-    sync::Arc,
 };
 
 use axum::http::{Uri, uri::Scheme};
@@ -16,9 +14,8 @@ use figment::{
 use http::uri::Authority;
 use passwords::PasswordGenerator;
 use serde::{Deserialize, Serialize};
-use tiktoken_rs::o200k_base;
 use tokio::spawn;
-use tracing::{error, warn};
+use tracing::error;
 use wreq::{Proxy, Url};
 use yup_oauth2::ServiceAccountKey;
 
@@ -26,8 +23,7 @@ use super::{ARG_COOKIE_FILE, CONFIG_PATH, ENDPOINT_URL, key::KeyStatus};
 use crate::{
     config::{
         CC_CLIENT_ID, CookieStatus, UselessCookie, default_check_update, default_ip,
-        default_max_retries, default_padtxt_len, default_port, default_skip_cool_down,
-        default_use_real_roles,
+        default_max_retries, default_port, default_skip_cool_down, default_use_real_roles,
     },
     error::ClewdrError,
     utils::enabled,
@@ -133,10 +129,6 @@ pub struct ClewdrConfig {
     pub custom_a: Option<String>,
     #[serde(default)]
     pub custom_prompt: String,
-    #[serde(default)]
-    pub padtxt_file: Option<PathBuf>,
-    #[serde(default = "default_padtxt_len")]
-    pub padtxt_len: usize,
 
     // Claude Code settings, can hot reload
     #[serde(default)]
@@ -146,9 +138,7 @@ pub struct ClewdrConfig {
 
     // Skip field, can hot reload
     #[serde(skip)]
-    pub rquest_proxy: Option<Proxy>,
-    #[serde(skip)]
-    pub pad_tokens: Arc<Vec<String>>,
+    pub wreq_proxy: Option<Proxy>,
 }
 
 impl Default for ClewdrConfig {
@@ -169,12 +159,9 @@ impl Default for ClewdrConfig {
             rproxy: None,
             use_real_roles: default_use_real_roles(),
             custom_prompt: String::new(),
-            padtxt_file: None,
-            padtxt_len: default_padtxt_len(),
             custom_h: None,
             custom_a: None,
-            rquest_proxy: None,
-            pad_tokens: Arc::new(vec![]),
+            wreq_proxy: None,
             preserve_chats: false,
             web_search: false,
             skip_first_warning: false,
@@ -230,13 +217,6 @@ impl Display for ClewdrConfig {
         }
         if let Some(ref rproxy) = self.rproxy {
             writeln!(f, "Reverse Proxy: {}", rproxy.to_string().blue())?;
-        }
-        if !self.pad_tokens.is_empty() {
-            writeln!(
-                f,
-                "Pad txt token count: {}",
-                self.pad_tokens.len().to_string().blue()
-            )?
         }
         if self.vertex.validate() {
             writeln!(f, "Vertex {}", "Enabled".green().bold())?;
@@ -321,41 +301,6 @@ impl ClewdrConfig {
         config
     }
 
-    /// Loads padding text from a file
-    /// Used to pad prompts with tokens to reach minimum token requirements
-    ///
-    /// # Effects
-    /// Updates the pad_tokens field with tokenized content from the file
-    fn load_padtxt(&mut self) -> Result<(), ClewdrError> {
-        let Some(padtxt) = &self.padtxt_file else {
-            self.pad_tokens = Default::default();
-            return Ok(());
-        };
-        if !padtxt.exists() {
-            return Err(ClewdrError::PathNotFound {
-                msg: format!("Pad txt file not found: {}", padtxt.display()),
-            });
-        }
-        let padtxt_string = std::fs::read_to_string(padtxt.as_path())?;
-
-        let bpe = o200k_base().unwrap();
-        let ranks = bpe.encode_with_special_tokens(&padtxt_string);
-        let tokens = ranks
-            .into_iter()
-            .filter_map(|token| bpe.decode(vec![token]).ok())
-            .collect::<Vec<_>>();
-        if tokens.len() < 4096 {
-            warn!(
-                "Pad txt file {} is too short, token count {}",
-                padtxt.display(),
-                tokens.len()
-            );
-            return Err(ClewdrError::PadtxtTooShort);
-        }
-        self.pad_tokens = Arc::new(tokens);
-        Ok(())
-    }
-
     /// Gets the API endpoint for the Claude service
     /// Returns the reverse proxy URL if configured, otherwise the default endpoint
     ///
@@ -391,18 +336,13 @@ impl ClewdrConfig {
             self.admin_password = generate_password();
         }
         self.cookie_array = self.cookie_array.into_iter().map(|x| x.reset()).collect();
-        self.rquest_proxy = self.proxy.to_owned().and_then(|p| {
+        self.wreq_proxy = self.proxy.to_owned().and_then(|p| {
             Proxy::all(p)
                 .inspect_err(|e| {
                     self.proxy = None;
                     error!("Failed to parse proxy: {}", e);
                 })
                 .ok()
-        });
-        self.load_padtxt().unwrap_or_else(|e| {
-            error!("Failed to load padtxt: {}", e);
-            self.pad_tokens = Default::default();
-            self.padtxt_file = None;
         });
         self
     }

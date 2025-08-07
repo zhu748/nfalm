@@ -53,7 +53,7 @@ impl ClaudeWebState {
             cookie_header_value: HeaderValue::from_static(""),
             capabilities: Vec::new(),
             endpoint: CLEWDR_CONFIG.load().endpoint(),
-            proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
+            proxy: CLEWDR_CONFIG.load().wreq_proxy.to_owned(),
             api_format: ClaudeApiFormat::Claude,
             stream: false,
             client: SUPER_CLIENT.to_owned(),
@@ -115,7 +115,7 @@ impl ClaudeWebState {
         })?;
         self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
         // load newest config
-        self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
+        self.proxy = CLEWDR_CONFIG.load().wreq_proxy.to_owned();
         self.endpoint = CLEWDR_CONFIG.load().endpoint();
         Ok(res)
     }

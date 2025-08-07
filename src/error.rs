@@ -89,8 +89,6 @@ pub enum ClewdrError {
     InvalidHeaderValue { source: InvalidHeaderValue },
     #[snafu(display("Bad request: {}", msg))]
     BadRequest { msg: &'static str },
-    #[snafu(display("Pad text too short"))]
-    PadtxtTooShort,
     #[snafu(display("Retries exceeded"))]
     TooManyRetries,
     #[snafu(display("EventSource error: {}", source))]
@@ -216,7 +214,6 @@ impl IntoResponse for ClewdrError {
             ClewdrError::JsonRejection { ref source } => {
                 (source.status(), json!(source.body_text()))
             }
-            ClewdrError::PadtxtTooShort => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::TooManyRetries => (StatusCode::GATEWAY_TIMEOUT, json!(self.to_string())),
             ClewdrError::InvalidCookie { .. } => (StatusCode::BAD_REQUEST, json!(self.to_string())),
             ClewdrError::PathNotFound { .. } => (StatusCode::NOT_FOUND, json!(self.to_string())),

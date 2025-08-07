@@ -23,9 +23,8 @@ pub static ENDPOINT_URL: LazyLock<Url> = LazyLock::new(|| {
         panic!("Failed to parse endpoint URL: {CLAUDE_ENDPOINT}");
     })
 });
-pub const LOG_DIR: &str = "log";
+pub static LOG_DIR: LazyLock<PathBuf> = LazyLock::new(|| CLEWDR_DIR.join("log"));
 pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
-    let _ = *CLEWDR_DIR;
     let config = ClewdrConfig::new();
     ArcSwap::from_pointee(config)
 });
@@ -96,14 +95,6 @@ pub fn default_port() -> u16 {
 /// * `bool` - The default value of true
 pub const fn default_use_real_roles() -> bool {
     true
-}
-
-/// Default length of padding text
-///
-/// # Returns
-/// * `usize` - The default value of 4000 tokens
-pub const fn default_padtxt_len() -> usize {
-    4000
 }
 
 /// Default setting for checking updates on startup

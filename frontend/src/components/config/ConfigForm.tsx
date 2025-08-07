@@ -241,24 +241,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
           isTextarea={true}
           rows={3}
         />
-
-        <FormInput
-          id="padtxt_file"
-          name="padtxt_file"
-          type="text"
-          value={config.padtxt_file || ""}
-          onChange={onChange}
-          label={t("config.sections.prompt.padtxtFile")}
-        />
-
-        <FormInput
-          id="padtxt_len"
-          name="padtxt_len"
-          type="number"
-          value={config.padtxt_len.toString()}
-          onChange={onChange}
-          label={t("config.sections.prompt.padtxtLen")}
-        />
       </ConfigSection>
     </div>
   );

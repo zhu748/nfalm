@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf};
 
 use axum::body::Body;
 use colored::{ColoredString, Colorize};
@@ -39,16 +39,14 @@ pub fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
             .canonicalize()?
             .to_path_buf()
     };
-    std::env::set_current_dir(&dir)?;
     // create log dir
     #[cfg(feature = "no_fs")]
     {
         return Ok(dir);
     }
 
-    let log_dir = dir.join(LOG_DIR);
-    if !log_dir.exists() {
-        fs::create_dir_all(&log_dir)?;
+    if !LOG_DIR.exists() {
+        fs::create_dir_all(LOG_DIR.as_path())?;
     }
     Ok(dir)
 }
@@ -77,8 +75,7 @@ pub fn print_out_text(text: String, file_name: &str) {
     {
         return;
     }
-    let Ok(log_dir) = PathBuf::from_str(LOG_DIR);
-    let file_name = log_dir.join(file_name);
+    let file_name = LOG_DIR.join(file_name);
     spawn(async move {
         let Ok(mut file) = tokio::fs::File::options()
             .write(true)

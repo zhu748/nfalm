@@ -34,8 +34,6 @@ export interface ConfigData {
   custom_h: string | null;
   custom_a: string | null;
   custom_prompt: string;
-  padtxt_file: string | null;
-  padtxt_len: number;
 }
 
 interface VertexConfig {

@@ -40,7 +40,7 @@ impl ClaudeCodeState {
             cookie_actor_handle,
             cookie: None,
             cookie_header_value: HeaderValue::from_static(""),
-            proxy: CLEWDR_CONFIG.load().rquest_proxy.to_owned(),
+            proxy: CLEWDR_CONFIG.load().wreq_proxy.to_owned(),
             endpoint: CLEWDR_CONFIG.load().endpoint(),
             client: SUPER_CLIENT.to_owned(),
             api_format: ClaudeApiFormat::Claude,
@@ -99,7 +99,7 @@ impl ClaudeCodeState {
             msg: "Failed to build client with new cookie",
         })?;
         // load newest config
-        self.proxy = CLEWDR_CONFIG.load().rquest_proxy.to_owned();
+        self.proxy = CLEWDR_CONFIG.load().wreq_proxy.to_owned();
         Ok(res)
     }
 

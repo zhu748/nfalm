@@ -3,7 +3,6 @@ use std::{fmt::Write, mem};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::{StreamExt, stream};
 use itertools::Itertools;
-use rand::{Rng, rng};
 use serde_json::Value;
 use tracing::warn;
 use wreq::multipart::{Form, Part};
@@ -51,8 +50,7 @@ impl ClaudeWebState {
             max_tokens_to_sample: value.max_tokens,
             attachments: vec![Attachment::new(merged.paste)],
             files: vec![],
-            // TODO: hack for sonnet-4, properly handle models later in middleware
-            model: if self.is_pro() && !value.model.contains("sonnet-4") {
+            model: if self.is_pro() {
                 Some(value.model)
             } else {
                 None
@@ -168,12 +166,6 @@ fn merge_messages(msgs: Vec<Message>, system: String) -> Option<Merged> {
     let size = size_of_val(&msgs);
     // preallocate string to avoid reallocations
     let mut w = String::with_capacity(size);
-    // generate padding text
-    if !CLEWDR_CONFIG.load().pad_tokens.is_empty() {
-        let len = CLEWDR_CONFIG.load().padtxt_len;
-        let padding = generate_padding(len);
-        w.push_str(padding.as_str());
-    }
 
     let mut imgs: Vec<ImageSource> = vec![];
 
@@ -253,48 +245,6 @@ fn merge_messages(msgs: Vec<Message>, system: String) -> Option<Merged> {
         prompt: p,
         images: imgs,
     })
-}
-
-/// Generates random padding text of specified length
-/// Used to pad prompts with tokens to meet minimum length requirements
-///
-/// # Arguments
-/// * `length` - The target length of padding in tokens
-///
-/// # Returns
-/// A string containing the padding text
-fn generate_padding(length: usize) -> String {
-    if length == 0 {
-        return String::new();
-    }
-    let conf = CLEWDR_CONFIG.load();
-    let tokens = conf
-        .pad_tokens
-        .iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<_>>();
-    assert!(tokens.len() >= length, "Padding tokens too short");
-
-    let mut result = String::with_capacity(length * 8);
-    let mut rng = rng();
-    let mut pushed = 0;
-    loop {
-        let slice_len = rng.random_range(16..64);
-        let slice_start = rng.random_range(0..tokens.len() - slice_len);
-        let slice = &tokens[slice_start..slice_start + slice_len];
-        result.push_str(&slice.concat());
-        pushed += slice_len;
-        result.push('\n');
-        if rng.random_range(0..100) < 5 {
-            result.push('\n');
-        }
-        if pushed > length {
-            break;
-        }
-    }
-    print_out_text(result.to_owned(), "padding.txt");
-    result.push_str("\n\n\n\n------------------------------------------------------------\n");
-    result
 }
 
 /// Merges system message content into a single string

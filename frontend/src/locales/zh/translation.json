@@ -142,9 +142,7 @@
         "realRoles": "使用真实角色",
         "customH": "自定义 Human（可选）",
         "customA": "自定义 Assistant（可选）",
-        "customPrompt": "自定义提示词",
-        "padtxtFile": "填充文本文件（可选）",
-        "padtxtLen": "填充文本长度（以词符计）"
+        "customPrompt": "自定义提示词"
       }
     }
   },
