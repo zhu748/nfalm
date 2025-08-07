@@ -17,6 +17,8 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS backend-builder
+ARG TARGETPLATFORM
+WORKDIR /app
 # Install musl target and required dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -27,26 +29,60 @@ RUN apt-get update && apt-get install -y \
     libclang-dev \
     perl \
     pkg-config \
-    mold && rm -rf /var/lib/apt/lists/*
-RUN rustup target add x86_64-unknown-linux-musl
+    mold \
+    g++-aarch64-linux-gnu \
+    && rm -rf /var/lib/apt/lists/*
+RUN rustup target add x86_64-unknown-linux-musl && \
+    rustup target add aarch64-unknown-linux-musl
+
 COPY --from=planner /app/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
-ENV CXX=x86_64-linux-gnu-g++
-RUN mkdir -p ~/.cargo && \
-    echo '[target.x86_64-unknown-linux-musl]' >> ~/.cargo/config.toml && \
-    echo 'rustflags = ["-C", "link-arg=-fuse-ld=mold"]' >> ~/.cargo/config.toml
-RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
+RUN <<EOF
+set -e
+case ${TARGETPLATFORM} in \
+    "linux/amd64") \
+        RUST_TARGET="x86_64-unknown-linux-musl"
+        export CXX="x86_64-linux-gnu-g++"
+        ;; \
+    "linux/arm64") \
+        RUST_TARGET="aarch64-unknown-linux-musl"
+        export CXX="aarch64-linux-gnu-g++"
+        ;; \
+    *) echo "Unsupported architecture: ${TARGETPLATFORM}" >&2; exit 1 ;; \
+esac
+mkdir -p ~/.cargo
+cat > ~/.cargo/config.toml <<EOM
+[target.${RUST_TARGET}]
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+EOM
+cargo chef cook --release --target ${RUST_TARGET} --recipe-path recipe.json
+EOF
+
 # Build application
 COPY . .
 ENV RUSTFLAGS="-Awarnings"
 COPY --from=frontend-builder /usr/src/app/static ./static
-RUN cargo build --release --target x86_64-unknown-linux-musl --bin clewdr
+RUN <<EOF
+set -e
+case ${TARGETPLATFORM} in \
+    "linux/amd64") \
+        RUST_TARGET="x86_64-unknown-linux-musl"
+        ;; \
+    "linux/arm64") \
+        RUST_TARGET="aarch64-unknown-linux-musl"
+        ;; \
+    *) echo "Unsupported architecture: ${TARGETPLATFORM}" >&2; exit 1 ;; \
+esac
+cargo build --release --target ${RUST_TARGET} --bin clewdr
+cp /app/target/${RUST_TARGET}/release/clewdr /app/clewdr
+EOF
 
 # 使用 distroless 静态镜像
 FROM gcr.io/distroless/static
 WORKDIR /app
 # 从后端构建阶段复制编译好的二进制文件
-COPY --from=backend-builder /app/target/x86_64-unknown-linux-musl/release/clewdr .
+COPY --from=backend-builder /app/clewdr .
+
 
 # 配置环境变量
 ENV CLEWDR_IP=0.0.0.0
