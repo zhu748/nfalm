@@ -62,9 +62,11 @@ set -e
 case ${TARGETPLATFORM} in \
     "linux/amd64") \
         RUST_TARGET="x86_64-unknown-linux-musl"
+        export CXX="x86_64-linux-gnu-g++"
         ;; \
     "linux/arm64") \
         RUST_TARGET="aarch64-unknown-linux-musl"
+        export CXX="aarch64-linux-gnu-g++"
         ;; \
     *) echo "Unsupported architecture: ${TARGETPLATFORM}" >&2; exit 1 ;; \
 esac
