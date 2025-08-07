@@ -40,7 +40,7 @@ RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path r
 COPY . .
 ENV RUSTFLAGS="-Awarnings"
 COPY --from=frontend-builder /usr/src/app/static ./static
-RUN cargo build --release --target x86_64-unknown-linux-musl --bin clewdr --features no_fs
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin clewdr
 
 # 使用 distroless 静态镜像
 FROM gcr.io/distroless/static

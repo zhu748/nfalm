@@ -5,6 +5,7 @@ FROM ghcr.io/xerxes-2/clewdr:latest
 # Use PORT env var from Hugging Face or default to 7860
 ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=${PORT:-7860}
+ENV CLEWDR_NO_FS=TRUE
 
 # Expose the port that Hugging Face expects
 EXPOSE ${PORT:-7860}

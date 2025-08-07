@@ -1,6 +1,9 @@
 use std::{path::PathBuf, sync::LazyLock};
 
 use clap::Parser;
+use colored::Colorize;
+
+use crate::config::CLEWDR_CONFIG;
 
 pub mod api;
 pub mod claude_code_state;
@@ -22,12 +25,20 @@ pub static VERSION_INFO: LazyLock<String> = LazyLock::new(|| {
         "v{} by {}\n| profile: {}\n| mode: {}\n| no_fs: {}",
         env!("CARGO_PKG_VERSION"),
         env!("CARGO_PKG_AUTHORS"),
-        if IS_DEBUG { "debug" } else { "release" },
-        if *IS_DEV { "dev" } else { "prod" },
-        if cfg!(feature = "no_fs") {
-            "true"
+        if IS_DEBUG {
+            "debug".yellow()
         } else {
-            "false"
+            "release".green()
+        },
+        if *IS_DEV {
+            "dev".yellow()
+        } else {
+            "prod".green()
+        },
+        if CLEWDR_CONFIG.load().no_fs {
+            "true".yellow()
+        } else {
+            "false".green()
         }
     )
 });

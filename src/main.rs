@@ -7,15 +7,37 @@ use clewdr::{
 };
 use colored::Colorize;
 use mimalloc::MiMalloc;
-use tracing::warn;
+use tracing::{Subscriber, warn};
 use tracing_subscriber::{
     Layer, Registry,
     fmt::{self, time::ChronoLocal},
     layer::SubscriberExt,
+    registry::LookupSpan,
 };
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
+
+fn setup_subscriber<S>(subscriber: S)
+where
+    S: Subscriber + for<'span> LookupSpan<'span> + Send + Sync + 'static,
+{
+    if env::var("CLEWDR_TOKIO_CONSOLE").is_ok_and(|v| v.to_lowercase() == "true") {
+        // enable tokio console
+        let tokio_console_filter =
+            tracing_subscriber::filter::Targets::from_str("tokio=trace,runtime=trace")
+                .expect("Failed to parse filter");
+        let console_layer = console_subscriber::ConsoleLayer::builder()
+            // set the address the server is bound to
+            .server_addr(([0, 0, 0, 0], 6669))
+            .spawn();
+        let s = subscriber.with(console_layer.with_filter(tokio_console_filter));
+        tracing::subscriber::set_global_default(s).expect("unable to set global subscriber");
+    } else {
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("unable to set global subscriber");
+    };
+}
 
 /// Application entry point
 /// Sets up logging, checks for updates, initializes the application state,
@@ -43,37 +65,23 @@ async fn main() -> Result<(), ClewdrError> {
             .with_timer(timer.to_owned())
             .with_filter(env_filter),
     );
-    #[cfg(not(feature = "no_fs"))]
-    let (subscriber, _guard) = {
+    let _guard = if CLEWDR_CONFIG.load().no_fs {
         let file_appender = tracing_appender::rolling::daily(LOG_DIR.as_path(), "clewdr.log");
-        let (file_writer, _guard) = tracing_appender::non_blocking(file_appender);
+        let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
         let filter = tracing_subscriber::EnvFilter::builder()
             .with_default_directive(filter.into())
             .from_env_lossy();
-        (
-            subscriber.with(
-                fmt::Layer::default()
-                    .with_writer(file_writer)
-                    .with_timer(timer)
-                    .with_filter(filter),
-            ),
-            _guard,
-        )
-    };
-    if env::var("CLEWDR_TOKIO_CONSOLE").is_ok_and(|v| v.to_lowercase() == "true") {
-        // enable tokio console
-        let tokio_console_filter =
-            tracing_subscriber::filter::Targets::from_str("tokio=trace,runtime=trace")
-                .expect("Failed to parse filter");
-        let console_layer = console_subscriber::ConsoleLayer::builder()
-            // set the address the server is bound to
-            .server_addr(([0, 0, 0, 0], 6669))
-            .spawn();
-        let s = subscriber.with(console_layer.with_filter(tokio_console_filter));
-        tracing::subscriber::set_global_default(s).expect("unable to set global subscriber");
+        let subscriber = subscriber.with(
+            fmt::Layer::default()
+                .with_writer(file_writer)
+                .with_timer(timer)
+                .with_filter(filter),
+        );
+        setup_subscriber(subscriber);
+        Some(guard)
     } else {
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("unable to set global subscriber");
+        setup_subscriber(subscriber);
+        None
     };
 
     println!("{}", *BANNER);

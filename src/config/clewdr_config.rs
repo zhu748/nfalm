@@ -87,6 +87,8 @@ pub struct ClewdrConfig {
     pub check_update: bool,
     #[serde(default)]
     pub auto_update: bool,
+    #[serde(default)]
+    pub no_fs: bool,
 
     // Network settings, can hot reload
     #[serde(default)]
@@ -172,6 +174,7 @@ impl Default for ClewdrConfig {
             skip_normal_pro: false,
             claude_code_client_id: None,
             custom_system: None,
+            no_fs: false,
         }
     }
 }
@@ -320,8 +323,7 @@ impl ClewdrConfig {
 
     /// Save the configuration to a file
     pub async fn save(&self) -> Result<(), ClewdrError> {
-        #[cfg(feature = "no_fs")]
-        {
+        if self.no_fs {
             return Ok(());
         }
         Ok(tokio::fs::write(CONFIG_PATH.as_path(), toml::ser::to_string_pretty(self)?).await?)

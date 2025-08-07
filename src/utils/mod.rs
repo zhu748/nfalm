@@ -5,7 +5,11 @@ use colored::{ColoredString, Colorize};
 use tokio::{io::AsyncWriteExt, spawn};
 use tracing::error;
 
-use crate::{IS_DEV, config::LOG_DIR, error::ClewdrError};
+use crate::{
+    IS_DEV,
+    config::{CLEWDR_CONFIG, LOG_DIR},
+    error::ClewdrError,
+};
 
 /// Helper function to format a boolean value as "Enabled" or "Disabled"
 pub fn enabled(flag: bool) -> ColoredString {
@@ -39,13 +43,8 @@ pub fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
             .canonicalize()?
             .to_path_buf()
     };
-    // create log dir
-    #[cfg(feature = "no_fs")]
-    {
-        return Ok(dir);
-    }
 
-    if !LOG_DIR.exists() {
+    if !LOG_DIR.exists() && !CLEWDR_CONFIG.load().no_fs {
         fs::create_dir_all(LOG_DIR.as_path())?;
     }
     Ok(dir)
@@ -57,8 +56,7 @@ pub fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
 /// * `json` - The JSON object to serialize and output
 /// * `file_name` - The name of the file to write in the log directory
 pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
-    #[cfg(feature = "no_fs")]
-    {
+    if CLEWDR_CONFIG.load().no_fs {
         return;
     }
     let text = serde_json::to_string_pretty(json).unwrap_or_default();
@@ -71,8 +69,7 @@ pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
 /// * `text` - The text content to write
 /// * `file_name` - The name of the file to write in the log directory
 pub fn print_out_text(text: String, file_name: &str) {
-    #[cfg(feature = "no_fs")]
-    {
+    if CLEWDR_CONFIG.load().no_fs {
         return;
     }
     let file_name = LOG_DIR.join(file_name);
