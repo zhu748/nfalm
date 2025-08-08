@@ -657,6 +657,7 @@ dependencies = [
  "axum 0.8.4",
  "axum-auth",
  "base64 0.22.1",
+ "bytes",
  "chrono",
  "clap",
  "colored",
