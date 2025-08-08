@@ -1,9 +1,5 @@
-# v0.11.2
+# v0.11.3
 
 ## Fix
 
-- **Update Check**: Fix rolling log creation in with `no_fs` option.
-
-## Feature
-
-- **Docker Build**: Add support for multi-arch builds (amd64, arm64).
+- **GitHub Actions**: Update `version` and `latest` tags in Docker build workflow to ensure proper tagging of Docker images.
