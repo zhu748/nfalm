@@ -9,3 +9,4 @@ cookie.txt
 static/
 /clewdr*.toml
 /cline_docs
+.idea
