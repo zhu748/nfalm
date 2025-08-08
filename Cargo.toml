@@ -55,7 +55,7 @@ tower-http = { version = "0.6", features = [
     "fs",
     "trace",
 ] }
-figment = { version = "0.10", features = ["env", "json", "toml"] }
+figment = { version = "0.10", features = ["env", "toml"] }
 arc-swap = "1"
 include_dir = "0.7"
 tower-serve-static = "0.1"
