@@ -1,5 +1,3 @@
-use std::{env, str::FromStr};
-
 use clewdr::{
     self, FIG, IS_DEBUG, VERSION_INFO,
     config::{CLEWDR_CONFIG, CONFIG_PATH, LOG_DIR},
@@ -22,8 +20,10 @@ fn setup_subscriber<S>(subscriber: S)
 where
     S: Subscriber + for<'span> LookupSpan<'span> + Send + Sync + 'static,
 {
-    if env::var("CLEWDR_TOKIO_CONSOLE").is_ok_and(|v| v.to_lowercase() == "true") {
+    #[cfg(feature = "tokio-console")]
+    let subscriber = {
         // enable tokio console
+        use std::str::FromStr;
         let tokio_console_filter =
             tracing_subscriber::filter::Targets::from_str("tokio=trace,runtime=trace")
                 .expect("Failed to parse filter");
@@ -31,12 +31,9 @@ where
             // set the address the server is bound to
             .server_addr(([0, 0, 0, 0], 6669))
             .spawn();
-        let s = subscriber.with(console_layer.with_filter(tokio_console_filter));
-        tracing::subscriber::set_global_default(s).expect("unable to set global subscriber");
-    } else {
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("unable to set global subscriber");
+        subscriber.with(console_layer.with_filter(tokio_console_filter))
     };
+    tracing::subscriber::set_global_default(subscriber).expect("unable to set global subscriber");
 }
 
 /// Application entry point

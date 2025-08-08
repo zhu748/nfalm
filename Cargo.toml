@@ -9,12 +9,7 @@ license = "AGPL-3.0"
 path = "src/lib.rs"
 
 [dependencies]
-tokio = { version = "1", features = [
-    "macros",
-    "rt-multi-thread",
-    "signal",
-    "tracing",
-] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 wreq = { version = "5", features = [
     "json",
     "stream",
@@ -67,7 +62,7 @@ bytes = "1"
 trie-rs = "0.4"
 async-stream = "0.3"
 struct_iterable = "0.1"
-console-subscriber = "0.4"
+console-subscriber = { version = "0.4", optional = true }
 yup-oauth2 = "12"
 hyper-util = "0.1"
 hyper-http-proxy = "1"
@@ -80,3 +75,6 @@ ractor = { version = "0.15" }
 
 [target.'cfg(windows)'.dependencies]
 enable-ansi-support = "0.2"
+
+[features]
+tokio-console = ["dep:console-subscriber", "tokio/tracing"]
