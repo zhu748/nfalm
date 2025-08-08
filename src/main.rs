@@ -47,7 +47,10 @@ where
 /// Result indicating success or failure of the application execution
 #[tokio::main]
 async fn main() -> Result<(), ClewdrError> {
-    _ = enable_ansi_support::enable_ansi_support();
+    #[cfg(windows)]
+    {
+        _ = enable_ansi_support::enable_ansi_support();
+    }
     // set up logging time format
     let timer = ChronoLocal::new("%H:%M:%S%.3f".to_string());
     // set up logging

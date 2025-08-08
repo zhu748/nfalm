@@ -42,7 +42,6 @@ base64 = "0.22"
 itertools = "0.14"
 toml = "0.9"
 eventsource-stream = "0.2"
-enable-ansi-support = "0.2"
 tracing-appender = "0.2"
 self-replace = "1"
 zip = "4"
@@ -78,3 +77,6 @@ serde_with = { version = "3", features = ["chrono_0_4"] }
 mimalloc = "0.1"
 oauth2 = { version = "5", default-features = false }
 ractor = { version = "0.15" }
+
+[target.'cfg(windows)'.dependencies]
+enable-ansi-support = "0.2"
