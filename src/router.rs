@@ -4,19 +4,17 @@ use axum::{
     middleware::{from_extractor, map_response},
     routing::{delete, get, post},
 };
-use const_format::formatc;
 use tower::ServiceBuilder;
-use tower_http::{compression::CompressionLayer, cors::CorsLayer, services::ServeDir};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 
 use crate::{
-    IS_DEBUG,
     api::*,
     claude_code_state::ClaudeCodeState,
     claude_web_state::ClaudeWebState,
     gemini_state::GeminiState,
     middleware::{
         RequireAdminAuth, RequireBearerAuth, RequireQueryKeyAuth, RequireXApiKeyAuth,
-        claude::{add_usage_info, apply_stop_sequences, to_oai},
+        claude::{add_usage_info, apply_stop_sequences, check_overloaded, to_oai},
     },
     services::{cookie_actor::CookieActorHandle, key_actor::KeyActorHandle},
 };
@@ -98,7 +96,8 @@ impl RouterBuilder {
                     .layer(from_extractor::<RequireXApiKeyAuth>())
                     .layer(CompressionLayer::new())
                     .layer(map_response(add_usage_info))
-                    .layer(map_response(apply_stop_sequences)),
+                    .layer(map_response(apply_stop_sequences))
+                    .layer(map_response(check_overloaded)),
             )
             .with_state(self.claude_web_state.to_owned().with_claude_format());
         self.inner = self.inner.merge(router);
@@ -155,7 +154,8 @@ impl RouterBuilder {
                     .layer(from_extractor::<RequireBearerAuth>())
                     .layer(CompressionLayer::new())
                     .layer(map_response(to_oai))
-                    .layer(map_response(apply_stop_sequences)),
+                    .layer(map_response(apply_stop_sequences))
+                    .layer(map_response(check_overloaded)),
             )
             .with_state(self.claude_web_state.to_owned().with_openai_format());
         self.inner = self.inner.merge(router);
@@ -180,17 +180,22 @@ impl RouterBuilder {
 
     /// Sets up static file serving
     fn setup_static_serving(mut self) -> Self {
-        if IS_DEBUG {
-            self.inner = self.inner.fallback_service(ServeDir::new(formatc!(
-                "{}/static",
-                env!("CARGO_MANIFEST_DIR")
-            )));
-        } else {
+        #[cfg(feature = "embed-resource")]
+        {
             use include_dir::{Dir, include_dir};
             const INCLUDE_STATIC: Dir = include_dir!("$CARGO_MANIFEST_DIR/static");
             self.inner = self
                 .inner
                 .fallback_service(tower_serve_static::ServeDir::new(&INCLUDE_STATIC));
+        }
+        #[cfg(feature = "external-resource")]
+        {
+            use const_format::formatc;
+            use tower_http::services::ServeDir;
+            self.inner = self.inner.fallback_service(ServeDir::new(formatc!(
+                "{}/static",
+                env!("CARGO_MANIFEST_DIR")
+            )));
         }
         self
     }

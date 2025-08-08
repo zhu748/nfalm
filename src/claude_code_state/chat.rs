@@ -5,7 +5,7 @@ use tracing::{Instrument, error, info};
 use crate::{
     claude_code_state::{ClaudeCodeState, TokenStatus},
     config::CLEWDR_CONFIG,
-    error::{CheckClaudeErr, ClewdrError, RquestSnafu},
+    error::{CheckClaudeErr, ClewdrError, WreqSnafu},
     types::claude::CreateMessageParams,
     utils::forward_response,
 };
@@ -109,7 +109,7 @@ impl ClaudeCodeState {
             .json(&p)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to send chat message",
             })?
             .check_claude()

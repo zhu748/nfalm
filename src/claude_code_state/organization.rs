@@ -6,7 +6,7 @@ use snafu::ResultExt;
 use super::ClaudeCodeState;
 use crate::{
     config::Reason,
-    error::{CheckClaudeErr, ClewdrError, RquestSnafu},
+    error::{CheckClaudeErr, ClewdrError, WreqSnafu},
     utils::print_out_json,
 };
 
@@ -17,12 +17,12 @@ impl ClaudeCodeState {
             .build_request(Method::GET, end_point)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to bootstrap",
             })?
             .check_claude()
             .await?;
-        let bootstrap = res.json::<Value>().await.context(RquestSnafu {
+        let bootstrap = res.json::<Value>().await.context(WreqSnafu {
             msg: "Failed to parse bootstrap response",
         })?;
         print_out_json(&bootstrap, "bootstrap_res.json");

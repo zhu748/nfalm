@@ -15,7 +15,7 @@ use zip::ZipArchive;
 use crate::{
     Args,
     config::CLEWDR_CONFIG,
-    error::{ClewdrError, RquestSnafu},
+    error::{ClewdrError, WreqSnafu},
 };
 
 #[derive(Debug, Deserialize)]
@@ -52,7 +52,7 @@ impl ClewdrUpdater {
         let client = wreq::Client::builder()
             .redirect(policy)
             .build()
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to create HTTP client",
             })?;
 
@@ -102,15 +102,15 @@ impl ClewdrUpdater {
             .header(USER_AGENT, &self.user_agent)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to fetch latest release from GitHub",
             })?
             .error_for_status()
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Fetch latest release from GitHub returned an error",
             })?;
 
-        let release: GitHubRelease = response.json().await.context(RquestSnafu {
+        let release: GitHubRelease = response.json().await.context(WreqSnafu {
             msg: "Failed to parse GitHub release response",
         })?;
         let latest_version = release.tag_name.trim_start_matches('v');
@@ -162,16 +162,16 @@ impl ClewdrUpdater {
             .header(USER_AGENT, &self.user_agent)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to download update asset",
             })?
             .error_for_status()
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Download update asset returned an error",
             })?;
 
         // Save the downloaded file
-        let content = response.bytes().await.context(RquestSnafu {
+        let content = response.bytes().await.context(WreqSnafu {
             msg: "Failed to read response bytes from update asset",
         })?;
         let mut file = File::create(&zip_path)?;

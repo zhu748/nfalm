@@ -13,7 +13,7 @@ use wreq_util::Emulation;
 use crate::{
     claude_web_state::SUPER_CLIENT,
     config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},
-    error::{ClewdrError, RquestSnafu},
+    error::{ClewdrError, WreqSnafu},
     middleware::claude::ClaudeApiFormat,
     services::cookie_actor::CookieActorHandle,
     types::claude::Usage,
@@ -95,7 +95,7 @@ impl ClaudeCodeState {
         if let Some(ref proxy) = self.proxy {
             client = client.proxy(proxy.to_owned());
         }
-        self.client = client.build().context(RquestSnafu {
+        self.client = client.build().context(WreqSnafu {
             msg: "Failed to build client with new cookie",
         })?;
         // load newest config

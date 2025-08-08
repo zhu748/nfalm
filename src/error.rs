@@ -102,6 +102,7 @@ pub enum ClewdrError {
     },
     #[snafu(display("Zip error: {}", source))]
     #[snafu(context(false))]
+    #[cfg(feature = "self-update")]
     ZipError { source: zip::result::ZipError },
     #[snafu(display("Asset Error: {}", msg))]
     AssetError { msg: String },
@@ -131,7 +132,7 @@ pub enum ClewdrError {
     #[snafu(transparent)]
     JsonRejection { source: JsonRejection },
     #[snafu(display("Rquest error: {}, source: {}", msg, source))]
-    RquestError {
+    WreqError {
         msg: &'static str,
         source: wreq::Error,
     },

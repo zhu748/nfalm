@@ -22,6 +22,7 @@ jobs:
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '[CI]')
     steps:
       - uses: actions/checkout@v4
 
@@ -52,16 +53,16 @@ jobs:
   linux:
     name: Build Linux (GNU)
     needs: build-frontend
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - target: x86_64
             target_triple: x86_64-unknown-linux-gnu
-            apt_packages: ""
+            runner: ubuntu-latest
           - target: aarch64
             target_triple: aarch64-unknown-linux-gnu
-            apt_packages: crossbuild-essential-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
@@ -69,16 +70,10 @@ jobs:
       - name: Install base dependencies on Ubuntu
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools
-
-      - name: Install target-specific APT dependencies
-        if: ${{ matrix.apt_packages != '' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt_packages }}
+          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev
 
       - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }}
+        run: rustup target add ${{ matrix.target_triple }} && rustup update
 
       - uses: Swatinem/rust-cache@v2
 
@@ -88,19 +83,8 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for ${{ matrix.target }} (x86_64)
-        run: cargo build --release --target ${{ matrix.target_triple }}
-        if: ${{ matrix.target == 'x86_64' }}
-
-      - name: Build for ${{ matrix.target }} (aarch64)
-        run: cargo build --release --target ${{ matrix.target_triple }}
-        env:
-          CFLAGS_aarch64_unknown_linux_gnu: -D__ARM_ARCH=8
-          CC: aarch64-linux-gnu-gcc
-          CXX: aarch64-linux-gnu-g++
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-g++
-          RUSTC_LINKER: aarch64-linux-gnu-g++
-        if: ${{ matrix.target == 'aarch64' }}
+      - name: Build for ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
 
       - name: Move artifact to work dir and zip
         run: |
@@ -126,7 +110,6 @@ jobs:
         include:
           - target: aarch64
             target_triple: aarch64-linux-android
-            apt_packages: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -140,12 +123,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools
-
-      - name: Install target-specific APT dependencies
-        if: ${{ matrix.apt_packages != '' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt_packages }}
 
       - name: Add Rust target
         run: rustup target add ${{ matrix.target_triple }}
@@ -161,7 +138,7 @@ jobs:
       - name: Build for ${{ matrix.target }}
         run: |
           cargo install cargo-ndk
-          cargo ndk --target ${{ matrix.target_triple }} build --release
+          cargo ndk --target ${{ matrix.target_triple }} build --release --no-default-features --features embed-resource,self-update
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
@@ -184,10 +161,19 @@ jobs:
           path: clewdr-android-${{ matrix.target }}.zip
           retention-days: 1
 
-  musllinux-x86_64:
-    name: Build Linux x86_64 (musl)
+  musllinux:
+    name: Build Linux (musl)
     needs: build-frontend
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - target: x86_64
+            target_triple: x86_64-unknown-linux-musl
+            runner: ubuntu-latest
+          - target: aarch64
+            target_triple: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
@@ -195,10 +181,10 @@ jobs:
       - name: Install dependencies on Ubuntu
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools musl-dev zip
+          sudo apt-get install -y build-essential cmake perl pkg-config clang libclang-dev musl-tools musl-dev zip
 
       - name: Add Rust target
-        run: rustup target add x86_64-unknown-linux-musl
+        run: rustup target add ${{ matrix.target_triple }} && rustup update
 
       - uses: Swatinem/rust-cache@v2
 
@@ -208,73 +194,26 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for x86_64
-        run: cargo build --release --target x86_64-unknown-linux-musl
+      - name: Build for ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
         env:
-          CFLAGS: -D_FORTIFY_SOURCE=0
-          CXXFLAGS: -D_FORTIFY_SOURCE=0
-          CXX: x86_64-linux-gnu-g++
-
-      - name: Move artifact to work dir and zip
-        run: |
-          mv target/x86_64-unknown-linux-musl/release/clewdr .
-          mkdir -p release-package
-          mv clewdr release-package/
-          cd release-package
-          zip -r ../clewdr-musllinux-x86_64 .
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clewdr-musllinux-x86_64
-          path: clewdr-musllinux-x86_64.zip
-          retention-days: 1
-
-  musllinux-aarch64:
-    name: Build Linux aarch64 (musl)
-    needs: build-frontend
-    runs-on: ubuntu-24.04-arm
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies on Ubuntu ARM
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools musl-dev zip
-
-      - name: Add Rust target
-        run: |
-          rustup target add aarch64-unknown-linux-musl
-          rustup update
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Download static files
-        uses: actions/download-artifact@v4
-        with:
-          name: static-files
-          path: static
-
-      - name: Build for aarch64
-        run: cargo build --release --target aarch64-unknown-linux-musl
-        env:
+          CXX: ${{ matrix.target }}-linux-gnu-g++
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
 
       - name: Move artifact to work dir and zip
         run: |
-          mv target/aarch64-unknown-linux-musl/release/clewdr .
+          mv target/${{ matrix.target_triple }}/release/clewdr .
           mkdir -p release-package
           mv clewdr release-package/
           cd release-package
-          zip -r ../clewdr-musllinux-aarch64 .
+          zip -r ../clewdr-musllinux-${{ matrix.target }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clewdr-musllinux-aarch64
-          path: clewdr-musllinux-aarch64.zip
+          name: clewdr-musllinux-${{ matrix.target }}
+          path: clewdr-musllinux-${{ matrix.target }}.zip
           retention-days: 1
 
   windows:
@@ -309,7 +248,7 @@ jobs:
       - name: Build on Windows with Static Linking
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
-        run: cargo build --release --target ${{ matrix.target_triple }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
 
       - name: Move artifact to work dir and zip
         run: |
@@ -357,7 +296,7 @@ jobs:
           path: static
 
       - name: Build for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target_triple }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
 
       - name: Move artifact to work dir and zip
         run: |
