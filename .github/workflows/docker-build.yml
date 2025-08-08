@@ -9,7 +9,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   prepare:
@@ -18,10 +17,12 @@ jobs:
     outputs:
       tags: ${{ steps.meta.outputs.tags }}
       labels: ${{ steps.meta.outputs.labels }}
+      image_name: ${{ steps.downcase.outputs.image_name }}
     steps:
       - name: downcase IMAGE_NAME
+        id: downcase
         run: |
-          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY@L}" >>${GITHUB_OUTPUT}
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -29,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.downcase.outputs.image_name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -77,7 +78,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           labels: ${{ needs.prepare.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
@@ -120,7 +121,7 @@ jobs:
         run: |
           IMAGES=""
           for dir in digest-*; do
-            IMAGES="$IMAGES ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@$(cat $dir/digest.txt)"
+            IMAGES="$IMAGES ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}@$(cat $dir/digest.txt)"
           done
           echo "Images to amend: $IMAGES"
           TAGS="${{ needs.prepare.outputs.tags }}"
