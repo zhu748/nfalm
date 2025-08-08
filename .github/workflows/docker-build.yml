@@ -83,15 +83,17 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
       - name: Export digest
-        if: github.event_name != 'pull_request'
-        run: echo "${{ steps.build.outputs.digest }}" > digest.txt
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest
-        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: digest-${{ matrix.arch }}
-          path: digest.txt
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
           retention-days: 1
 
   merge:
@@ -112,21 +114,30 @@ jobs:
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
-          path: /tmp/digests
-          pattern: digest-*
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
           merge-multiple: true
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
       - name: Create manifest list and push
-        working-directory: /tmp/digests
+        working-directory: ${{ runner.temp }}/digests
         run: |
-          IMAGES=""
-          for dir in digest-*; do
-            IMAGES="$IMAGES ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}@$(cat $dir/digest.txt)"
-          done
-          echo "Images to amend: $IMAGES"
-          TAGS="${{ needs.prepare.outputs.tags }}"
-          echo "Tags to create: $TAGS"
-          for TAG in $TAGS; do
-            docker manifest create $TAG $IMAGES
-            docker manifest push $TAG
-          done
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}:${{ steps.meta.outputs.version }}
