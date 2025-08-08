@@ -17,7 +17,7 @@ jobs:
     outputs:
       tags: ${{ steps.meta.outputs.tags }}
       labels: ${{ steps.meta.outputs.labels }}
-      image_name: ${{ steps.downcase.outputs.image_name }}
+      image_name: ${{ steps.downcase.outputs.IMAGE_NAME }}
     steps:
       - name: downcase IMAGE_NAME
         id: downcase
