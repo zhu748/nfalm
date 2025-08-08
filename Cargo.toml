@@ -25,9 +25,8 @@ serde = { version = "1", features = ["derive"] }
 colored = "3"
 axum = { version = "0.8", features = ["json", "tracing", "tokio", "macros"] }
 regex = "1"
-tracing = { version = "0.1", features = [] }
+tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
-rand = "0.9"
 chrono = "0.4"
 futures = "0.3"
 thiserror = "2"
@@ -38,22 +37,21 @@ itertools = "0.14"
 toml = "0.9"
 eventsource-stream = "0.2"
 tracing-appender = "0.2"
-self-replace = "1"
-zip = "4"
-tempfile = "3"
+self-replace = { version = "1", optional = true }
+zip = { version = "4", optional = true }
+tempfile = { version = "3", optional = true }
 axum-auth = "0.8"
 tiktoken-rs = "0.7"
 passwords = "3"
 tower-http = { version = "0.6", features = [
     "compression-zstd",
     "cors",
-    "fs",
     "trace",
 ] }
+include_dir = { version = "0.7", optional = true }
+tower-serve-static = { version = "0.1", optional = true }
 figment = { version = "0.10", features = ["env", "toml"] }
 arc-swap = "1"
-include_dir = "0.7"
-tower-serve-static = "0.1"
 url = { version = "2", features = ["serde"] }
 strum = { version = "0.27", features = ["derive"] }
 moka = { version = "0.12", features = ["sync"] }
@@ -76,5 +74,10 @@ ractor = { version = "0.15" }
 [target.'cfg(windows)'.dependencies]
 enable-ansi-support = "0.2"
 
+
 [features]
+default = ["self-update", "external-resource"]
 tokio-console = ["dep:console-subscriber", "tokio/tracing"]
+self-update = ["dep:zip", "dep:self-replace", "dep:tempfile"]
+embed-resource = ["dep:tower-serve-static", "dep:include_dir"]
+external-resource = ["tower-http/fs"]

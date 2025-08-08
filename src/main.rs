@@ -5,7 +5,7 @@ use clewdr::{
 };
 use colored::Colorize;
 use mimalloc::MiMalloc;
-use tracing::{Subscriber, warn};
+use tracing::Subscriber;
 use tracing_subscriber::{
     Layer, Registry,
     fmt::{self, time::ChronoLocal},
@@ -87,9 +87,13 @@ async fn main() -> Result<(), ClewdrError> {
 
     println!("{}\n{}", FIG, *VERSION_INFO);
 
-    let updater = clewdr::services::update::ClewdrUpdater::new()?;
-    if let Err(e) = updater.check_for_updates().await {
-        warn!("Update check failed: {}", e);
+    #[cfg(feature = "self-update")]
+    {
+        use tracing::warn;
+        let updater = clewdr::services::update::ClewdrUpdater::new()?;
+        if let Err(e) = updater.check_for_updates().await {
+            warn!("Update check failed: {}", e);
+        }
     }
 
     // print info

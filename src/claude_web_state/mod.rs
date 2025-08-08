@@ -12,7 +12,7 @@ use wreq_util::Emulation;
 
 use crate::{
     config::{CLAUDE_ENDPOINT, CLEWDR_CONFIG, CookieStatus, Reason},
-    error::{ClewdrError, RquestSnafu},
+    error::{ClewdrError, WreqSnafu},
     middleware::claude::ClaudeApiFormat,
     services::cookie_actor::CookieActorHandle,
     types::claude::Usage,
@@ -110,7 +110,7 @@ impl ClaudeWebState {
         if let Some(ref proxy) = self.proxy {
             client = client.proxy(proxy.to_owned());
         }
-        self.client = client.build().context(RquestSnafu {
+        self.client = client.build().context(WreqSnafu {
             msg: "Failed to build client with new cookie",
         })?;
         self.cookie_header_value = HeaderValue::from_str(res.cookie.to_string().as_str())?;
@@ -155,7 +155,7 @@ impl ClaudeWebState {
             .build_request(Method::DELETE, endpoint)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to delete chat conversation",
             });
         Ok(())

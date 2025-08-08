@@ -50,7 +50,7 @@ cat > ~/.cargo/config.toml <<EOM
 [target.${RUST_TARGET}]
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 EOM
-cargo chef cook --release --target ${RUST_TARGET} --recipe-path recipe.json
+cargo chef cook --release --target ${RUST_TARGET} --no-default-features --features embed-resource --recipe-path recipe.json
 EOF
 
 # Build application
@@ -70,7 +70,7 @@ case ${TARGETPLATFORM} in \
         ;; \
     *) echo "Unsupported architecture: ${TARGETPLATFORM}" >&2; exit 1 ;; \
 esac
-cargo build --release --target ${RUST_TARGET} --bin clewdr
+cargo build --release --target ${RUST_TARGET}  --no-default-features --features embed-resource --bin clewdr
 cp /app/target/${RUST_TARGET}/release/clewdr /app/clewdr
 EOF
 

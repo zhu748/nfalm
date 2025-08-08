@@ -90,11 +90,11 @@ jobs:
           path: static
 
       - name: Build for ${{ matrix.target }} (x86_64)
-        run: cargo build --release --target ${{ matrix.target_triple }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
         if: ${{ matrix.target == 'x86_64' }}
 
       - name: Build for ${{ matrix.target }} (aarch64)
-        run: cargo build --release --target ${{ matrix.target_triple }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
         env:
           CFLAGS_aarch64_unknown_linux_gnu: -D__ARM_ARCH=8
           CC: aarch64-linux-gnu-gcc
@@ -162,7 +162,7 @@ jobs:
       - name: Build for ${{ matrix.target }}
         run: |
           cargo install cargo-ndk
-          cargo ndk --target ${{ matrix.target_triple }} build --release
+          cargo ndk --target ${{ matrix.target_triple }} build --release --no-default-features --features embed-resource,self-update
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
@@ -210,7 +210,7 @@ jobs:
           path: static
 
       - name: Build for x86_64
-        run: cargo build --release --target x86_64-unknown-linux-musl
+        run: cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features embed-resource,self-update
         env:
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
@@ -258,7 +258,7 @@ jobs:
           path: static
 
       - name: Build for aarch64
-        run: cargo build --release --target aarch64-unknown-linux-musl
+        run: cargo build --release --target aarch64-unknown-linux-musl --no-default-features --features embed-resource,self-update
         env:
           CFLAGS: -D_FORTIFY_SOURCE=0
           CXXFLAGS: -D_FORTIFY_SOURCE=0
@@ -310,7 +310,7 @@ jobs:
       - name: Build on Windows with Static Linking
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
-        run: cargo build --release --target ${{ matrix.target_triple }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
 
       - name: Move artifact to work dir and zip
         run: |
@@ -358,7 +358,7 @@ jobs:
           path: static
 
       - name: Build for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target_triple }}
+        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
 
       - name: Move artifact to work dir and zip
         run: |

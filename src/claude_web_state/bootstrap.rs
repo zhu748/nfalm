@@ -8,7 +8,7 @@ use wreq::Method;
 use crate::{
     claude_web_state::ClaudeWebState,
     config::{CLEWDR_CONFIG, Reason},
-    error::{CheckClaudeErr, ClewdrError, RquestSnafu},
+    error::{CheckClaudeErr, ClewdrError, WreqSnafu},
     utils::print_out_json,
 };
 
@@ -30,12 +30,12 @@ impl ClaudeWebState {
             .build_request(Method::GET, end_point)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to bootstrap",
             })?
             .check_claude()
             .await?;
-        let bootstrap = res.json::<Value>().await.context(RquestSnafu {
+        let bootstrap = res.json::<Value>().await.context(WreqSnafu {
             msg: "Failed to parse bootstrap response",
         })?;
         print_out_json(&bootstrap, "bootstrap_res.json");
@@ -89,12 +89,12 @@ impl ClaudeWebState {
             .build_request(Method::GET, end_point)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to get organizations",
             })?
             .check_claude()
             .await?;
-        let ret_json = res.json::<Value>().await.context(RquestSnafu {
+        let ret_json = res.json::<Value>().await.context(WreqSnafu {
             msg: "Failed to parse organizations response",
         })?;
         print_out_json(&ret_json, "org.json");

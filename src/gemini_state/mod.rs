@@ -15,7 +15,7 @@ use yup_oauth2::{CustomHyperClientBuilder, ServiceAccountAuthenticator, ServiceA
 
 use crate::{
     config::{CLEWDR_CONFIG, GEMINI_ENDPOINT, KeyStatus},
-    error::{CheckGeminiErr, ClewdrError, InvalidUriSnafu, RquestSnafu},
+    error::{CheckGeminiErr, ClewdrError, InvalidUriSnafu, WreqSnafu},
     middleware::gemini::*,
     services::key_actor::KeyActorHandle,
     types::gemini::response::{FinishReason, GeminiResponse},
@@ -110,7 +110,7 @@ impl GeminiState {
         } else {
             client
         };
-        self.client = client.build().context(RquestSnafu {
+        self.client = client.build().context(WreqSnafu {
             msg: "Failed to build Gemini client",
         })?;
         Ok(())
@@ -135,7 +135,7 @@ impl GeminiState {
         } else {
             client
         };
-        self.client = client.build().context(RquestSnafu {
+        self.client = client.build().context(WreqSnafu {
             msg: "Failed to build Gemini client",
         })?;
         let method = if self.stream {
@@ -169,7 +169,7 @@ impl GeminiState {
                     .json(&p)
                     .send()
                     .await
-                    .context(RquestSnafu {
+                    .context(WreqSnafu {
                         msg: "Failed to send request to Gemini Vertex API",
                     })?
             }
@@ -183,7 +183,7 @@ impl GeminiState {
                     .json(&p)
                     .send()
                     .await
-                    .context(RquestSnafu {
+                    .context(WreqSnafu {
                         msg: "Failed to send request to Gemini Vertex OpenAI API",
                     })?
             }
@@ -218,7 +218,7 @@ impl GeminiState {
                     .json(&p)
                     .send()
                     .await
-                    .context(RquestSnafu {
+                    .context(WreqSnafu {
                         msg: "Failed to send request to Gemini API",
                     })?
             }
@@ -229,7 +229,7 @@ impl GeminiState {
                 .json(&p)
                 .send()
                 .await
-                .context(RquestSnafu {
+                .context(WreqSnafu {
                     msg: "Failed to send request to Gemini OpenAI API",
                 })?,
         };
@@ -289,7 +289,7 @@ impl GeminiState {
         if self.stream {
             return forward_response(resp);
         }
-        let bytes = resp.bytes().await.context(RquestSnafu {
+        let bytes = resp.bytes().await.context(WreqSnafu {
             msg: "Failed to get bytes from Gemini response",
         })?;
 

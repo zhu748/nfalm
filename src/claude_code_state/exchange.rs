@@ -11,7 +11,7 @@ use url::Url;
 use crate::{
     claude_code_state::ClaudeCodeState,
     config::{CC_REDIRECT_URI, CC_TOKEN_URL, CLEWDR_CONFIG, CookieStatus, TokenInfo},
-    error::{CheckClaudeErr, ClewdrError, RquestSnafu, UnexpectedNoneSnafu, UrlSnafu},
+    error::{CheckClaudeErr, ClewdrError, UnexpectedNoneSnafu, UrlSnafu, WreqSnafu},
 };
 
 struct OauthClient {
@@ -105,14 +105,14 @@ impl ClaudeCodeState {
             .json(&query_params)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to send authorization request",
             })?
             .check_claude()
             .await?
             .json::<Value>()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to parse authorization response",
             })?;
 

@@ -8,7 +8,7 @@ use wreq::{Method, Response, header::ACCEPT};
 use super::ClaudeWebState;
 use crate::{
     config::CLEWDR_CONFIG,
-    error::{CheckClaudeErr, ClewdrError, RquestSnafu},
+    error::{CheckClaudeErr, ClewdrError, WreqSnafu},
     types::claude::CreateMessageParams,
     utils::print_out_json,
 };
@@ -117,7 +117,7 @@ impl ClaudeWebState {
             .json(&body)
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to create new conversation",
             })?
             .check_claude()
@@ -167,7 +167,7 @@ impl ClaudeWebState {
             .header_append(ACCEPT, "text/event-stream")
             .send()
             .await
-            .context(RquestSnafu {
+            .context(WreqSnafu {
                 msg: "Failed to send chat request",
             })?
             .check_claude()
