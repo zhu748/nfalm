@@ -110,7 +110,6 @@ jobs:
         include:
           - target: aarch64
             target_triple: aarch64-linux-android
-            apt_packages: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -124,12 +123,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools
-
-      - name: Install target-specific APT dependencies
-        if: ${{ matrix.apt_packages != '' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt_packages }}
 
       - name: Add Rust target
         run: rustup target add ${{ matrix.target_triple }}
@@ -169,7 +162,7 @@ jobs:
           retention-days: 1
 
   musllinux:
-    name: Build Linux x86_64 (musl)
+    name: Build Linux (musl)
     needs: build-frontend
     strategy:
       matrix:
@@ -177,11 +170,9 @@ jobs:
           - target: x86_64
             target_triple: x86_64-unknown-linux-musl
             runner: ubuntu-latest
-            apt_packages: ""
           - target: aarch64
             target_triple: aarch64-unknown-linux-musl
             runner: ubuntu-24.04-arm
-            apt_packages: ""
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -203,7 +194,7 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for x86_64
+      - name: Build for ${{ matrix.target }}
         run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
         env:
           CXX: ${{ matrix.target }}-linux-gnu-g++
