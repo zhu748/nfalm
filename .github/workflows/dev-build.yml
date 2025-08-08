@@ -73,7 +73,7 @@ jobs:
           sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev
 
       - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }}
+        run: rustup target add ${{ matrix.target_triple }} && rustup update
 
       - uses: Swatinem/rust-cache@v2
 
@@ -116,7 +116,7 @@ jobs:
       - uses: nttld/setup-ndk@v1.5.0
         id: setup-ndk
         with:
-          ndk-version: r27d
+          ndk-version: r27c
           add-to-path: true
 
       - name: Install base dependencies on Ubuntu
@@ -184,7 +184,7 @@ jobs:
           sudo apt-get install -y build-essential cmake perl pkg-config clang libclang-dev musl-tools musl-dev zip
 
       - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }}
+        run: rustup target add ${{ matrix.target_triple }} && rustup update
 
       - uses: Swatinem/rust-cache@v2
 
