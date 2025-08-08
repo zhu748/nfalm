@@ -198,6 +198,8 @@ jobs:
         run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
         env:
           CXX: ${{ matrix.target }}-linux-gnu-g++
+          CFLAGS_aarch64_unknown_linux_musl: "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
+          CFLAGS_x86_64_unknown_linux_musl: "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
 
       - name: Move artifact to work dir and zip
         run: |
