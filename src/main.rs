@@ -4,7 +4,6 @@ use clewdr::{
     error::ClewdrError,
 };
 use colored::Colorize;
-use mimalloc::MiMalloc;
 use tracing::Subscriber;
 use tracing_subscriber::{
     Layer, Registry,
@@ -12,9 +11,6 @@ use tracing_subscriber::{
     layer::SubscriberExt,
     registry::LookupSpan,
 };
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 fn setup_subscriber<S>(subscriber: S)
 where

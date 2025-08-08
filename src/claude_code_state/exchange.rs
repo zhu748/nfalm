@@ -1,13 +1,14 @@
 use std::{collections::HashMap, pin::Pin, str::FromStr};
 
-use oauth2::basic::{
-    BasicErrorResponse, BasicRevocationErrorResponse, BasicTokenIntrospectionResponse,
-    BasicTokenResponse,
-};
 use oauth2::{
     AsyncHttpClient, AuthUrl, AuthorizationCode, Client, ClientId, CsrfToken, EndpointNotSet,
     EndpointSet, HttpClientError, HttpRequest, HttpResponse, PkceCodeChallenge, PkceCodeVerifier,
-    RedirectUrl, Scope, StandardRevocableToken, TokenUrl, http,
+    RedirectUrl, Scope, StandardRevocableToken, TokenUrl,
+    basic::{
+        BasicErrorResponse, BasicRevocationErrorResponse, BasicTokenIntrospectionResponse,
+        BasicTokenResponse,
+    },
+    http,
 };
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};

@@ -57,7 +57,6 @@ url = { version = "2", features = ["serde"] }
 strum = { version = "0.27", features = ["derive"] }
 moka = { version = "0.12", features = ["sync"] }
 tower = "0.5"
-bytes = "1"
 trie-rs = "0.4"
 async-stream = "0.3"
 struct_iterable = "0.1"
@@ -72,7 +71,6 @@ hyper-http-proxy = "1"
 http = "1"
 snafu = { version = "0.8", features = ["futures", "rust_1_81"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
-mimalloc = "0.1"
 oauth2 = { version = "5", default-features = false }
 ractor = { version = "0.15" }
 
