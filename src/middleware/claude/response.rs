@@ -5,13 +5,33 @@ use axum::{
 };
 use eventsource_stream::Eventsource;
 use futures::TryStreamExt;
-use http::header::CONTENT_TYPE;
+use http::{HeaderValue, header::CONTENT_TYPE};
+use tracing::warn;
 
 use super::{ClaudeApiFormat, transform_stream};
 use crate::{
     middleware::claude::{ClaudeContext, transforms_json},
     types::claude::{CreateMessageResponse, StreamEvent},
 };
+
+async fn parse_response<T>(resp: Response) -> Result<T, Response>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let body = body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .inspect_err(|err| {
+            warn!("Failed to read response body: {}", err);
+        })
+        .unwrap_or_default();
+    let Ok(parsed) = serde_json::from_slice::<T>(&body) else {
+        return Err(Response::builder()
+            .header(CONTENT_TYPE, "application/json")
+            .body(Body::from(body))
+            .unwrap());
+    };
+    Ok(parsed)
+}
 
 /// Transforms responses to ensure compatibility with the OpenAI API format
 ///
@@ -39,18 +59,10 @@ pub async fn to_oai(resp: Response) -> impl IntoResponse {
         return resp;
     }
     if !cx.is_stream() {
-        let body = body::to_bytes(resp.into_body(), usize::MAX)
-            .await
-            .unwrap_or_default();
-        let Ok(response) = serde_json::from_slice::<CreateMessageResponse>(&body) else {
-            return Response::builder()
-                .header(CONTENT_TYPE, "application/json")
-                .body(Body::from("Invalid response format"))
-                .unwrap()
-                .into_response();
-        };
-        let output = transforms_json(response);
-        return Json(output).into_response();
+        match parse_response::<CreateMessageResponse>(resp).await {
+            Ok(response) => return Json(transforms_json(response)).into_response(),
+            Err(resp) => return resp,
+        }
     }
     let stream = resp.into_body().into_data_stream().eventsource();
     let stream = transform_stream(stream);
@@ -65,11 +77,9 @@ pub async fn add_usage_info(resp: Response) -> impl IntoResponse {
     };
     let (mut usage, stream) = (cx.usage().to_owned(), cx.is_stream());
     if !stream {
-        let data = body::to_bytes(resp.into_body(), usize::MAX)
-            .await
-            .unwrap_or_default();
-        let Ok(mut response) = serde_json::from_slice::<CreateMessageResponse>(&data) else {
-            return Body::from(data).into_response();
+        let mut response = match parse_response::<CreateMessageResponse>(resp).await {
+            Ok(response) => response,
+            Err(resp) => return resp,
         };
         let output_tokens = response.count_tokens();
         usage.output_tokens = output_tokens;
@@ -115,4 +125,16 @@ pub async fn add_usage_info(resp: Response) -> impl IntoResponse {
     Sse::new(stream)
         .keep_alive(Default::default())
         .into_response()
+}
+
+pub async fn check_overloaded(mut resp: Response) -> Response {
+    let Some(cx) = resp.extensions().get::<ClaudeContext>() else {
+        return resp;
+    };
+    if cx.is_stream()
+        && resp.headers().get(CONTENT_TYPE) != Some(&HeaderValue::from_static("text/event-stream"))
+    {
+        resp.extensions_mut().remove::<ClaudeContext>();
+    }
+    resp
 }
