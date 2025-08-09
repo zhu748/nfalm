@@ -74,6 +74,7 @@ snafu = { version = "0.8", features = ["futures", "rust_1_81"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
 oauth2 = { version = "5", default-features = false }
 ractor = { version = "0.15" }
+mimalloc = { version = "0.1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 enable-ansi-support = "0.2"
@@ -85,3 +86,4 @@ tokio-console = ["dep:console-subscriber", "tokio/tracing"]
 self-update = ["dep:zip", "dep:self-replace", "dep:tempfile"]
 embed-resource = ["dep:tower-serve-static", "dep:include_dir"]
 external-resource = ["tower-http/fs"]
+mimalloc = ["dep:mimalloc"]

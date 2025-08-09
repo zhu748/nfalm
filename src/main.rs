@@ -12,6 +12,12 @@ use tracing_subscriber::{
     registry::LookupSpan,
 };
 
+#[cfg(feature = "mimalloc")]
+use mimalloc::MiMalloc;
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 fn setup_subscriber<S>(subscriber: S)
 where
     S: Subscriber + for<'span> LookupSpan<'span> + Send + Sync + 'static,
