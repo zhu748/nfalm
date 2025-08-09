@@ -5,7 +5,7 @@ use axum::{
 };
 use eventsource_stream::Eventsource;
 use futures::TryStreamExt;
-use http::{HeaderValue, header::CONTENT_TYPE};
+use http::header::CONTENT_TYPE;
 use tracing::warn;
 
 use super::{ClaudeApiFormat, transform_stream};
@@ -131,8 +131,14 @@ pub async fn check_overloaded(mut resp: Response) -> Response {
     let Some(cx) = resp.extensions().get::<ClaudeContext>() else {
         return resp;
     };
-    if cx.is_stream()
-        && resp.headers().get(CONTENT_TYPE) != Some(&HeaderValue::from_static("text/event-stream"))
+    if !cx.is_stream() {
+        return resp;
+    }
+    if resp
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| !v.contains("text/event-stream"))
     {
         resp.extensions_mut().remove::<ClaudeContext>();
     }
