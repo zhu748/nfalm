@@ -1,5 +1,5 @@
-# v0.11.5
+# v0.11.6
 
 ## Fix
 
-- **Dep**: Remove `mimalloc` for minimal memory footprint at the cost of performance.
+- **Bug**: Fix issue with response headers not being checked correctly in overloaded responses.
