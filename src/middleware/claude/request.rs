@@ -176,26 +176,42 @@ where
         let stream = body.stream.unwrap_or_default();
 
         // Add a prelude text block to the system messages
-        let prelude = ContentBlock::Text {
-            text: CLEWDR_CONFIG
-                .load()
-                .custom_system
-                .clone()
-                .unwrap_or_else(|| {
-                    "You are Claude Code, Anthropic's official CLI for Claude.".into()
-                }),
-        };
-        let mut system = vec![json!(prelude)];
-        match body.system {
-            Some(Value::String(text)) => {
-                let text_content = ContentBlock::Text { text };
-                system.push(json!(text_content));
+        const PRELUDE_TEXT: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
+        let prelude_blk = || -> ContentBlock {
+            ContentBlock::Text {
+                text: CLEWDR_CONFIG
+                    .load()
+                    .custom_system
+                    .clone()
+                    .unwrap_or_else(|| PRELUDE_TEXT.to_string()),
             }
-            Some(Value::Array(a)) => system.extend(a),
-            _ => {}
+        };
+        match body.system {
+            Some(Value::String(ref text)) => {
+                if text != PRELUDE_TEXT {
+                    let text_content = ContentBlock::Text {
+                        text: text.to_owned(),
+                    };
+                    body.system = Some(json!([prelude_blk(), text_content]));
+                }
+            }
+            Some(Value::Array(ref mut a)) => {
+                if !a.first().is_some_and(|blk| blk == PRELUDE_TEXT) {
+                    a.insert(0, json!(prelude_blk()));
+                    body.system = Some(json!(a));
+                }
+            }
+            _ => {
+                body.system = Some(json!([prelude_blk()]));
+            }
         }
 
-        let cache_systems = system
+        let cache_systems = body
+            .system
+            .as_mut()
+            .expect("System messages should be present")
+            .as_array_mut()
+            .expect("System messages should be an array")
             .iter_mut()
             .filter_map(|s| {
                 // Claude Code does not allow TTLs in system prompts
@@ -209,7 +225,6 @@ where
             hasher.finish()
         });
 
-        body.system = Some(Value::Array(system));
         let input_tokens = body.count_tokens();
 
         let info = ClaudeCodeContext {
