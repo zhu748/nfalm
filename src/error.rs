@@ -403,6 +403,9 @@ impl CheckClaudeErr for Response {
             // account disabled
             return Err(Reason::Disabled.into());
         }
+        if status == 401 {
+            return Err(Reason::Null.into());
+        }
         let inner_error = err.error;
         // check if the error is a rate limit error
         if status == 429 {
