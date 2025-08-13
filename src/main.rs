@@ -4,6 +4,8 @@ use clewdr::{
     error::ClewdrError,
 };
 use colored::Colorize;
+#[cfg(feature = "mimalloc")]
+use mimalloc::MiMalloc;
 use tracing::Subscriber;
 use tracing_subscriber::{
     Layer, Registry,
@@ -11,9 +13,6 @@ use tracing_subscriber::{
     layer::SubscriberExt,
     registry::LookupSpan,
 };
-
-#[cfg(feature = "mimalloc")]
-use mimalloc::MiMalloc;
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

@@ -30,11 +30,7 @@ impl From<CreateMessageParams> for ClaudeCreateMessageParams {
             .filter(|b| matches!(b, ContentBlock::Text { .. }))
             .map(|b| json!(b))
             .collect::<Vec<_>>();
-        let system = if !systems.is_empty() {
-            Some(Value::Array(systems))
-        } else {
-            None
-        };
+        let system = (!systems.is_empty()).then(|| json!(systems));
         Self {
             max_tokens: (params.max_tokens.or(params.max_completion_tokens))
                 .unwrap_or_else(default_max_tokens),

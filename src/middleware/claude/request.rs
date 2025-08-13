@@ -87,8 +87,8 @@ where
         };
         let Json(mut body) = match format {
             ClaudeApiFormat::OpenAI => {
-                let json = Json::<OaiCreateMessageParams>::from_request(req, &()).await?;
-                Json(json.0.into())
+                let Json(json) = Json::<OaiCreateMessageParams>::from_request(req, &()).await?;
+                Json(json.into())
             }
             ClaudeApiFormat::Claude => Json::<CreateMessageParams>::from_request(req, &()).await?,
         };
