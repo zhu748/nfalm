@@ -37,8 +37,9 @@ pub struct CreateMessageParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
     /// Thinking mode configuration
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking: Option<Thinking>,
     /// Top-k sampling
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -89,7 +90,7 @@ impl CreateMessageParams {
 }
 
 /// Thinking mode in Claude API Request
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Thinking {
     pub budget_tokens: u64,
     r#type: String,
