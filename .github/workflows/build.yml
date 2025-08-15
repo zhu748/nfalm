@@ -16,7 +16,7 @@ env:
   CLEWDR_FEATURE_ARGS: "--no-default-features --features embed-resource,self-update"
   APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev"
   CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm zip"
-  HOMEBREW_PACKAGES: "cmake pkg-config llvm"
+  HOMEBREW_PACKAGES: "cmake llvm"
 permissions:
   contents: write
 

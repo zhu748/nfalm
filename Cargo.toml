@@ -8,6 +8,13 @@ license = "AGPL-3.0"
 [lib]
 path = "src/lib.rs"
 
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 wreq = { version = "5", features = [
