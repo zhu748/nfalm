@@ -13,7 +13,26 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-
+  CLEWDR_FEATURE_ARGS: "--no-default-features --features embed-resource,self-update"
+  APT_PACKAGES: |
+    build-essential
+    cmake
+    perl
+    pkg-config
+    libclang-dev
+  MUSL_PACKAGES: |
+    clang
+    musl-tools
+  SCOOP_PACKAGES: |
+    cmake
+    perl
+    pkg-config-lite
+    llvm
+    nasm
+  HOMEBREW_PACKAGES: |
+    cmake
+    pkg-config
+    llvm
 permissions:
   contents: write
 
@@ -48,82 +67,80 @@ jobs:
           path: static/
           retention-days: 1
 
-  linux:
-    name: Build Linux (GNU)
+  build:
+    name: Build binary
     needs: build-frontend
     strategy:
       matrix:
+        os: [linux, android, windows, macos]
+        target_arch: [x86_64, aarch64]
         include:
-          - target: x86_64
-            target_triple: x86_64-unknown-linux-gnu
+          # rust target vendor + system + environment
+          - os: android
+            target_vendor_sys_env: android
+          - os: apple
+            target_vendor_sys_env: apple-darwin
+          - os: linux
+            target_env: gnu
+            target_vendor_sys_env: unknown-linux-gnu
+          - os: linux
+            target_env: musl
+            target_vendor_sys_env: unknown-linux-musl
+          - os: windows
+            target_env: msvc
+            target_vendor_sys_env: pc-windows-msvc
+          # runner
+          - os: android
             runner: ubuntu-latest
-          - target: aarch64
-            target_triple: aarch64-unknown-linux-gnu
+          - os: linux
+            target_arch: x86_64
+            runner: ubuntu-latest
+          - os: linux
+            target_arch: aarch64
             runner: ubuntu-24.04-arm
+          - os: windows
+            runner: windows-latest
+          - os: macos
+            runner: macos-latest
+          # musl packages
+          - target_env: musl
+            musl_packages: |
+              clang
+              musl-tools
     runs-on: ${{ matrix.runner }}
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install base dependencies on Ubuntu
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev
 
       - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }} && rustup update
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Download static files
-        uses: actions/download-artifact@v4
-        with:
-          name: static-files
-          path: static
-
-      - name: Build for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
-
-      - name: Move artifact to work dir and zip
+        id: target
         run: |
-          mv target/${{ matrix.target_triple }}/release/clewdr .
-          mkdir -p release-package
-          mv clewdr release-package/
-          cd release-package
-          zip -r ../clewdr-linux-${{ matrix.target }} .
+          echo "triple=${{ matrix.target_arch }}-${{matrix.target_vendor_sys_env}}" >> $GITHUB_OUTPUT
+          rustup target add ${{ matrix.target_arch }}-${{matrix.target_vendor_sys_env}} && rustup update
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clewdr-linux-${{ matrix.target }}
-          path: clewdr-linux-${{ matrix.target }}.zip
-          retention-days: 1
-
-  android:
-    name: Build Android (NDK)
-    needs: build-frontend
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - target: aarch64
-            target_triple: aarch64-linux-android
-
-    steps:
-      - uses: actions/checkout@v4
       - uses: nttld/setup-ndk@v1.5.0
+        if: ${{ matrix.os == 'android' }}
         id: setup-ndk
         with:
           ndk-version: r27c
           add-to-path: true
 
-      - name: Install base dependencies on Ubuntu
+      - name: Install APT Packages
+        if: contains(matrix.runner, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config libclang-dev musl-tools
+          sudo apt-get install -y ${{ env.APT_PACKAGES }} ${{ matrix.musl_packages }}
 
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }}
+      - uses: MinoruSekine/setup-scoop@v4.0.2
+        if: matrix.os == 'windows'
+        with:
+          buckets: extras
+          apps: ${{ env.SCOOP_PACKAGES }}
+
+      - name: Install Homebrew Packages
+        if: matrix.os == 'macos'
+        run: |
+          brew update
+          brew install ${{ env.HOMEBREW_PACKAGES }}
 
       - uses: Swatinem/rust-cache@v2
 
@@ -133,187 +150,50 @@ jobs:
           name: static-files
           path: static
 
-      - name: Build for ${{ matrix.target }}
+      - name: Build ${{ steps.target.outputs.triple }}
+        shell: bash
+        run: |
+          if [ ${{ matrix.target_env }} == "musl" ]; then
+            export CXX=${{ matrix.target_arch }}-linux-gnu-g++
+            export CFLAGS="-D_FORTIFY_SOURCE=0"
+            export CXXFLAGS="-D_FORTIFY_SOURCE=0"
+          fi
+          if [ ${{ matrix.os }} == "windows" ]; then
+            export RUSTFLAGS="-C target-feature=+crt-static"
+          fi
+          cargo build --release --target ${{ steps.target.outputs.triple }} ${{ env.CLEWDR_FEATURE_ARGS }}
+
+      - name: Build with Android NDK
+        if: ${{ matrix.os == 'android' }}
         run: |
           cargo install cargo-ndk
-          cargo ndk --target ${{ matrix.target_triple }} build --release --no-default-features --features embed-resource,self-update
+          cargo ndk --target ${{ steps.target.outputs.triple }} build --release ${{ env.CLEWDR_FEATURE_ARGS }}
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Move artifact to work dir and zip
+        shell: bash
         run: |
-          mv target/${{ matrix.target_triple }}/release/clewdr .
-          mv $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so .
-          mkdir -p release-package
-          mv clewdr libc++_shared.so release-package/
-          cd release-package
-          zip -r ../clewdr-android-${{ matrix.target }} .
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clewdr-android-${{ matrix.target }}
-          path: clewdr-android-${{ matrix.target }}.zip
-          retention-days: 1
-
-  musllinux:
-    name: Build Linux (musl)
-    needs: build-frontend
-    strategy:
-      matrix:
-        include:
-          - target: x86_64
-            target_triple: x86_64-unknown-linux-musl
-            runner: ubuntu-latest
-          - target: aarch64
-            target_triple: aarch64-unknown-linux-musl
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies on Ubuntu
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake perl pkg-config clang libclang-dev musl-tools musl-dev zip
-
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }} && rustup update
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Download static files
-        uses: actions/download-artifact@v4
-        with:
-          name: static-files
-          path: static
-
-      - name: Build for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
-        env:
-          CXX: ${{ matrix.target }}-linux-gnu-g++
-          CFLAGS: -D_FORTIFY_SOURCE=0
-          CXXFLAGS: -D_FORTIFY_SOURCE=0
-
-      - name: Move artifact to work dir and zip
-        run: |
-          mv target/${{ matrix.target_triple }}/release/clewdr .
+          mv target/${{ steps.target.outputs.triple }}/release/clewdr .
           mkdir -p release-package
           mv clewdr release-package/
+          if [ ${{ matrix.os }} == "android" ]; then
+            mv ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$${{ matrix.target_arch }}-linux-android/libc++_shared.so release-package/
+          fi
           cd release-package
-          zip -r ../clewdr-musllinux-${{ matrix.target }} .
+          zip -r ../clewdr-${{ steps.target.outputs.triple }} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clewdr-musllinux-${{ matrix.target }}
-          path: clewdr-musllinux-${{ matrix.target }}.zip
-          retention-days: 1
-
-  windows:
-    name: Build Windows
-    needs: build-frontend
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        include:
-          - target: x86_64
-            target_triple: x86_64-pc-windows-msvc
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies on Windows
-        run: |
-          choco install cmake -y
-          choco install strawberryperl -y
-          choco install pkgconfiglite -y
-          choco install llvm -y
-          choco install nasm -y
-        shell: cmd
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Download static files
-        uses: actions/download-artifact@v4
-        with:
-          name: static-files
-          path: static
-
-      - name: Build on Windows with Static Linking
-        env:
-          RUSTFLAGS: "-C target-feature=+crt-static"
-        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
-
-      - name: Move artifact to work dir and zip
-        run: |
-          mkdir -p release-package
-          mv target/${{ matrix.target_triple }}/release/clewdr.exe release-package/
-          Compress-Archive -Path 'release-package\*' -DestinationPath "clewdr-windows-${{ matrix.target }}.zip" -CompressionLevel Optimal -Force
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clewdr-windows-${{ matrix.target }}
-          path: clewdr-windows-${{ matrix.target }}.zip
-          retention-days: 1
-
-  macos:
-    name: Build macOS
-    needs: build-frontend
-    strategy:
-      matrix:
-        include:
-          - target: x86_64
-            runner: macos-latest
-            target_triple: x86_64-apple-darwin
-          - target: aarch64
-            runner: macos-latest
-            target_triple: aarch64-apple-darwin
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies on macOS
-        run: |
-          brew update
-          brew install --formula cmake pkg-config llvm
-
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.target_triple }}
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Download static files
-        uses: actions/download-artifact@v4
-        with:
-          name: static-files
-          path: static
-
-      - name: Build for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target_triple }} --no-default-features --features embed-resource,self-update
-
-      - name: Move artifact to work dir and zip
-        run: |
-          mv target/${{ matrix.target_triple }}/release/clewdr .
-          mkdir -p release-package
-          mv clewdr release-package/
-          cd release-package
-          zip -r ../clewdr-macos-${{ matrix.target }} .
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clewdr-macos-${{ matrix.target }}
-          path: clewdr-macos-${{ matrix.target }}.zip
+          name: clewdr-${{ steps.target.outputs.triple }}
+          path: clewdr-${{ steps.target.outputs.triple }}.zip
           retention-days: 1
 
   release:
     name: Create Release
-    needs: [linux, android, musllinux, windows, macos]
+    needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
