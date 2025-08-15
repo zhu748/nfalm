@@ -84,6 +84,10 @@ jobs:
           # musl packages
           - os: musllinux
             musl_packages: "clang musl-tools"
+        exclude:
+          - os: android
+            target_arch: x86_64
+
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -145,7 +149,6 @@ jobs:
         if: ${{ matrix.os == 'android' }}
         run: |
           cargo install cargo-ndk
-          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
           cargo ndk --target ${{ steps.target.outputs.triple }} build --release ${{ env.CLEWDR_FEATURE_ARGS }}
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
