@@ -1,3 +1,7 @@
-# v0.11.8
+# v0.11.9
 
-- Fix Docker build workflow to properly handle version tags
+## Build
+
+- Add WoA target in GitHub Action
+- Optimize for binary size in `Cargo.toml`
+- Enable UPX compression in Dockerfile and GitHub Actions
