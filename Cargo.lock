@@ -699,7 +699,6 @@ dependencies = [
  "trie-rs",
  "url",
  "uuid",
- "vc-ltl",
  "wreq",
  "wreq-util",
  "yup-oauth2",
@@ -3872,12 +3871,6 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
-
-[[package]]
-name = "vc-ltl"
-version = "5.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "952e87999b59993e0bd8a02c65abff374daf3f44a1643c414f93dbab6d03c052"
 
 [[package]]
 name = "version_check"
