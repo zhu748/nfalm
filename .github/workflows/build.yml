@@ -93,6 +93,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Add Rust target
+        shell: bash
         id: target
         run: |
           echo "triple=${{ matrix.target_arch }}-${{matrix.target_vendor_sys_env}}" >> $GITHUB_OUTPUT
