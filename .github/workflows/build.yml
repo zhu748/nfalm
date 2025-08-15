@@ -162,7 +162,7 @@ jobs:
           mkdir -p release-package
           mv clewdr release-package/
           if [ ${{ matrix.os }} == "android" ]; then
-            mv ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$${{ matrix.target_arch }}-linux-android/libc++_shared.so release-package/
+            mv ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.target_arch }}-linux-android/libc++_shared.so release-package/
           fi
           cd release-package
           zip -r ../clewdr-${{ matrix.os }}-${{matrix.target_arch}} .
