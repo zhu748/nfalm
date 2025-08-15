@@ -1,7 +1,5 @@
-# v0.11.9
+# v0.11.10
 
-## Build
+## Bug Fixes
 
-- Add WoA target in GitHub Action
-- Optimize for binary size in `Cargo.toml`
-- Enable UPX compression in Dockerfile and GitHub Actions
+- Fix `thinking` field default fallback handling for Claude
