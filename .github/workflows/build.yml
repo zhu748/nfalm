@@ -14,25 +14,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CLEWDR_FEATURE_ARGS: "--no-default-features --features embed-resource,self-update"
-  APT_PACKAGES: |
-    build-essential
-    cmake
-    perl
-    pkg-config
-    libclang-dev
-  MUSL_PACKAGES: |
-    clang
-    musl-tools
-  SCOOP_PACKAGES: |
-    cmake
-    perl
-    pkg-config-lite
-    llvm
-    nasm
-  HOMEBREW_PACKAGES: |
-    cmake
-    pkg-config
-    llvm
+  APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev"
+  MUSL_PACKAGES: "clang musl-tools"
+  SCOOP_PACKAGES: "cmake perl pkg-config-lite llvm nasm"
+  HOMEBREW_PACKAGES: "cmake pkg-config llvm"
 permissions:
   contents: write
 
