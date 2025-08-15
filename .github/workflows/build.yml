@@ -78,7 +78,7 @@ jobs:
           # rust target vendor + system + environment
           - os: android
             target_vendor_sys_env: android
-          - os: apple
+          - os: macos
             target_vendor_sys_env: apple-darwin
           - os: linux
             target_vendor_sys_env: unknown-linux-gnu
