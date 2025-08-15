@@ -15,7 +15,7 @@ env:
   CARGO_TERM_COLOR: always
   CLEWDR_FEATURE_ARGS: "--no-default-features --features embed-resource,self-update"
   APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev"
-  SCOOP_PACKAGES: "cmake perl pkg-config-lite llvm nasm zip"
+  CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm gzip"
   HOMEBREW_PACKAGES: "cmake pkg-config llvm"
 permissions:
   contents: write
@@ -112,11 +112,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ env.APT_PACKAGES }} ${{ matrix.musl_packages }}
 
-      - uses: MinoruSekine/setup-scoop@v4.0.2
+      - name: Install Chocolatey Packages
         if: matrix.os == 'windows'
-        with:
-          buckets: extras
-          apps: ${{ env.SCOOP_PACKAGES }}
+        run: choco install ${{ env.CHOCOLATEY_PACKAGES }} -y
 
       - name: Install Homebrew Packages
         if: matrix.os == 'macos'
@@ -165,6 +163,9 @@ jobs:
             mv ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.target_arch }}-linux-android/libc++_shared.so release-package/
           fi
           cd release-package
+          if [ ${{ matrix.os }} == "windows" ]; then
+            alias zip=gzip
+          fi
           zip -r ../clewdr-${{ matrix.os }}-${{matrix.target_arch}} .
 
       - name: Upload artifact
