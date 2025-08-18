@@ -10,6 +10,10 @@ fn main() {
 }
 
 fn android() {
+    #[cfg(all(feature = "mimalloc", feature = "dhat-heap"))]
+    compile_error!(
+        "feature \"mimalloc\" and feature \"dhat-heap\" cannot be enabled at the same time"
+    );
     #[cfg(all(feature = "embed-resource", feature = "external-resource"))]
     compile_error!(
         "feature \"embed-resource\" and feature \"external-resource\" cannot be enabled at the same time"

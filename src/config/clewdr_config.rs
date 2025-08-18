@@ -89,6 +89,8 @@ pub struct ClewdrConfig {
     pub auto_update: bool,
     #[serde(default)]
     pub no_fs: bool,
+    #[serde(default)]
+    pub log_to_file: bool,
 
     // Network settings, can hot reload
     #[serde(default)]
@@ -175,6 +177,7 @@ impl Default for ClewdrConfig {
             claude_code_client_id: None,
             custom_system: None,
             no_fs: false,
+            log_to_file: false,
         }
     }
 }
