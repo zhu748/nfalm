@@ -156,7 +156,7 @@ impl ClaudeWebState {
         body.files = files;
 
         // send the request
-        print_out_json(&body, "clewdr_req.json");
+        print_out_json(&body, "claude_web_clewdr_req.json");
         let endpoint = format!(
             "{}/api/organizations/{}/chat_conversations/{}/completion",
             self.endpoint, org_uuid, new_uuid

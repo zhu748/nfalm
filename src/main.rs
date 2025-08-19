@@ -73,7 +73,7 @@ async fn main() -> Result<(), ClewdrError> {
             .with_filter(env_filter),
     );
     let _guard = if !CLEWDR_CONFIG.load().no_fs && CLEWDR_CONFIG.load().log_to_file {
-        std::fs::create_dir(LOG_DIR.as_path()).expect("Failed to create log directory");
+        std::fs::create_dir_all(LOG_DIR.as_path()).expect("Failed to create log directory");
         let file_appender = tracing_appender::rolling::daily(LOG_DIR.as_path(), "clewdr.log");
         let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
         let filter = tracing_subscriber::EnvFilter::builder()

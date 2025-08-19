@@ -51,11 +51,11 @@ pub fn set_clewdr_dir() -> Result<PathBuf, ClewdrError> {
 /// # Arguments
 /// * `json` - The JSON object to serialize and output
 /// * `file_name` - The name of the file to write in the log directory
-pub fn print_out_json(json: &impl serde::ser::Serialize, file_name: &str) {
+pub fn print_out_json(json: impl serde::ser::Serialize, file_name: &str) {
     if CLEWDR_CONFIG.load().no_fs || !CLEWDR_CONFIG.load().log_to_file {
         return;
     }
-    let text = serde_json::to_string_pretty(json).unwrap_or_default();
+    let text = serde_json::to_string_pretty(&json).unwrap_or_default();
     print_out_text(text, file_name);
 }
 

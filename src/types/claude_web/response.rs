@@ -78,7 +78,7 @@ impl ClaudeWebState {
         let stream = wreq_res.bytes_stream();
         let stream = stream.eventsource();
         let text = merge_sse(stream).await?;
-        print_out_text(text.to_owned(), "non_stream.txt");
+        print_out_text(text.to_owned(), "claude_web_non_stream.txt");
         Ok(Json(CreateMessageResponse::text(
             text,
             Default::default(),
