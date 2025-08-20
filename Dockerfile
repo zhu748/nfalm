@@ -78,7 +78,7 @@ EOF
 
 FROM gcr.io/distroless/static
 COPY --from=backend-builder /build/clewdr /usr/local/bin/clewdr
-COPY --from=frontend-builder /etc/clewdr /etc/
+COPY --from=backend-builder /etc/clewdr /etc/
 ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484
 ENV CLEWDR_CHECK_UPDATE=FALSE
