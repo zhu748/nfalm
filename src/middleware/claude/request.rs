@@ -92,6 +92,9 @@ where
             }
             ClaudeApiFormat::Claude => Json::<CreateMessageParams>::from_request(req, &()).await?,
         };
+        if body.model.ends_with("-1M") {
+            body.model = body.model.trim_end_matches("-1M").to_string();
+        }        
         if body.model.ends_with("-thinking") {
             body.model = body.model.trim_end_matches("-thinking").to_string();
             body.thinking.get_or_insert(Thinking::new(4096));
