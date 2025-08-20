@@ -238,7 +238,7 @@ const MODEL_LIST: [&str; 10] = [
     "claude-sonnet-4-20250514",
     "claude-sonnet-4-20250514-thinking",
     "claude-sonnet-4-20250514-1M",
-    "claude-sonnet-4-20250514-thinking-1M",
+    "claude-sonnet-4-20250514-1M-thinking",
     "claude-opus-4-20250514",
     "claude-opus-4-20250514-thinking",
     "claude-opus-4-1-20250805",
