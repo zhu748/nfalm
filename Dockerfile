@@ -1,11 +1,11 @@
 FROM node:lts-slim AS frontend-builder
-WORKDIR /usr/src/app/frontend
+WORKDIR /build/frontend
 RUN npm install -g pnpm
 COPY frontend/ .
 RUN pnpm install && pnpm run build
 
 FROM lukemathwalker/cargo-chef:latest-rust-trixie AS chef
-WORKDIR /app
+WORKDIR /build
 
 FROM chef AS planner
 COPY . .
@@ -13,7 +13,6 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS backend-builder
 ARG TARGETPLATFORM
-WORKDIR /app
 # Install musl target and required dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -29,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 RUN rustup target add x86_64-unknown-linux-musl && \
     rustup target add aarch64-unknown-linux-musl
-COPY --from=planner /app/recipe.json recipe.json
+COPY --from=planner /build/recipe.json recipe.json
 
 # Build dependencies - this is the caching Docker layer!
 RUN <<EOF
@@ -56,7 +55,7 @@ EOF
 # Build application
 COPY . .
 ENV RUSTFLAGS="-Awarnings"
-COPY --from=frontend-builder /usr/src/app/static ./static
+COPY --from=frontend-builder /build/static .
 RUN <<EOF
 set -e
 case ${TARGETPLATFORM} in \
@@ -71,14 +70,14 @@ case ${TARGETPLATFORM} in \
     *) echo "Unsupported architecture: ${TARGETPLATFORM}" >&2; exit 1 ;; \
 esac
 cargo build --release --target ${RUST_TARGET}  --no-default-features --features embed-resource --bin clewdr
-upx --best --lzma /app/target/${RUST_TARGET}/release/clewdr
-cp /app/target/${RUST_TARGET}/release/clewdr /app/clewdr
+upx --best --lzma ./target/${RUST_TARGET}/release/clewdr
+mkdir -p /etc/clewdr && cd /etc/clewdr
+touch clewdr.toml && mkdir -p log
 EOF
 
 FROM gcr.io/distroless/static
-WORKDIR /app
-COPY --from=backend-builder /app/clewdr .
-
+COPY --from=backend-builder /build/clewdr /usr/local/bin/clewdr
+COPY --from=frontend-builder /etc/clewdr /etc/
 ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484
 ENV CLEWDR_CHECK_UPDATE=FALSE
@@ -87,4 +86,5 @@ ENV CLEWDR_TOKIO_CONSOLE=FALSE
 
 EXPOSE 8484
 
-CMD ["./clewdr"]
+VOLUME [ "/etc/clewdr" ]
+CMD ["/usr/local/bin/clewdr", "--config", "/etc/clewdr/clewdr.toml"]
