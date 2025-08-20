@@ -55,7 +55,7 @@ EOF
 # Build application
 COPY . .
 ENV RUSTFLAGS="-Awarnings"
-COPY --from=frontend-builder /build/static .
+COPY --from=frontend-builder /build/static/ ./static
 RUN <<EOF
 set -e
 case ${TARGETPLATFORM} in \
