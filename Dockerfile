@@ -71,6 +71,7 @@ case ${TARGETPLATFORM} in \
 esac
 cargo build --release --target ${RUST_TARGET}  --no-default-features --features embed-resource --bin clewdr
 upx --best --lzma ./target/${RUST_TARGET}/release/clewdr
+cp ./target/${RUST_TARGET}/release/clewdr /build/clewdr
 mkdir -p /etc/clewdr && cd /etc/clewdr
 touch clewdr.toml && mkdir -p log
 EOF
