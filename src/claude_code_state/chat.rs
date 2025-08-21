@@ -98,13 +98,22 @@ impl ClaudeCodeState {
     pub async fn send_chat(
         &mut self,
         access_token: String,
-        p: CreateMessageParams,
+        mut p: CreateMessageParams,
     ) -> Result<axum::response::Response, ClewdrError> {
+        // Check if model is 1M context version and prepare for API
+        let beta_header = if let Some(model) = p.model.strip_suffix("-1M") {
+            // Remove -1M suffix before sending to API
+            p.model = model.to_string();
+            "oauth-2025-04-20,context-1m-2025-08-07"
+        } else {
+            "oauth-2025-04-20"
+        };
+
         let api_res = self
             .client
             .post(format!("{}/v1/messages", self.endpoint))
             .bearer_auth(access_token)
-            .header("anthropic-beta", "oauth-2025-04-20")
+            .header("anthropic-beta", beta_header)
             .header("anthropic-version", "2023-06-01")
             .json(&p)
             .send()
