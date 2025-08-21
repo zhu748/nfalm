@@ -6,10 +6,9 @@ use std::{
 
 use arc_swap::ArcSwap;
 use clap::Parser;
-use tracing::error;
 use url::Url;
 
-use crate::{config::ClewdrConfig, utils::set_clewdr_dir};
+use crate::{Args, IS_DEV, config::ClewdrConfig};
 
 pub const CONFIG_NAME: &str = "clewdr.toml";
 pub const CLAUDE_ENDPOINT: &str = "https://api.anthropic.com";
@@ -23,46 +22,39 @@ pub static ENDPOINT_URL: LazyLock<Url> = LazyLock::new(|| {
         panic!("Failed to parse endpoint URL: {CLAUDE_ENDPOINT}");
     })
 });
-pub static LOG_DIR: LazyLock<PathBuf> = LazyLock::new(|| CLEWDR_DIR.join("log"));
+pub static LOG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    if let Some(path) = Args::parse().log_dir {
+        path
+    } else {
+        PORTABLE_DIR.join("log")
+    }
+});
 pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
     let config = ClewdrConfig::new();
     ArcSwap::from_pointee(config)
 });
 
-pub static ARG_COOKIE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
-    let args = crate::Args::parse();
-    if let Some(cookie_file) = args.file {
-        // canonicalize the path
-        if !cookie_file.exists() {
-            error!("No cookie file found at: {}", cookie_file.display());
-            return None;
-        }
-        cookie_file.canonicalize().ok()
-    } else {
-        None
-    }
-});
-
-pub static ARG_CONFIG_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
-    let args = crate::Args::parse();
-    if let Some(config_file) = args.config {
-        // canonicalize the path
-        config_file.canonicalize().ok()
-    } else {
-        None
-    }
-});
-
 pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    if let Some(path) = ARG_CONFIG_FILE.as_ref() {
-        path.to_owned()
+    if let Some(path) = Args::parse().config {
+        path
     } else {
-        CLEWDR_DIR.join(CONFIG_NAME)
+        PORTABLE_DIR.join(CONFIG_NAME)
     }
 });
 
-pub static CLEWDR_DIR: LazyLock<PathBuf> =
-    LazyLock::new(|| set_clewdr_dir().expect("Failed to get dir"));
+pub static PORTABLE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    if *IS_DEV {
+        // In development use cargo dir
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    } else {
+        // In production use the directory of the executable
+        std::env::current_exe()
+            .expect("Failed to get current executable path")
+            .parent()
+            .expect("Failed to get dir")
+            .to_path_buf()
+    }
+});
 
 // Default functions
 /// Default number of maximum retries for API requests

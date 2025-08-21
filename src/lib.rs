@@ -64,4 +64,6 @@ pub struct Args {
     /// Alternative config file
     #[arg(short, long)]
     pub config: Option<PathBuf>,
+    #[arg(short, long)]
+    pub log_dir: Option<PathBuf>,
 }
