@@ -7,15 +7,16 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-  workflow_dispatch:
-  
+  workflow_dispatch: # <-- 修改点 1: 允许手动触发
+
 env:
   REGISTRY: ghcr.io
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '[CI]') || contains(github.ref, 'refs/tags/v')
+    # <-- 修改点 2: 添加了对 workflow_dispatch 的判断，确保手动触发时能运行
+    if: contains(github.event.head_commit.message, '[CI]') || contains(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     outputs:
       tags: ${{ steps.meta.outputs.tags }}
       labels: ${{ steps.meta.outputs.labels }}
@@ -88,7 +89,7 @@ jobs:
         run: |
           mkdir -p ${{ runner.temp }}/digests
           digest="${{ steps.build.outputs.digest }}"
-          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+          touch "${{ runner.temp }}/digests/${digest#sha265:}"
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
