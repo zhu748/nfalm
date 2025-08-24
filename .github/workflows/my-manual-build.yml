@@ -1,83 +1,167 @@
-# ===============================================================
-# My Custom Manual Docker Build Workflow
-# ===============================================================
-# This workflow is designed ONLY for manual triggering.
-# It allows you to specify a version and choose to tag as 'latest'.
-# It is simplified and will not be affected by syncing the fork.
-# ===============================================================
-
-name: My Manual Docker Build
+name: my-manual-build
 
 on:
-  # 只有手动触发一个选项
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+#    branches: ["master"]
+#  pull_request:
+#    branches: ["master"]
   workflow_dispatch:
+    # <-- 修改点 1: 添加手动触发时的输入框
     inputs:
       version:
-        description: '输入版本标签 (例如: 1.2.3)'
+        description: 'Image version tag (e.g., 1.0.0)'
         required: true
         default: '1.0.0'
       set_latest:
-        description: '是否将此版本标记为 "latest"?'
+        description: 'Set this version as the "latest" tag'
         type: boolean
         required: true
         default: true
 
 env:
-  # 你的 GitHub Packages 仓库地址
   REGISTRY: ghcr.io
-  # 你的镜像名称 (自动获取)
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # 我们把所有步骤合并成了一个 Job，更简单清晰
-  build-and-push:
+  prepare:
     runs-on: ubuntu-latest
-    # 赋予写 Packages 的权限
+    if: contains(github.event.head_commit.message, '[CI]') || contains(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
+      image_name: ${{ steps.downcase.outputs.IMAGE_NAME }}
+    steps:
+      - name: downcase IMAGE_NAME
+        id: downcase
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY@L}" >>${GITHUB_OUTPUT}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.downcase.outputs.image_name }}
+          tags: |
+            # <-- 修改点 2: 使用你手动输入的信息来生成标签
+            # 当手动运行时，使用输入的版本号作为标签
+            type=raw,value=${{ github.event.inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+            # 保持原有的标签生成逻辑（用于自动触发）
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}},event=tag
+            type=semver,pattern={{major}}.{{minor}},event=tag
+            type=sha,format=short
+            
+            # 只有在两种情况下才打 "latest" 标签:
+            # 1. 你推送了一个 vX.Y.Z 格式的 git tag
+            # 2. 或者，你手动运行并勾选了 "Set as latest"
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.set_latest) }}
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
 
     steps:
-      # 1. 下载你的代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 登录到 GitHub Container Registry
-      - name: Log in to GitHub Container Registry
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. 准备 Docker 标签 (这是核心逻辑)
-      - name: Prepare Docker tags
-        id: docker_tags
-        run: |
-          tags=""
-          # 首先，添加你输入的版本号标签
-          tags="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}"
-          # 如果你勾选了 "set_latest"，我们再追加一个 latest 标签
-          if [[ "${{ github.event.inputs.set_latest }}" == "true" ]]; then
-            tags="$tags,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          fi
-          # 将最终的标签列表输出给下一步使用
-          echo "tags=$tags" >> $GITHUB_OUTPUT
-
-      # 4. 设置 Docker Buildx (用于构建多架构镜像)
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # 5. 构建并推送 Docker 镜像
-      - name: Build and push Docker image
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
-          # 使用上一步准备好的标签
-          tags: ${{ steps.docker_tags.outputs.tags }}
-          # 构建 amd64 和 arm64 两种架构
-          platforms: linux/amd64,linux/arm64
-          # 开启缓存以加快后续构建速度
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          labels: ${{ needs.prepare.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Export digest
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}
+          tags: |
+            type=raw,value=${{ github.event.inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}},event=tag
+            type=semver,pattern={{major}}.{{minor}},event=tag
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.set_latest) }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ needs.prepare.outputs.image_name }}:${{ steps.meta.outputs.version }}
