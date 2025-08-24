@@ -1,0 +1,83 @@
+# ===============================================================
+# My Custom Manual Docker Build Workflow
+# ===============================================================
+# This workflow is designed ONLY for manual triggering.
+# It allows you to specify a version and choose to tag as 'latest'.
+# It is simplified and will not be affected by syncing the fork.
+# ===============================================================
+
+name: My Manual Docker Build
+
+on:
+  # 只有手动触发一个选项
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '输入版本标签 (例如: 1.2.3)'
+        required: true
+        default: '1.0.0'
+      set_latest:
+        description: '是否将此版本标记为 "latest"?'
+        type: boolean
+        required: true
+        default: true
+
+env:
+  # 你的 GitHub Packages 仓库地址
+  REGISTRY: ghcr.io
+  # 你的镜像名称 (自动获取)
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 我们把所有步骤合并成了一个 Job，更简单清晰
+  build-and-push:
+    runs-on: ubuntu-latest
+    # 赋予写 Packages 的权限
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # 1. 下载你的代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 登录到 GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 3. 准备 Docker 标签 (这是核心逻辑)
+      - name: Prepare Docker tags
+        id: docker_tags
+        run: |
+          tags=""
+          # 首先，添加你输入的版本号标签
+          tags="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}"
+          # 如果你勾选了 "set_latest"，我们再追加一个 latest 标签
+          if [[ "${{ github.event.inputs.set_latest }}" == "true" ]]; then
+            tags="$tags,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+          # 将最终的标签列表输出给下一步使用
+          echo "tags=$tags" >> $GITHUB_OUTPUT
+
+      # 4. 设置 Docker Buildx (用于构建多架构镜像)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 5. 构建并推送 Docker 镜像
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # 使用上一步准备好的标签
+          tags: ${{ steps.docker_tags.outputs.tags }}
+          # 构建 amd64 和 arm64 两种架构
+          platforms: linux/amd64,linux/arm64
+          # 开启缓存以加快后续构建速度
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
