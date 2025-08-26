@@ -1,6 +1,5 @@
-# v0.11.11
+# v0.11.12
 
-## Features
+## Bug Fix
 
-- Support Claude 4 Sonnet 1M context in Claude Code.
-- Support XDG Base Directory Specification
+- Create app dir in XDG directory if it doesn't exist
