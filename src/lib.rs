@@ -51,7 +51,7 @@ pub const FIG: &str = r#"
 ((____/ / // ((____   ((__( (__/ / ((___/ / //    | |    
 "#;
 
-/// Command line arguments for the application
+/// Reverse Proxy API for Claude and Gemini
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
