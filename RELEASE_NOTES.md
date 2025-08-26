@@ -1,5 +1,6 @@
-# v0.11.10
+# v0.11.11
 
-## Bug Fixes
+## Features
 
-- Fix `thinking` field default fallback handling for Claude
+- Support Claude 4 Sonnet 1M context in Claude Code.
+- Support XDG Base Directory Specification
