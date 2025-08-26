@@ -94,7 +94,7 @@ async fn main() -> Result<(), ClewdrError> {
 
     println!("{}\n{}", FIG, *VERSION_INFO);
 
-    #[cfg(feature = "self-update")]
+    #[cfg(feature = "portable")]
     {
         use tracing::warn;
         let updater = clewdr::services::update::ClewdrUpdater::new()?;

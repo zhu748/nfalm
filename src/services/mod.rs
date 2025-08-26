@@ -1,4 +1,4 @@
 pub mod cookie_actor;
 pub mod key_actor;
-#[cfg(feature = "self-update")]
+#[cfg(feature = "portable")]
 pub mod update;

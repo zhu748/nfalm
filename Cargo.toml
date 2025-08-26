@@ -89,9 +89,9 @@ enable-ansi-support = "0.2"
 
 
 [features]
-default = ["self-update", "external-resource"]
+default = ["portable", "external-resource"]
 tokio-console = ["dep:console-subscriber", "tokio/tracing"]
-self-update = ["dep:zip", "dep:self-replace", "dep:tempfile"]
+portable = ["dep:zip", "dep:self-replace", "dep:tempfile"]
 embed-resource = ["dep:tower-serve-static", "dep:include_dir"]
 external-resource = ["tower-http/fs"]
 mimalloc = ["dep:mimalloc"]
