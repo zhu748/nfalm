@@ -17,6 +17,7 @@ env:
   APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev"
   CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm zip"
   HOMEBREW_PACKAGES: "cmake llvm"
+  BIN_NAME: "clewdr"
 permissions:
   contents: write
 
@@ -156,20 +157,20 @@ jobs:
       - name: Move artifact to work dir and zip
         shell: bash
         run: |
-          mv target/${{ steps.target.outputs.triple }}/release/clewdr .
+          mv target/${{ steps.target.outputs.triple }}/release/${{ env.BIN_NAME }} .
           mkdir -p release-package
-          mv clewdr release-package/
+          mv ${{ env.BIN_NAME }} release-package/
           if [ ${{ matrix.os }} == "android" ]; then
             mv ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.target_arch }}-linux-android/libc++_shared.so release-package/
           fi
           cd release-package
-          zip -r ../clewdr-${{ matrix.os }}-${{matrix.target_arch}} .
+          zip -r ../${{ env.BIN_NAME }}-${{ matrix.os }}-${{matrix.target_arch}} .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clewdr-${{ matrix.os }}-${{matrix.target_arch}}
-          path: clewdr-${{ matrix.os }}-${{matrix.target_arch}}.zip
+          name: ${{ env.BIN_NAME }}-${{ matrix.os }}-${{matrix.target_arch}}
+          path: ${{ env.BIN_NAME }}-${{ matrix.os }}-${{matrix.target_arch}}.zip
           retention-days: 1
 
   release:
@@ -194,7 +195,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/clewdr*.zip
+          files: artifacts/**/${{ env.BIN_NAME }}*.zip
           name: ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md # Use release notes file
           draft: false
