@@ -49,7 +49,7 @@ cat > ~/.cargo/config.toml <<EOM
 [target.${RUST_TARGET}]
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 EOM
-cargo chef cook --release --target ${RUST_TARGET} --no-default-features --features embed-resource --recipe-path recipe.json
+cargo chef cook --release --target ${RUST_TARGET} --no-default-features --features embed-resource,xdg --recipe-path recipe.json
 EOF
 
 # Build application
@@ -83,7 +83,6 @@ ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484
 ENV CLEWDR_CHECK_UPDATE=FALSE
 ENV CLEWDR_AUTO_UPDATE=FALSE
-ENV CLEWDR_TOKIO_CONSOLE=FALSE
 
 EXPOSE 8484
 
