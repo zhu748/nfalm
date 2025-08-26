@@ -49,7 +49,7 @@ cat > ~/.cargo/config.toml <<EOM
 [target.${RUST_TARGET}]
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 EOM
-cargo chef cook --release --target ${RUST_TARGET} --no-default-features --features embed-resource --recipe-path recipe.json
+cargo chef cook --release --target ${RUST_TARGET} --no-default-features --features embed-resource,xdg --recipe-path recipe.json
 EOF
 
 # Build application
@@ -69,7 +69,7 @@ case ${TARGETPLATFORM} in \
         ;; \
     *) echo "Unsupported architecture: ${TARGETPLATFORM}" >&2; exit 1 ;; \
 esac
-cargo build --release --target ${RUST_TARGET}  --no-default-features --features embed-resource --bin clewdr
+cargo build --release --target ${RUST_TARGET}  --no-default-features --features embed-resource,xdg --bin clewdr
 upx --best --lzma ./target/${RUST_TARGET}/release/clewdr
 cp ./target/${RUST_TARGET}/release/clewdr /build/clewdr
 mkdir -p /etc/clewdr && cd /etc/clewdr
@@ -83,7 +83,6 @@ ENV CLEWDR_IP=0.0.0.0
 ENV CLEWDR_PORT=8484
 ENV CLEWDR_CHECK_UPDATE=FALSE
 ENV CLEWDR_AUTO_UPDATE=FALSE
-ENV CLEWDR_TOKIO_CONSOLE=FALSE
 
 EXPOSE 8484
 

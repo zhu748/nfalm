@@ -1,6 +1,6 @@
 [package]
 name = "clewdr"
-version = "0.11.10"
+version = "0.11.12"
 edition = "2024"
 authors = ["Xerxes-2"]
 license = "AGPL-3.0"
@@ -18,21 +18,21 @@ panic = "abort"
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 wreq = { version = "5", features = [
+    "cookies",
     "json",
-    "stream",
     "multipart",
     "socks",
-    "cookies",
+    "stream",
 ] }
 wreq-util = "2"
 serde_json = "1"
 const_format = { version = "0.2", features = ["fmt"] }
 serde = { version = "1", features = ["derive"] }
 colored = "3"
-axum = { version = "0.8", features = ["json", "tracing", "tokio", "macros"] }
+axum = { version = "0.8", features = ["macros"] }
 regex = "1"
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["chrono", "env-filter"] }
 chrono = "0.4"
 futures = "0.3"
 thiserror = "2"
@@ -70,9 +70,9 @@ async-stream = "0.3"
 struct_iterable = "0.1"
 console-subscriber = { version = "0.4", optional = true }
 yup-oauth2 = { version = "12", default-features = false, features = [
-    "service-account",
     "aws-lc-rs",
     "hyper-rustls",
+    "service-account",
 ] }
 hyper-util = "0.1"
 hyper-http-proxy = "1"
@@ -80,18 +80,20 @@ http = "1"
 snafu = { version = "0.8", features = ["futures", "rust_1_81"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
 oauth2 = { version = "5", default-features = false }
-ractor = { version = "0.15" }
+ractor = "0.15"
 mimalloc = { version = "0.1", optional = true }
 dhat = { version = "0", optional = true }
+etcetera = { version = "0", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 enable-ansi-support = "0.2"
 
 
 [features]
-default = ["self-update", "external-resource"]
+default = ["portable", "external-resource"]
 tokio-console = ["dep:console-subscriber", "tokio/tracing"]
-self-update = ["dep:zip", "dep:self-replace", "dep:tempfile"]
+portable = ["dep:zip", "dep:self-replace", "dep:tempfile"]
+xdg = ["dep:etcetera"]
 embed-resource = ["dep:tower-serve-static", "dep:include_dir"]
 external-resource = ["tower-http/fs"]
 mimalloc = ["dep:mimalloc"]

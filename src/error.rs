@@ -102,7 +102,7 @@ pub enum ClewdrError {
     },
     #[snafu(display("Zip error: {}", source))]
     #[snafu(context(false))]
-    #[cfg(feature = "self-update")]
+    #[cfg(feature = "portable")]
     ZipError { source: zip::result::ZipError },
     #[snafu(display("Asset Error: {}", msg))]
     AssetError { msg: String },

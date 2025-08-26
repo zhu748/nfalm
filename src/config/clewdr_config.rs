@@ -331,6 +331,11 @@ impl ClewdrConfig {
         if self.no_fs {
             return Ok(());
         }
+        if let Some(parent) = CONFIG_PATH.parent()
+            && !parent.exists()
+        {
+            tokio::fs::create_dir_all(parent).await?;
+        }
         Ok(tokio::fs::write(CONFIG_PATH.as_path(), toml::ser::to_string_pretty(self)?).await?)
     }
 

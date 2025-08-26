@@ -1,5 +1,5 @@
-# v0.11.10
+# v0.11.12
 
-## Bug Fixes
+## Bug Fix
 
-- Fix `thinking` field default fallback handling for Claude
+- Create app dir in XDG directory if it doesn't exist

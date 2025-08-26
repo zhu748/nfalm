@@ -8,7 +8,7 @@ use arc_swap::ArcSwap;
 use clap::Parser;
 use url::Url;
 
-use crate::{Args, IS_DEV, config::ClewdrConfig};
+use crate::{Args, config::ClewdrConfig};
 
 pub const CONFIG_NAME: &str = "clewdr.toml";
 pub const CLAUDE_ENDPOINT: &str = "https://api.anthropic.com";
@@ -26,7 +26,21 @@ pub static LOG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     if let Some(path) = Args::parse().log_dir {
         path
     } else {
-        PORTABLE_DIR.join("log")
+        #[cfg(feature = "portable")]
+        {
+            PORTABLE_DIR.join("log")
+        }
+        #[cfg(feature = "xdg")]
+        {
+            use etcetera::{AppStrategy, AppStrategyArgs, choose_app_strategy};
+            let strategy = choose_app_strategy(AppStrategyArgs {
+                top_level_domain: "org".to_string(),
+                author: "Xerxes-2".to_string(),
+                app_name: "clewdr".to_string(),
+            })
+            .expect("Failed to choose app strategy");
+            strategy.in_data_dir("log")
+        }
     }
 });
 pub static CLEWDR_CONFIG: LazyLock<ArcSwap<ClewdrConfig>> = LazyLock::new(|| {
@@ -38,11 +52,27 @@ pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     if let Some(path) = Args::parse().config {
         path
     } else {
-        PORTABLE_DIR.join(CONFIG_NAME)
+        #[cfg(feature = "portable")]
+        {
+            PORTABLE_DIR.join(CONFIG_NAME)
+        }
+        #[cfg(feature = "xdg")]
+        {
+            use etcetera::{AppStrategy, AppStrategyArgs, choose_app_strategy};
+            let strategy = choose_app_strategy(AppStrategyArgs {
+                top_level_domain: "org".to_string(),
+                author: "Xerxes-2".to_string(),
+                app_name: "clewdr".to_string(),
+            })
+            .expect("Failed to choose app strategy");
+            strategy.in_config_dir(CONFIG_NAME)
+        }
     }
 });
 
-pub static PORTABLE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+#[cfg(feature = "portable")]
+static PORTABLE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    use crate::IS_DEV;
     if *IS_DEV {
         // In development use cargo dir
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
