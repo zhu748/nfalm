@@ -55,6 +55,7 @@ pub const FIG: &str = r#"
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
+    #[cfg(feature = "portable")]
     #[arg(short, long)]
     /// Force update of the application
     pub update: bool,
@@ -65,5 +66,6 @@ pub struct Args {
     #[arg(short, long)]
     pub config: Option<PathBuf>,
     #[arg(short, long)]
+    /// Alternative log directory
     pub log_dir: Option<PathBuf>,
 }
