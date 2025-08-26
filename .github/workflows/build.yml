@@ -14,9 +14,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CLEWDR_FEATURE_ARGS: "--no-default-features --features embed-resource,self-update"
-  APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev upx-ucl"
-  CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm zip upx"
-  HOMEBREW_PACKAGES: "cmake llvm upx"
+  APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev"
+  CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm zip"
+  HOMEBREW_PACKAGES: "cmake llvm"
 permissions:
   contents: write
 
@@ -163,7 +163,6 @@ jobs:
             mv ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.target_arch }}-linux-android/libc++_shared.so release-package/
           fi
           cd release-package
-          upx --best --lzma clewdr || true
           zip -r ../clewdr-${{ matrix.os }}-${{matrix.target_arch}} .
 
       - name: Upload artifact
