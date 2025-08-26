@@ -83,6 +83,7 @@ oauth2 = { version = "5", default-features = false }
 ractor = "0.15"
 mimalloc = { version = "0.1", optional = true }
 dhat = { version = "0", optional = true }
+etcetera = { version = "0", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 enable-ansi-support = "0.2"
@@ -92,6 +93,7 @@ enable-ansi-support = "0.2"
 default = ["portable", "external-resource"]
 tokio-console = ["dep:console-subscriber", "tokio/tracing"]
 portable = ["dep:zip", "dep:self-replace", "dep:tempfile"]
+xdg = ["dep:etcetera"]
 embed-resource = ["dep:tower-serve-static", "dep:include_dir"]
 external-resource = ["tower-http/fs"]
 mimalloc = ["dep:mimalloc"]

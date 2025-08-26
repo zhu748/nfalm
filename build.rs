@@ -20,6 +20,10 @@ fn android() {
     );
     #[cfg(not(any(feature = "embed-resource", feature = "external-resource")))]
     compile_error!("feature \"embed-resource\" or feature \"external-resource\" must be enabled");
+    #[cfg(not(any(feature = "portable", feature = "xdg")))]
+    compile_error!("feature \"portable\" or feature \"xdg\" must be enabled");
+    #[cfg(all(feature = "portable", feature = "xdg"))]
+    compile_error!("feature \"portable\" and feature \"xdg\" cannot be enabled at the same time");
     println!("cargo:rustc-link-lib=c++_shared");
     let out_dir = env::var("OUT_DIR").unwrap();
     let output_path = env::var("CARGO_NDK_OUTPUT_PATH").unwrap_or(out_dir);
