@@ -1,5 +1,5 @@
-# v0.11.12
+# v0.11.13
 
-## Bug Fix
+## Bug Fixes
 
-- Create app dir in XDG directory if it doesn't exist
+- Specify log directory for clewdr in Dockerfile
