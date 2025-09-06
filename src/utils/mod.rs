@@ -1,6 +1,6 @@
 use axum::body::Body;
 use colored::{ColoredString, Colorize};
-use tokio::{io::AsyncWriteExt, spawn};
+use tokio::spawn;
 use tracing::error;
 
 use crate::{
@@ -41,17 +41,7 @@ pub fn print_out_text(text: String, file_name: &str) {
     }
     let file_name = LOG_DIR.join(file_name);
     spawn(async move {
-        let Ok(mut file) = tokio::fs::File::options()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&file_name)
-            .await
-        else {
-            error!("Failed to open file: {}", file_name.display());
-            return;
-        };
-        if let Err(e) = file.write_all(text.as_bytes()).await {
+        if let Err(e) = tokio::fs::write(file_name, text).await {
             error!("Failed to write to file: {}\n", e);
         }
     });
