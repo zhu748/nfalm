@@ -18,8 +18,6 @@ pub enum Reason {
     Disabled,
     Banned,
     Null,
-    /// Upstream returned 403 Forbidden; message provides additional context
-    Forbidden(String),
     Restricted(i64),
     TooManyRequest(i64),
 }
@@ -38,7 +36,6 @@ impl Display for Reason {
             Reason::NonPro => write!(f, "Free account"),
             Reason::Banned => write!(f, "Banned"),
             Reason::Null => write!(f, "Null"),
-            Reason::Forbidden(msg) => write!(f, "403 Forbidden: {}", msg),
             Reason::Restricted(i) => {
                 write!(f, "Restricted/Warning: until {}", colored_time(*i))
             }
