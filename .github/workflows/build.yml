@@ -15,7 +15,7 @@ env:
   CARGO_TERM_COLOR: always
   CLEWDR_FEATURE_ARGS: "--no-default-features --features embed-resource,portable"
   APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev"
-  CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm zip"
+  CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm"
   HOMEBREW_PACKAGES: "llvm"
   BIN_NAME: "clewdr"
 permissions:
