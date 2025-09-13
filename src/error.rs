@@ -406,6 +406,18 @@ impl CheckClaudeErr for Response {
         if status == 401 {
             return Err(Reason::Null.into());
         }
+        const OAUTH_403_PHRASE: &str =
+            "oauth authentication is currently not allowed for this organization";
+        if status == 403
+            && err
+                .error
+                .message
+                .to_string()
+                .to_ascii_lowercase()
+                .contains(OAUTH_403_PHRASE)
+        {
+            return Err(Reason::Null.into());
+        }
         let inner_error = err.error;
         // check if the error is a rate limit error
         if status == 429 {

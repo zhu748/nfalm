@@ -15,7 +15,7 @@ env:
   CARGO_TERM_COLOR: always
   CLEWDR_FEATURE_ARGS: "--no-default-features --features embed-resource,portable"
   APT_PACKAGES: "build-essential cmake perl pkg-config libclang-dev"
-  CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm zip"
+  CHOCOLATEY_PACKAGES: "cmake strawberryperl pkgconfiglite llvm nasm"
   HOMEBREW_PACKAGES: "llvm"
   BIN_NAME: "clewdr"
 permissions:
@@ -28,16 +28,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
           check-latest: true
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: latest
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Build frontend
         run: |
@@ -107,15 +109,16 @@ jobs:
           ndk-version: r27c
           add-to-path: true
 
-      - name: Install APT Packages
+      - name: Install APT packages
         if: contains(matrix.runner, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ env.APT_PACKAGES }} ${{ matrix.musl_packages }}
+          sudo apt-get install -y ${{ matrix.musl_packages }} ${{ env.APT_PACKAGES }}
 
       - name: Install Chocolatey Packages
         if: matrix.os == 'windows'
-        run: choco install ${{ env.CHOCOLATEY_PACKAGES }} -y
+        run: |
+          choco install -y ${{ env.CHOCOLATEY_PACKAGES }}
 
       - name: Install Homebrew Packages
         if: matrix.os == 'macos'
@@ -124,6 +127,8 @@ jobs:
           brew install ${{ env.HOMEBREW_PACKAGES }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ steps.target.outputs.triple }}
 
       - name: Download static files
         uses: actions/download-artifact@v4
@@ -164,7 +169,11 @@ jobs:
             mv ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.target_arch }}-linux-android/libc++_shared.so release-package/
           fi
           cd release-package
-          zip -r ../${{ env.BIN_NAME }}-${{ matrix.os }}-${{matrix.target_arch}} .
+          if [ ${{ matrix.os }} == "windows" ]; then
+            7z a -tzip ../${{ env.BIN_NAME }}-${{ matrix.os }}-${{matrix.target_arch}}.zip *
+          else
+            zip -r ../${{ env.BIN_NAME }}-${{ matrix.os }}-${{matrix.target_arch}}.zip .
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
