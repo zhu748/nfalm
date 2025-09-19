@@ -6,6 +6,7 @@ import { ConfigData } from "../../types/config.types";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 import ConfigForm from "./ConfigForm";
+import { StorageSummary } from "./StorageSummary";
 
 const ConfigTab: React.FC = () => {
   const { t } = useTranslation();
@@ -199,58 +200,14 @@ const ConfigTab: React.FC = () => {
       </div>
 
       <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-gray-300">Persistence Mode</div>
-            <div className="text-white font-medium">
-              {config?.persistence?.mode ?? "file"}
-            </div>
-            {status && (
-              <div className="text-xs text-gray-400 mt-1">
-                Health: {status.healthy ? "OK" : "DOWN"}
-                {status.details?.driver && (
-                  <div>driver: {status.details.driver}</div>
-                )}
-                {typeof status.details?.latency_ms === "number" && (
-                  <div>latency_ms: {status.details.latency_ms}</div>
-                )}
-                {status.details?.sqlite_path && (
-                  <div>sqlite_path: {status.details.sqlite_path}</div>
-                )}
-                {status.details?.database_url && (
-                  <div>database_url: {status.details.database_url}</div>
-                )}
-                {typeof status.last_write_ts === "number" && status.last_write_ts > 0 && (
-                  <div>
-                    last_write: {new Date(status.last_write_ts * 1000).toLocaleString()}
-                  </div>
-                )}
-                {typeof status.total_writes === "number" && (
-                  <div>total_writes: {status.total_writes}</div>
-                )}
-                {typeof status.avg_write_ms === "number" && (
-                  <div>avg_write_ms: {status.avg_write_ms.toFixed(2)}</div>
-                )}
-                {typeof status.failure_ratio === "number" && (
-                  <div>failure_ratio: {(status.failure_ratio * 100).toFixed(2)}%</div>
-                )}
-                {typeof status.retry_count === "number" && (
-                  <div>retry_count: {status.retry_count}</div>
-                )}
-                {typeof status.write_error_count === "number" && (
-                  <div>write_errors: {status.write_error_count}</div>
-                )}
-                {status.error && <div>error: {status.error}</div>}
-                {status.last_error && <div>last_error: {status.last_error}</div>}
-              </div>
-            )}
-          </div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <StorageSummary status={status} mode={config?.persistence?.mode} />
           <div className="flex gap-2">
             <Button
               onClick={async () => {
                 try {
                   await storageImport();
-                  toast.success("Imported to DB");
+                  toast.success(t("config.storage.importSuccess"));
                 } catch (e) {
                   toast.error((e as Error).message);
                 }
@@ -259,13 +216,26 @@ const ConfigTab: React.FC = () => {
               className="py-1 px-3"
               disabled={(config?.persistence?.mode ?? "file") === "file"}
             >
-              Import from file
+              {t("config.storage.import")}
             </Button>
             <Button
               onClick={async () => {
                 try {
-                  await storageExport();
-                  toast.success("Exported to file");
+                  const res = await storageExport();
+                  if (res?.toml) {
+                    const blob = new Blob([res.toml], {
+                      type: "text/plain;charset=utf-8",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = "clewdr-export.toml";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }
+                  toast.success(t("config.storage.exportSuccess"));
                 } catch (e) {
                   toast.error((e as Error).message);
                 }
@@ -274,7 +244,7 @@ const ConfigTab: React.FC = () => {
               className="py-1 px-3"
               disabled={(config?.persistence?.mode ?? "file") === "file"}
             >
-              Export to file
+              {t("config.storage.export")}
             </Button>
           </div>
         </div>

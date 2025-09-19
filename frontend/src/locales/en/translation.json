@@ -144,6 +144,40 @@
         "customA": "Custom Assistant (optional)",
         "customPrompt": "Custom Prompt"
       }
+    },
+    "storage": {
+      "modeLabel": "Persistence Mode",
+      "modes": {
+        "file": "File (default)",
+        "sqlite": "SQLite",
+        "postgres": "PostgreSQL",
+        "mysql": "MySQL"
+      },
+      "healthLabel": "Health",
+      "health": {
+        "ok": "OK",
+        "down": "DOWN"
+      },
+      "driver": "Driver: {{driver}}",
+      "latency": "Latency (ms): {{latency}}",
+      "sqlitePath": "SQLite path: {{path}}",
+      "databaseUrl": "Database URL: {{url}}",
+      "lastWrite": "Last write: {{time}}",
+      "totalWrites": "Total writes: {{count}}",
+      "avgWriteMs": "Average write (ms): {{ms}}",
+      "failureRatio": "Failure ratio: {{ratio}}%",
+      "retryCount": "Retry count: {{count}}",
+      "writeErrors": "Write errors: {{count}}",
+      "error": "Error: {{error}}",
+      "lastError": "Last error: {{error}}",
+      "details": {
+        "show": "Show details",
+        "hide": "Hide details"
+      },
+      "import": "Import from file",
+      "export": "Export to file",
+      "importSuccess": "Configuration imported into the database",
+      "exportSuccess": "Configuration exported"
     }
   },
   "common": {

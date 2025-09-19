@@ -384,12 +384,14 @@ impl ClewdrConfig {
             }
         }
         let config = config.validate();
-        let config_clone = config.to_owned();
-        spawn(async move {
-            config_clone.save().await.unwrap_or_else(|e| {
-                error!("Failed to save config: {}", e);
+        if !config.is_db_mode() {
+            let config_clone = config.to_owned();
+            spawn(async move {
+                config_clone.save().await.unwrap_or_else(|e| {
+                    error!("Failed to save config: {}", e);
+                });
             });
-        });
+        }
         config
     }
 
