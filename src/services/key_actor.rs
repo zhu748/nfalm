@@ -5,6 +5,7 @@ use serde::Serialize;
 use snafu::{GenerateImplicitData, Location};
 use tracing::{error, info};
 
+use crate::persistence::StorageLayer;
 use crate::{
     config::{CLEWDR_CONFIG, ClewdrConfig, KeyStatus},
     error::ClewdrError,
@@ -34,7 +35,9 @@ enum KeyActorMessage {
 type KeyActorState = VecDeque<KeyStatus>;
 
 /// Key actor that handles key distribution and status tracking using Ractor
-struct KeyActor;
+struct KeyActor {
+    storage: &'static dyn StorageLayer,
+}
 
 impl KeyActor {
     /// Saves the current state of keys to the configuration
@@ -129,6 +132,17 @@ impl Actor for KeyActor {
             }
             KeyActorMessage::Submit(key) => {
                 Self::accept(state, key);
+                let storage = self.storage;
+                if storage.is_enabled() {
+                    let k = state.back().cloned();
+                    if let Some(k) = k {
+                        tokio::spawn(async move {
+                            if let Err(e) = storage.persist_key_upsert(&k).await {
+                                error!("Failed to upsert key: {}", e);
+                            }
+                        });
+                    }
+                }
             }
             KeyActorMessage::Request(reply_port) => {
                 let result = Self::dispatch(state);
@@ -139,8 +153,17 @@ impl Actor for KeyActor {
                 reply_port.send(status_info)?;
             }
             KeyActorMessage::Delete(key, reply_port) => {
-                let result = Self::delete(state, key);
+                let result = Self::delete(state, key.clone());
+                let ok = result.is_ok();
                 reply_port.send(result)?;
+                if ok && self.storage.is_enabled() {
+                    let storage = self.storage;
+                    tokio::spawn(async move {
+                        if let Err(e) = storage.delete_key_row(&key).await {
+                            error!("Failed to delete key row: {}", e);
+                        }
+                    });
+                }
             }
         }
         Ok(())
@@ -165,8 +188,19 @@ pub struct KeyActorHandle {
 impl KeyActorHandle {
     /// Create a new KeyActor and return a handle to it
     pub async fn start() -> Result<Self, ractor::SpawnErr> {
-        let (actor_ref, _join_handle) =
-            Actor::spawn(None, KeyActor, CLEWDR_CONFIG.load().gemini_keys.clone()).await?;
+        Self::start_with_storage(crate::persistence::storage()).await
+    }
+
+    /// Create a new KeyActor with injected storage layer
+    pub async fn start_with_storage(
+        storage: &'static dyn StorageLayer,
+    ) -> Result<Self, ractor::SpawnErr> {
+        let (actor_ref, _join_handle) = Actor::spawn(
+            None,
+            KeyActor { storage },
+            CLEWDR_CONFIG.load().gemini_keys.clone(),
+        )
+        .await?;
         Ok(Self { actor_ref })
     }
 
