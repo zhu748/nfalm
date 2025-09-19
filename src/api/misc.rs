@@ -8,11 +8,46 @@ use wreq::StatusCode;
 use crate::{
     VERSION_INFO,
     config::{CLEWDR_CONFIG, CookieStatus, KeyStatus},
+    persistence,
     services::{
         cookie_actor::{CookieActorHandle, CookieStatusInfo},
         key_actor::{KeyActorHandle, KeyStatusInfo},
     },
 };
+
+const DB_UNAVAILABLE_MESSAGE: &str = "Database storage is unavailable";
+
+async fn ensure_db_writable() -> Result<(), ApiError> {
+    let storage = persistence::storage();
+    if !storage.is_enabled() {
+        return Ok(());
+    }
+
+    match storage.status().await {
+        Ok(status) => {
+            let is_healthy = status
+                .get("healthy")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if is_healthy {
+                return Ok(());
+            }
+
+            if let Some(detail) = status
+                .get("error")
+                .and_then(|v| v.as_str())
+                .or_else(|| status.get("last_error").and_then(|v| v.as_str()))
+            {
+                warn!("Database health check failed: {detail}");
+            }
+        }
+        Err(e) => {
+            warn!("Database status fetch failed: {}", e);
+        }
+    }
+
+    Err(ApiError::service_unavailable(DB_UNAVAILABLE_MESSAGE))
+}
 
 /// API endpoint to submit a new cookie
 /// Validates and adds the cookie to the cookie manager
@@ -28,20 +63,24 @@ pub async fn api_post_cookie(
     State(s): State<CookieActorHandle>,
     AuthBearer(t): AuthBearer,
     Json(mut c): Json<CookieStatus>,
-) -> StatusCode {
+) -> Result<StatusCode, ApiError> {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
-        return StatusCode::UNAUTHORIZED;
+        return Err(ApiError::unauthorized());
     }
+    ensure_db_writable().await?;
     c.reset_time = None;
     info!("Cookie accepted: {}", c.cookie);
     match s.submit(c).await {
         Ok(_) => {
             info!("Cookie submitted successfully");
-            StatusCode::OK
+            Ok(StatusCode::OK)
         }
         Err(e) => {
             error!("Failed to submit cookie: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
+            Err(ApiError::internal(format!(
+                "Failed to submit cookie: {}",
+                e
+            )))
         }
     }
 }
@@ -50,23 +89,24 @@ pub async fn api_post_key(
     State(s): State<KeyActorHandle>,
     AuthBearer(t): AuthBearer,
     Json(c): Json<KeyStatus>,
-) -> StatusCode {
+) -> Result<StatusCode, ApiError> {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
-        return StatusCode::UNAUTHORIZED;
+        return Err(ApiError::unauthorized());
     }
     if !c.key.validate() {
         warn!("Invalid key: {}", c.key);
-        return StatusCode::BAD_REQUEST;
+        return Err(ApiError::bad_request("Invalid key"));
     }
+    ensure_db_writable().await?;
     info!("Key accepted: {}", c.key);
     match s.submit(c).await {
         Ok(_) => {
             info!("Key submitted successfully");
-            StatusCode::OK
+            Ok(StatusCode::OK)
         }
         Err(e) => {
             error!("Failed to submit key: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
+            Err(ApiError::internal(format!("Failed to submit key: {}", e)))
         }
     }
 }
@@ -133,6 +173,8 @@ pub async fn api_delete_cookie(
         return Err(ApiError::unauthorized());
     }
 
+    ensure_db_writable().await?;
+
     match s.delete_cookie(c.to_owned()).await {
         Ok(_) => {
             info!("Cookie deleted successfully: {}", c.cookie);
@@ -160,6 +202,8 @@ pub async fn api_delete_key(
         warn!("Invalid key: {}", c.key);
         return Err(ApiError::bad_request("Invalid key"));
     }
+
+    ensure_db_writable().await?;
 
     match s.delete_key(c.to_owned()).await {
         Ok(_) => {

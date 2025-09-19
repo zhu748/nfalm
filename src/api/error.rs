@@ -35,6 +35,12 @@ impl ApiError {
             body: serde_json::json!({"error": msg.into()}),
         }
     }
+    pub fn service_unavailable(msg: impl Into<String>) -> Self {
+        Self {
+            code: StatusCode::SERVICE_UNAVAILABLE,
+            body: serde_json::json!({"error": msg.into()}),
+        }
+    }
 }
 
 impl IntoResponse for ApiError {

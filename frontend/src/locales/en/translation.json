@@ -49,7 +49,8 @@
       "empty": "Please enter at least one cookie",
       "format": "Invalid cookie format",
       "auth": "Authentication failed. Please set a valid auth token.",
-      "server": "Server error."
+      "server": "Server error.",
+      "storage": "Database storage is unavailable. Please try again after fixing the connection."
     }
   },
   "cookieStatus": {
@@ -185,7 +186,8 @@
     "error": "Error: {{message}}",
     "reveal": "Reveal",
     "hide": "Hide",
-    "copy": "Copy to clipboard"
+    "copy": "Copy to clipboard",
+    "dbUnavailable": "Database storage is unavailable. Please check the database configuration and retry."
   },
   "keyTab": {
     "submit": "Submit Key",
@@ -207,7 +209,8 @@
     "error": {
       "empty": "Please enter at least one key",
       "auth": "Authentication failed. Please set a valid auth token.",
-      "server": "Server error."
+      "server": "Server error.",
+      "storage": "Database storage is unavailable. Please try again after fixing the connection."
     }
   },
   "keyStatus": {

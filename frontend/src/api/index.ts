@@ -51,6 +51,17 @@ export async function postCookie(cookie: string) {
     throw new Error("Authentication failed. Please set a valid auth token.");
   } else if (response.status === 500) {
     throw new Error("Server error.");
+  } else if (response.status === 503) {
+    let message = "Database storage is unavailable";
+    try {
+      const data = await response.json();
+      if (typeof data?.error === "string") {
+        message = data.error;
+      }
+    } catch (error) {
+      console.warn("Failed to parse error response for cookie submission", error);
+    }
+    throw new Error(message);
   }
 
   if (!response.ok) {

@@ -29,6 +29,17 @@ export async function postKey(key: string) {
     throw new Error("Server error.");
   } else if (response.status === 400) {
     throw new Error("Invalid key format");
+  } else if (response.status === 503) {
+    let message = "Database storage is unavailable";
+    try {
+      const data = await response.json();
+      if (typeof data?.error === "string") {
+        message = data.error;
+      }
+    } catch (error) {
+      console.warn("Failed to parse error response for key submission", error);
+    }
+    throw new Error(message);
   }
 
   if (!response.ok) {
