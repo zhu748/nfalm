@@ -33,7 +33,7 @@ pub async fn api_storage_export(
         return Err(ApiError::unauthorized());
     }
     if persistence::storage().is_enabled() {
-        match persistence::storage().export_to_file().await {
+        match persistence::storage().export_current_config().await {
             Ok(v) => Ok(Json(v)),
             Err(e) => Err(ApiError::internal(e.to_string())),
         }
@@ -44,10 +44,10 @@ pub async fn api_storage_export(
 
 /// DB status: enabled/mode/healthy/details/metrics
 pub async fn api_storage_status() -> Json<serde_json::Value> {
-    if persistence::storage().is_enabled() {
-        if let Ok(s) = persistence::storage().status().await {
-            return Json(s);
-        }
+    if persistence::storage().is_enabled()
+        && let Ok(s) = persistence::storage().status().await
+    {
+        return Json(s);
     }
     Json(json!({
         "enabled": false,

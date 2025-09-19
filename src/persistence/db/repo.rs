@@ -300,7 +300,7 @@ pub async fn import_config_from_file() -> Result<serde_json::Value, ClewdrError>
     Ok(json!({"status":"ok"}))
 }
 
-pub async fn export_config_to_file() -> Result<serde_json::Value, ClewdrError> {
+pub async fn export_current_config() -> Result<serde_json::Value, ClewdrError> {
     // Reconstruct latest runtime config from DB rows
     let db = ensure_conn().await?;
     // base config from DB row or current
@@ -355,18 +355,14 @@ pub async fn export_config_to_file() -> Result<serde_json::Value, ClewdrError> {
         });
     }
 
-    // write file
-    if let Some(parent) = crate::config::CONFIG_PATH.parent() {
-        if !parent.exists() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
+    if crate::config::CLEWDR_CONFIG.load().no_fs {
+        return Err(ClewdrError::Whatever {
+            message: "File export disabled when no_fs is enabled".into(),
+            source: None,
+        });
     }
-    tokio::fs::write(
-        crate::config::CONFIG_PATH.as_path(),
-        toml::to_string_pretty(&cfg)?,
-    )
-    .await?;
-    Ok(json!({"status":"ok"}))
+    let toml = toml::to_string_pretty(&cfg)?;
+    Ok(json!({"toml": toml}))
 }
 
 pub async fn persist_cookies(

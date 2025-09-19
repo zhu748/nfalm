@@ -12,10 +12,8 @@ static CONN: LazyLock<std::sync::Mutex<Option<DatabaseConnection>>> =
     LazyLock::new(|| std::sync::Mutex::new(None));
 
 pub async fn ensure_conn() -> Result<DatabaseConnection, ClewdrError> {
-    if let Ok(g) = CONN.lock() {
-        if let Some(db) = g.as_ref() {
-            return Ok(db.clone());
-        }
+    if let Ok(Some(db)) = CONN.lock().map(|g| g.as_ref().cloned()) {
+        return Ok(db);
     }
     let cfg = crate::config::CLEWDR_CONFIG.load();
     if !cfg.is_db_mode() {
@@ -24,13 +22,10 @@ pub async fn ensure_conn() -> Result<DatabaseConnection, ClewdrError> {
             source: None,
         });
     }
-    let url = cfg
-        .database_url()
-        .or_else(|| std::env::var("CLEWDR_DATABASE_URL").ok())
-        .ok_or(ClewdrError::UnexpectedNone {
-            msg: "Database URL not provided",
-        })?;
-    if url.starts_with("sqlite://") {
+    let url = cfg.database_url().ok_or(ClewdrError::UnexpectedNone {
+        msg: "Database URL not provided",
+    })?;
+    if url.starts_with("sqlite://") && !cfg.no_fs {
         if let Some(parent) = std::path::Path::new(&url["sqlite://".len()..]).parent() {
             let _ = std::fs::create_dir_all(parent);
         }

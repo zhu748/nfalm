@@ -50,7 +50,7 @@ pub trait StorageLayer: Send + Sync + 'static {
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<serde_json::Value, ClewdrError>> + Send>,
     >;
-    fn export_to_file(
+    fn export_current_config(
         &self,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<serde_json::Value, ClewdrError>> + Send>,
@@ -134,7 +134,7 @@ impl StorageLayer for FileLayer {
             })
         })
     }
-    fn export_to_file(
+    fn export_current_config(
         &self,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<serde_json::Value, ClewdrError>> + Send>,

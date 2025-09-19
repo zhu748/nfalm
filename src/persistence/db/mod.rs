@@ -87,12 +87,12 @@ impl StorageLayer for DbLayer {
     > {
         Box::pin(async move { repo::import_config_from_file().await })
     }
-    fn export_to_file(
+    fn export_current_config(
         &self,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<serde_json::Value, ClewdrError>> + Send>,
     > {
-        Box::pin(async move { repo::export_config_to_file().await })
+        Box::pin(async move { repo::export_current_config().await })
     }
     fn status(
         &self,

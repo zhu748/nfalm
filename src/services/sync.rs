@@ -23,16 +23,16 @@ pub fn spawn(
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
         loop {
             interval.tick().await;
-            if let Ok(db_keys) = persistence::load_all_keys().await {
-                if let Ok(cur) = k.get_status().await {
-                    let db_set: HashSet<_> = db_keys.iter().cloned().collect();
-                    let cur_set: HashSet<_> = cur.valid.iter().cloned().collect();
-                    for x in db_set.difference(&cur_set) {
-                        let _ = k.submit(x.clone()).await;
-                    }
-                    for x in cur_set.difference(&db_set) {
-                        let _ = k.delete_key(x.clone()).await;
-                    }
+            if let Ok(db_keys) = persistence::load_all_keys().await
+                && let Ok(cur) = k.get_status().await
+            {
+                let db_set: HashSet<_> = db_keys.iter().cloned().collect();
+                let cur_set: HashSet<_> = cur.valid.iter().cloned().collect();
+                for x in db_set.difference(&cur_set) {
+                    let _ = k.submit(x.clone()).await;
+                }
+                for x in cur_set.difference(&db_set) {
+                    let _ = k.delete_key(x.clone()).await;
                 }
             }
         }
