@@ -287,7 +287,7 @@ impl Display for ClewdrConfig {
                 self.persistence
                     .database_url
                     .as_deref()
-                    .unwrap_or("env: CLEWDR_DATABASE_URL")
+                    .unwrap_or("env: CLEWDR_PERSISTENCE__DATABASE_URL")
                     .blue()
             )?,
             PersistenceMode::Mysql => writeln!(
@@ -296,7 +296,7 @@ impl Display for ClewdrConfig {
                 self.persistence
                     .database_url
                     .as_deref()
-                    .unwrap_or("env: CLEWDR_DATABASE_URL")
+                    .unwrap_or("env: CLEWDR_PERSISTENCE__DATABASE_URL")
                     .blue()
             )?,
         }
