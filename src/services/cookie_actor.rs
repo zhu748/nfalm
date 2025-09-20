@@ -343,18 +343,16 @@ impl Actor for CookieActor {
                 reply_port.send(status_info)?;
             }
             CookieActorMessage::Delete(cookie, reply_port) => {
+                let storage = self.storage;
                 let result = Self::delete(state, cookie.clone());
-                let ok = result.is_ok();
+                let should_cleanup = result.is_ok() && storage.is_enabled();
                 reply_port.send(result)?;
-                if ok {
-                    let storage = self.storage;
-                    if storage.is_enabled() {
-                        tokio::spawn(async move {
-                            if let Err(e) = storage.delete_cookie_row(&cookie).await {
-                                error!("Failed to delete cookie row: {}", e);
-                            }
-                        });
-                    }
+                if should_cleanup {
+                    tokio::spawn(async move {
+                        if let Err(e) = storage.delete_cookie_row(&cookie).await {
+                            error!("Failed to delete cookie row: {}", e);
+                        }
+                    });
                 }
             }
         }

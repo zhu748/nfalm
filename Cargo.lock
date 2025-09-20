@@ -702,7 +702,6 @@ dependencies = [
  "hyper-util",
  "include_dir",
  "itertools 0.14.0",
- "libsqlite3-sys",
  "mimalloc",
  "moka",
  "oauth2",
