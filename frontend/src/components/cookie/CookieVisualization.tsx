@@ -40,7 +40,8 @@ const CookieVisualization: React.FC = () => {
       };
       setCookieStatus(safeData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(translateError(message));
       setCookieStatus(emptyCookieStatus);
     } finally {
       setLoading(false);
@@ -52,6 +53,13 @@ const CookieVisualization: React.FC = () => {
   }, [refreshCounter]);
 
   const handleRefresh = () => setRefreshCounter((prev) => prev + 1);
+
+  const translateError = (message: string) => {
+    if (message.includes("Database storage is unavailable")) {
+      return t("common.dbUnavailable");
+    }
+    return message;
+  };
 
   const handleDeleteCookie = async (cookie: string) => {
     if (!window.confirm(t("cookieStatus.deleteConfirm"))) return;
@@ -75,10 +83,11 @@ const CookieVisualization: React.FC = () => {
                     data.error ||
                     t("common.error", { message: response.status })
                 );
-        setError(errorMessage);
+        setError(translateError(errorMessage));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(translateError(message));
     } finally {
       setDeletingCookie(null);
     }

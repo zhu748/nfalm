@@ -49,7 +49,8 @@
       "empty": "Please enter at least one cookie",
       "format": "Invalid cookie format",
       "auth": "Authentication failed. Please set a valid auth token.",
-      "server": "Server error."
+      "server": "Server error.",
+      "storage": "Database storage is unavailable. Please try again after fixing the connection."
     }
   },
   "cookieStatus": {
@@ -144,6 +145,40 @@
         "customA": "Custom Assistant (optional)",
         "customPrompt": "Custom Prompt"
       }
+    },
+    "storage": {
+      "modeLabel": "Persistence Mode",
+      "modes": {
+        "file": "File (default)",
+        "sqlite": "SQLite",
+        "postgres": "PostgreSQL",
+        "mysql": "MySQL"
+      },
+      "healthLabel": "Health",
+      "health": {
+        "ok": "OK",
+        "down": "DOWN"
+      },
+      "driver": "Driver: {{driver}}",
+      "latency": "Latency (ms): {{latency}}",
+      "sqlitePath": "SQLite path: {{path}}",
+      "databaseUrl": "Database URL: {{url}}",
+      "lastWrite": "Last write: {{time}}",
+      "totalWrites": "Total writes: {{count}}",
+      "avgWriteMs": "Average write (ms): {{ms}}",
+      "failureRatio": "Failure ratio: {{ratio}}%",
+      "retryCount": "Retry count: {{count}}",
+      "writeErrors": "Write errors: {{count}}",
+      "error": "Error: {{error}}",
+      "lastError": "Last error: {{error}}",
+      "details": {
+        "show": "Show details",
+        "hide": "Hide details"
+      },
+      "import": "Import from file",
+      "export": "Export to file",
+      "importSuccess": "Configuration imported into the database",
+      "exportSuccess": "Configuration exported"
     }
   },
   "common": {
@@ -151,7 +186,8 @@
     "error": "Error: {{message}}",
     "reveal": "Reveal",
     "hide": "Hide",
-    "copy": "Copy to clipboard"
+    "copy": "Copy to clipboard",
+    "dbUnavailable": "Database storage is unavailable. Please check the database configuration and retry."
   },
   "keyTab": {
     "submit": "Submit Key",
@@ -173,7 +209,8 @@
     "error": {
       "empty": "Please enter at least one key",
       "auth": "Authentication failed. Please set a valid auth token.",
-      "server": "Server error."
+      "server": "Server error.",
+      "storage": "Database storage is unavailable. Please try again after fixing the connection."
     }
   },
   "keyStatus": {

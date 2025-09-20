@@ -45,6 +45,8 @@ impl RouterBuilder {
             .await
             .expect("Failed to start KeyActorHandle");
         let gemini_state = GeminiState::new(key_tx.to_owned());
+        // Background DB sync (keys/cookies) for multi-instance eventual consistency
+        let _bg = crate::services::sync::spawn(cookie_handle.clone(), key_tx.clone());
         RouterBuilder {
             claude_web_state,
             claude_code_state,
@@ -130,7 +132,10 @@ impl RouterBuilder {
             .with_state(self.key_actor_handle.to_owned());
         let admin_router = Router::new()
             .route("/auth", get(api_auth))
-            .route("/config", get(api_get_config).put(api_post_config));
+            .route("/config", get(api_get_config).put(api_post_config))
+            .route("/storage/import", post(api_storage_import))
+            .route("/storage/export", post(api_storage_export))
+            .route("/storage/status", get(api_storage_status));
         let router = Router::new()
             .nest(
                 "/api",
@@ -202,12 +207,16 @@ impl RouterBuilder {
 
     /// Adds CORS support to the router
     fn with_cors(mut self) -> Self {
+        use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
+        use http::header::HeaderName;
+
         let cors = CorsLayer::new()
             .allow_origin(tower_http::cors::Any)
             .allow_methods([Method::GET, Method::POST, Method::DELETE])
             .allow_headers([
-                axum::http::header::AUTHORIZATION,
-                axum::http::header::CONTENT_TYPE,
+                AUTHORIZATION,
+                CONTENT_TYPE,
+                HeaderName::from_static("x-api-key"),
             ]);
 
         self.inner = self.inner.layer(cors);
