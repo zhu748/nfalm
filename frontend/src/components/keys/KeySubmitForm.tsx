@@ -65,6 +65,8 @@ const KeySubmitForm: React.FC = () => {
           translatedError = t("keySubmit.error.auth");
         } else if (errorMessage.includes("Server error")) {
           translatedError = t("keySubmit.error.server");
+        } else if (errorMessage.includes("Database storage is unavailable")) {
+          translatedError = t("keySubmit.error.storage");
         }
 
         newResults.push({

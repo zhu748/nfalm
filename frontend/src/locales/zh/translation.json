@@ -49,7 +49,8 @@
       "empty": "请输入至少一个cookie",
       "format": "无效的cookie格式",
       "auth": "认证失败。请设置有效的认证令牌。",
-      "server": "服务器错误。"
+      "server": "服务器错误。",
+      "storage": "数据库存储不可用，请修复连接后再试。"
     }
   },
   "cookieStatus": {
@@ -144,6 +145,40 @@
         "customA": "自定义 Assistant（可选）",
         "customPrompt": "自定义提示词"
       }
+    },
+    "storage": {
+      "modeLabel": "持久化模式",
+      "modes": {
+        "file": "文件（默认）",
+        "sqlite": "SQLite",
+        "postgres": "PostgreSQL",
+        "mysql": "MySQL"
+      },
+      "healthLabel": "健康状态",
+      "health": {
+        "ok": "正常",
+        "down": "异常"
+      },
+      "driver": "驱动：{{driver}}",
+      "latency": "延迟（毫秒）：{{latency}}",
+      "sqlitePath": "SQLite 路径：{{path}}",
+      "databaseUrl": "数据库 URL：{{url}}",
+      "lastWrite": "最近写入时间：{{time}}",
+      "totalWrites": "写入总数：{{count}}",
+      "avgWriteMs": "平均写入耗时（毫秒）：{{ms}}",
+      "failureRatio": "失败比例：{{ratio}}%",
+      "retryCount": "重试次数：{{count}}",
+      "writeErrors": "写入错误：{{count}}",
+      "error": "错误：{{error}}",
+      "lastError": "最近错误：{{error}}",
+      "import": "从文件导入",
+      "export": "导出到文件",
+      "importSuccess": "已将配置导入数据库",
+      "exportSuccess": "配置数据已导出",
+      "details": {
+        "show": "展开详情",
+        "hide": "收起详情"
+      }
     }
   },
   "common": {
@@ -151,7 +186,8 @@
     "error": "错误：{{message}}",
     "reveal": "显示",
     "hide": "隐藏",
-    "copy": "复制到剪贴板"
+    "copy": "复制到剪贴板",
+    "dbUnavailable": "数据库存储不可用，请检查数据库配置后重试。"
   },
   "keyTab": {
     "submit": "提交密钥",
@@ -173,7 +209,8 @@
     "error": {
       "empty": "请输入至少一个密钥",
       "auth": "认证失败。请设置有效的认证令牌。",
-      "server": "服务器错误。"
+      "server": "服务器错误。",
+      "storage": "数据库存储不可用，请修复连接后再试。"
     }
   },
   "keyStatus": {

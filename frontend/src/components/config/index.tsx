@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { getConfig, saveConfig } from "../../api";
+import { getConfig, saveConfig, storageImport, storageExport, storageStatus } from "../../api";
 import { toast } from "react-hot-toast";
 import { ConfigData } from "../../types/config.types";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 import ConfigForm from "./ConfigForm";
+import { StorageSummary } from "./StorageSummary";
 
 const ConfigTab: React.FC = () => {
   const { t } = useTranslation();
@@ -16,10 +17,13 @@ const ConfigTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [status, setStatus] = useState<any>(null);
 
   // Fetch config on component mount
   useEffect(() => {
     fetchConfig();
+    // fetch storage status once
+    storageStatus().then(setStatus).catch(() => setStatus(null));
   }, []);
 
   const fetchConfig = async () => {
@@ -193,6 +197,57 @@ const ConfigTab: React.FC = () => {
         >
           {saving ? t("config.saving") : t("config.saveButton")}
         </Button>
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <StorageSummary status={status} mode={config?.persistence?.mode} />
+          <div className="flex gap-2">
+            <Button
+              onClick={async () => {
+                try {
+                  await storageImport();
+                  toast.success(t("config.storage.importSuccess"));
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+              variant="secondary"
+              className="py-1 px-3"
+              disabled={(config?.persistence?.mode ?? "file") === "file"}
+            >
+              {t("config.storage.import")}
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await storageExport();
+                  if (res?.toml) {
+                    const blob = new Blob([res.toml], {
+                      type: "text/plain;charset=utf-8",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = "clewdr-export.toml";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }
+                  toast.success(t("config.storage.exportSuccess"));
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+              variant="secondary"
+              className="py-1 px-3"
+              disabled={(config?.persistence?.mode ?? "file") === "file"}
+            >
+              {t("config.storage.export")}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <ConfigForm config={config} onChange={handleChange} />

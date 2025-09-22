@@ -254,9 +254,49 @@ Vertex AI:     http://127.0.0.1:8484/v1/vertex/v1beta/            # Vertex AI
 - ✅ Test with a simple chat request
 - ✅ Enjoy blazing-fast LLM proxy performance!
 
+## 🗃️ **Database Persistence**
+
+ClewdR keeps state in a local `clewdr.toml` file by default. To persist configuration, cookies, and API keys in a database instead, compile the binary with the database feature set and point `persistence.mode` at your driver.
+
+### Enable database features
+
+- Build from source with the matching feature flag: `cargo build --release --no-default-features --features "embed-resource,xdg,db-sqlite"`
+- Choose `db-sqlite`, `db-postgres`, or `db-mysql` (they automatically include the base `db` feature)
+- Custom Docker images should adjust the `cargo build` step to include the desired `db-*` feature; the published Dockerfile uses file mode by default
+
+### Configure the connection
+
+Add a `persistence` section to `clewdr.toml` (or set the equivalent environment variables):
+
+```toml
+[persistence]
+mode = "postgres"            # sqlite | postgres | mysql
+database_url = "postgres://user:pass@db:5432/clewdr"
+```
+
+- **SQLite**: optionally set `sqlite_path = "/var/lib/clewdr/clewdr.db"`; ClewdR expands this to `sqlite:///var/lib/clewdr/clewdr.db?mode=rwc` and creates the parent folder when possible
+- **Postgres/MySQL**: `database_url` must be provided (for example `postgres://user:pass@host:5432/db`)
+- Environment variable form uses Figment’s double-underscore syntax, e.g.:
+
+  ```bash
+  export CLEWDR_PERSISTENCE__MODE=sqlite
+  export CLEWDR_PERSISTENCE__SQLITE_PATH=/var/lib/clewdr/clewdr.db
+  # or database_url for server backends
+  export CLEWDR_PERSISTENCE__DATABASE_URL="postgres://user:pass@db/clewdr"
+  ```
+
+### Operational notes & precautions
+
+- On first start ClewdR runs automatic SeaORM migrations (`config`, `cookies`, `keys`, `wasted` tables); ensure the account can create tables and indexes
+- API endpoints that write cookies/keys check `GET /api/storage/status`; failed connections surface as `Database storage is unavailable`
+- SQLite paths should live on persistent storage (bind mount the directory when running in containers)
+- Setting `persistence.mode` without a matching `db-*` build leaves ClewdR in file mode—verify your binary with `clewdr -V` or rebuild with the correct features
+- The admin API exposes helpers: `GET /api/storage/status` to inspect health, and authenticated `POST /api/storage/import|export` for file migration
+
 ## Community Resources
 
 **Github Aggregated Wiki**: <https://github.com/Xerxes-2/clewdr/wiki>
+- [Database persistence guide (中文)](wiki/database.md)
 
 ## Acknowledgements
 

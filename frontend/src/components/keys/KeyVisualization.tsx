@@ -34,7 +34,8 @@ const KeyVisualization: React.FC = () => {
       };
       setKeyStatus(safeData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(translateError(message));
       setKeyStatus(emptyKeyStatus);
     } finally {
       setLoading(false);
@@ -46,6 +47,13 @@ const KeyVisualization: React.FC = () => {
   }, [refreshCounter]);
 
   const handleRefresh = () => setRefreshCounter((prev) => prev + 1);
+
+  const translateError = (message: string) => {
+    if (message.includes("Database storage is unavailable")) {
+      return t("common.dbUnavailable");
+    }
+    return message;
+  };
 
   const handleDeleteKey = async (key: string) => {
     if (!window.confirm(t("keyStatus.deleteConfirm"))) return;
@@ -69,10 +77,11 @@ const KeyVisualization: React.FC = () => {
                     data.error ||
                     t("common.error", { message: response.status })
                 );
-        setError(errorMessage);
+        setError(translateError(errorMessage));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(translateError(message));
     } finally {
       setDeletingKey(null);
     }
