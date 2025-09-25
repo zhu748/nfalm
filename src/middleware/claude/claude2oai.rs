@@ -104,8 +104,7 @@ pub fn transforms_json(input: CreateMessageResponse) -> Value {
             crate::types::claude::ContentBlock::Text { text } => Some(text.clone()),
             _ => None,
         })
-        .collect::<Vec<_>>()
-        .join("");
+        .collect::<String>();
 
     let usage = input.usage.as_ref().map(|u| {
         serde_json::json!({
