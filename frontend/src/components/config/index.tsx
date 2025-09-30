@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getConfig, saveConfig, storageImport, storageExport, storageStatus } from "../../api";
 import { toast } from "react-hot-toast";
-import { ConfigData } from "../../types/config.types";
+import { ConfigData, StorageStatus } from "../../types/config.types";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 import ConfigForm from "./ConfigForm";
@@ -17,7 +17,7 @@ const ConfigTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<StorageStatus | null>(null);
 
   // Fetch config on component mount
   useEffect(() => {

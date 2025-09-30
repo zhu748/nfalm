@@ -8,6 +8,14 @@ use crate::error::ClewdrError;
 
 use super::{conn::ensure_conn, entities::*, metrics::*};
 
+fn clamp_u64_to_i64(value: u64) -> i64 {
+    if value > i64::MAX as u64 {
+        i64::MAX
+    } else {
+        value as i64
+    }
+}
+
 pub async fn bootstrap_from_db_if_enabled() -> Result<(), ClewdrError> {
     if !crate::config::CLEWDR_CONFIG.load().is_db_mode() {
         return Ok(());
@@ -38,7 +46,6 @@ pub async fn persist_config(config: &ClewdrConfig) -> Result<(), ClewdrError> {
         k: Set("main".to_string()),
         data: Set(data),
         updated_at: Set(Some(chrono::Utc::now().timestamp())),
-        ..Default::default()
     };
     let start = std::time::Instant::now();
     let res = EntityConfig::insert(am)
@@ -91,6 +98,12 @@ pub async fn persist_cookie_upsert(c: &CookieStatus) -> Result<(), ClewdrError> 
         token_expires_at: Set(exp_at),
         token_expires_in: Set(exp_in),
         token_org_uuid: Set(org),
+        supports_claude_1m: Set(c.supports_claude_1m),
+        count_tokens_allowed: Set(c.count_tokens_allowed),
+        total_input_tokens: Set(Some(clamp_u64_to_i64(c.total_input_tokens))),
+        total_output_tokens: Set(Some(clamp_u64_to_i64(c.total_output_tokens))),
+        window_input_tokens: Set(Some(clamp_u64_to_i64(c.window_input_tokens))),
+        window_output_tokens: Set(Some(clamp_u64_to_i64(c.window_output_tokens))),
     };
     let start = std::time::Instant::now();
     let res = EntityCookie::insert(am)
@@ -103,6 +116,12 @@ pub async fn persist_cookie_upsert(c: &CookieStatus) -> Result<(), ClewdrError> 
                     ColumnCookie::TokenExpiresAt,
                     ColumnCookie::TokenExpiresIn,
                     ColumnCookie::TokenOrgUuid,
+                    ColumnCookie::SupportsClaude1m,
+                    ColumnCookie::CountTokensAllowed,
+                    ColumnCookie::TotalInputTokens,
+                    ColumnCookie::TotalOutputTokens,
+                    ColumnCookie::WindowInputTokens,
+                    ColumnCookie::WindowOutputTokens,
                 ])
                 .to_owned(),
         )
@@ -319,7 +338,7 @@ pub async fn export_current_config() -> Result<serde_json::Value, ClewdrError> {
             let expires_at = r
                 .token_expires_at
                 .and_then(|s| chrono::DateTime::from_timestamp(s, 0))
-                .unwrap_or_else(|| chrono::Utc::now());
+                .unwrap_or_else(chrono::Utc::now);
             let expires_in =
                 std::time::Duration::from_secs(r.token_expires_in.unwrap_or_default() as u64);
             c.token = Some(crate::config::TokenInfo {
@@ -332,17 +351,22 @@ pub async fn export_current_config() -> Result<serde_json::Value, ClewdrError> {
                 expires_in,
             });
         }
+        c.supports_claude_1m = r.supports_claude_1m;
+        c.count_tokens_allowed = r.count_tokens_allowed;
+        c.total_input_tokens = r.total_input_tokens.unwrap_or(0).max(0) as u64;
+        c.total_output_tokens = r.total_output_tokens.unwrap_or(0).max(0) as u64;
+        c.window_input_tokens = r.window_input_tokens.unwrap_or(0).max(0) as u64;
+        c.window_output_tokens = r.window_output_tokens.unwrap_or(0).max(0) as u64;
         cfg.cookie_array.insert(c);
     }
     // wasted
     let wasted_rows = EntityWasted::find().all(&db).await.unwrap_or_default();
     cfg.wasted_cookie.clear();
     for r in wasted_rows {
-        if let Ok(reason) = serde_json::from_str(&r.reason) {
-            if let Ok(cc) = <crate::config::ClewdrCookie as std::str::FromStr>::from_str(&r.cookie)
-            {
-                cfg.wasted_cookie.insert(UselessCookie::new(cc, reason));
-            }
+        if let Ok(reason) = serde_json::from_str(&r.reason)
+            && let Ok(cc) = <crate::config::ClewdrCookie as std::str::FromStr>::from_str(&r.cookie)
+        {
+            cfg.wasted_cookie.insert(UselessCookie::new(cc, reason));
         }
     }
     // keys
@@ -423,7 +447,7 @@ pub async fn load_all_cookies()
             let expires_at = r
                 .token_expires_at
                 .and_then(|s| chrono::DateTime::from_timestamp(s, 0))
-                .unwrap_or_else(|| chrono::Utc::now());
+                .unwrap_or_else(chrono::Utc::now);
             let expires_in =
                 std::time::Duration::from_secs(r.token_expires_in.unwrap_or_default() as u64);
             c.token = Some(crate::config::TokenInfo {
@@ -436,6 +460,12 @@ pub async fn load_all_cookies()
                 expires_in,
             });
         }
+        c.supports_claude_1m = r.supports_claude_1m;
+        c.count_tokens_allowed = r.count_tokens_allowed;
+        c.total_input_tokens = r.total_input_tokens.unwrap_or(0).max(0) as u64;
+        c.total_output_tokens = r.total_output_tokens.unwrap_or(0).max(0) as u64;
+        c.window_input_tokens = r.window_input_tokens.unwrap_or(0).max(0) as u64;
+        c.window_output_tokens = r.window_output_tokens.unwrap_or(0).max(0) as u64;
         if c.reset_time.is_some() {
             exhausted.push(c);
         } else {
@@ -450,11 +480,10 @@ pub async fn load_all_cookies()
             source: Some(Box::new(e)),
         })?;
     for r in wasted {
-        if let Ok(reason) = serde_json::from_str(&r.reason) {
-            if let Ok(cc) = <crate::config::ClewdrCookie as std::str::FromStr>::from_str(&r.cookie)
-            {
-                invalid.push(UselessCookie::new(cc, reason));
-            }
+        if let Ok(reason) = serde_json::from_str(&r.reason)
+            && let Ok(cc) = <crate::config::ClewdrCookie as std::str::FromStr>::from_str(&r.cookie)
+        {
+            invalid.push(UselessCookie::new(cc, reason));
         }
     }
     Ok((valid, exhausted, invalid))

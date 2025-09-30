@@ -1,11 +1,12 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import type { CookieItem } from "../../types/cookie.types";
 
 interface CookieSectionProps {
   title: string;
-  cookies: any[];
+  cookies: CookieItem[];
   color: string;
-  renderStatus: (item: any, index: number) => React.ReactNode;
+  renderStatus: (item: CookieItem, index: number) => React.ReactNode;
 }
 
 const CookieSection: React.FC<CookieSectionProps> = ({

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { getCookieStatus, deleteCookie } from "../../api";
-import { formatTimestamp } from "../../utils/formatters";
-import { CookieStatusInfo } from "../../types/cookie.types";
+import { formatTimestamp, formatIsoTimestamp } from "../../utils/formatters";
+import { CookieStatusInfo, CookieItem } from "../../types/cookie.types";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 import StatusMessage from "../common/StatusMessage";
@@ -27,7 +27,7 @@ const CookieVisualization: React.FC = () => {
   const [deletingCookie, setDeletingCookie] = useState<string | null>(null);
 
   // Fetch cookie data
-  const fetchCookieStatus = async () => {
+  const fetchCookieStatus = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -46,11 +46,11 @@ const CookieVisualization: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCookieStatus();
-  }, [refreshCounter]);
+  }, [fetchCookieStatus, refreshCounter]);
 
   const handleRefresh = () => setRefreshCounter((prev) => prev + 1);
 
@@ -59,6 +59,102 @@ const CookieVisualization: React.FC = () => {
       return t("common.dbUnavailable");
     }
     return message;
+  };
+
+  const renderUsageStats = (status: CookieItem) => {
+    const rec = status as unknown as Record<string, unknown>;
+    const pickNumber = (a: unknown, b: unknown): number =>
+      typeof a === "number" ? a : typeof b === "number" ? (b as number) : 0;
+    const currentInput = pickNumber(
+      status.window_input_tokens,
+      rec["windowInputTokens"],
+    );
+    const currentOutput = pickNumber(
+      status.window_output_tokens,
+      rec["windowOutputTokens"],
+    );
+    const totalInput = pickNumber(
+      status.total_input_tokens,
+      rec["totalInputTokens"],
+    );
+    const totalOutput = pickNumber(
+      status.total_output_tokens,
+      rec["totalOutputTokens"],
+    );
+
+    if (currentInput === 0 && currentOutput === 0 && totalInput === 0 && totalOutput === 0) {
+      return null;
+    }
+
+    return (
+      <div className="grid gap-1 text-xs text-gray-400">
+        <div className="flex gap-3 flex-wrap">
+          <span>
+            {t("cookieStatus.usage.currentInput")}: {currentInput}
+          </span>
+          <span>
+            {t("cookieStatus.usage.currentOutput")}: {currentOutput}
+          </span>
+        </div>
+        <div className="flex gap-3 flex-wrap">
+          <span>
+            {t("cookieStatus.usage.totalInput")}: {totalInput}
+          </span>
+          <span>
+            {t("cookieStatus.usage.totalOutput")}: {totalOutput}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderQuotaStats = (status: CookieItem) => {
+    const sess = status.session_utilization;
+    const seven = status.seven_day_utilization;
+    const opus = status.seven_day_opus_utilization;
+    const hasAny =
+      typeof sess === "number" || typeof seven === "number" || typeof opus === "number";
+    if (!hasAny) return null;
+    return (
+      <div className="grid gap-1 text-xs text-gray-400">
+        {typeof sess === "number" && (
+          <div>
+            {t("cookieStatus.quota.session")}: {sess}%
+            {status.session_resets_at && (
+              <span className="ml-1 text-gray-500">
+                {t("cookieStatus.quota.resetsAt", {
+                  time: formatIsoTimestamp(status.session_resets_at),
+                })}
+              </span>
+            )}
+          </div>
+        )}
+        {typeof seven === "number" && (
+          <div>
+            {t("cookieStatus.quota.sevenDay")}: {seven}%
+            {status.seven_day_resets_at && (
+              <span className="ml-1 text-gray-500">
+                {t("cookieStatus.quota.resetsAt", {
+                  time: formatIsoTimestamp(status.seven_day_resets_at),
+                })}
+              </span>
+            )}
+          </div>
+        )}
+        {typeof opus === "number" && (
+          <div>
+            {t("cookieStatus.quota.sevenDayOpus")}: {opus}%
+            {status.seven_day_opus_resets_at && (
+              <span className="ml-1 text-gray-500">
+                {t("cookieStatus.quota.resetsAt", {
+                  time: formatIsoTimestamp(status.seven_day_opus_resets_at),
+                })}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleDeleteCookie = async (cookie: string) => {
@@ -94,28 +190,26 @@ const CookieVisualization: React.FC = () => {
   };
 
   // Helper for getting reason text from cookie reason object
-  const getReasonText = (reason: any): string => {
+  const getReasonText = (reason: unknown): string => {
     if (!reason) return t("cookieStatus.status.reasons.unknown");
     if (typeof reason === "string") return reason;
 
     try {
-      if ("NonPro" in reason)
-        return t("cookieStatus.status.reasons.freAccount");
-      if ("Disabled" in reason)
-        return t("cookieStatus.status.reasons.disabled");
-      if ("Banned" in reason) return t("cookieStatus.status.reasons.banned");
-      if ("Null" in reason) return t("cookieStatus.status.reasons.invalid");
-      if ("Restricted" in reason && typeof reason.Restricted === "number")
-        return t("cookieStatus.status.reasons.restricted", {
-          time: formatTimestamp(reason.Restricted),
-        });
-      if (
-        "TooManyRequest" in reason &&
-        typeof reason.TooManyRequest === "number"
-      )
-        return t("cookieStatus.status.reasons.rateLimited", {
-          time: formatTimestamp(reason.TooManyRequest),
-        });
+      if (typeof reason === "object" && reason !== null) {
+        const r = reason as Record<string, unknown>;
+        if ("NonPro" in r) return t("cookieStatus.status.reasons.freAccount");
+        if ("Disabled" in r) return t("cookieStatus.status.reasons.disabled");
+        if ("Banned" in r) return t("cookieStatus.status.reasons.banned");
+        if ("Null" in r) return t("cookieStatus.status.reasons.invalid");
+        if ("Restricted" in r && typeof r["Restricted"] === "number")
+          return t("cookieStatus.status.reasons.restricted", {
+            time: formatTimestamp(r["Restricted"] as number),
+          });
+        if ("TooManyRequest" in r && typeof r["TooManyRequest"] === "number")
+          return t("cookieStatus.status.reasons.rateLimited", {
+            time: formatTimestamp(r["TooManyRequest"] as number),
+          });
+      }
     } catch (e) {
       console.error("Error parsing reason:", e, reason);
     }
@@ -127,6 +221,40 @@ const CookieVisualization: React.FC = () => {
     cookieStatus.valid.length +
     cookieStatus.exhausted.length +
     cookieStatus.invalid.length;
+
+  const renderContextBadge = (flag: boolean | null | undefined) => {
+    if (flag === undefined) {
+      return null;
+    }
+
+    const { label, classes } = (() => {
+      if (flag === true) {
+        return {
+          label: t("cookieStatus.context.enabled"),
+          classes:
+            "bg-emerald-500/20 text-emerald-200 border border-emerald-400/60",
+        };
+      }
+      if (flag === false) {
+        return {
+          label: t("cookieStatus.context.disabled"),
+          classes: "bg-red-500/20 text-red-200 border border-red-500/60",
+        };
+      }
+      return {
+        label: t("cookieStatus.context.unknown"),
+        classes: "bg-gray-700 text-gray-300 border border-gray-600/80",
+      };
+    })();
+
+    return (
+      <span
+        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${classes}`}
+      >
+        {label}
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6 w-full">
@@ -209,6 +337,10 @@ const CookieVisualization: React.FC = () => {
           cookies={cookieStatus.valid}
           color="green"
           renderStatus={(status, index) => {
+            const contextBadge = renderContextBadge(status.supports_claude_1m);
+            const usageStats = renderUsageStats(status);
+            const quotaStats = renderQuotaStats(status);
+            const hasMeta = contextBadge || usageStats || quotaStats;
             return (
               <div
                 key={index}
@@ -216,6 +348,22 @@ const CookieVisualization: React.FC = () => {
               >
                 <div className="text-green-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
                   <CookieValue cookie={status.cookie} />
+                  {hasMeta && (
+                    <details className="mt-1 text-xs text-gray-400">
+                      <summary className="cursor-pointer text-gray-500 hover:text-gray-300">
+                        {t("cookieStatus.meta.summary")}
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {contextBadge && (
+                          <div className="flex items-center gap-2 text-gray-300">
+                            {contextBadge}
+                          </div>
+                        )}
+                        {usageStats}
+                        {quotaStats}
+                      </div>
+                    </details>
+                  )}
                 </div>
                 <div className="flex items-center">
                   <span className="text-gray-400">
@@ -238,6 +386,10 @@ const CookieVisualization: React.FC = () => {
           cookies={cookieStatus.exhausted}
           color="yellow"
           renderStatus={(status, index) => {
+            const contextBadge = renderContextBadge(status.supports_claude_1m);
+            const usageStats = renderUsageStats(status);
+            const quotaStats = renderQuotaStats(status);
+            const hasMeta = contextBadge || usageStats || quotaStats;
             return (
               <div
                 key={index}
@@ -245,6 +397,22 @@ const CookieVisualization: React.FC = () => {
               >
                 <div className="text-yellow-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
                   <CookieValue cookie={status.cookie} />
+                  {hasMeta && (
+                    <details className="mt-1 text-xs text-gray-400">
+                      <summary className="cursor-pointer text-gray-500 hover:text-gray-300">
+                        {t("cookieStatus.meta.summary")}
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {contextBadge && (
+                          <div className="flex items-center gap-2 text-gray-300">
+                            {contextBadge}
+                          </div>
+                        )}
+                        {usageStats}
+                        {quotaStats}
+                      </div>
+                    </details>
+                  )}
                 </div>
                 <div className="flex items-center">
                   <span className="text-gray-400">
@@ -278,6 +446,7 @@ const CookieVisualization: React.FC = () => {
               >
                 <div className="text-red-300 flex-grow mr-4 min-w-0 mb-1 sm:mb-0">
                   <CookieValue cookie={status.cookie} />
+                  {renderUsageStats(status)}
                 </div>
                 <div className="flex items-center">
                   <span className="text-gray-400">

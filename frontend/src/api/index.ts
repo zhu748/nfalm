@@ -145,19 +145,10 @@ export async function getConfig() {
  * Saves config data to the server
  * @param configData The config data to save
  */
-export async function saveConfig(configData: any) {
-  const token = localStorage.getItem("authToken") || "";
-  // if configData.vertex.credential is no empty string, parse it
-  if (configData?.vertex?.credential !== "") {
-    try {
-      configData.vertex.credential = JSON.parse(configData.vertex.credential);
-    } catch {
-      configData.vertex.credential = null;
-    }
-  } else {
-    configData.vertex.credential = null;
-  }
+import type { ConfigData } from "../types/config.types";
 
+export async function saveConfig(configData: ConfigData) {
+  const token = localStorage.getItem("authToken") || "";
   const response = await fetch("/api/config", {
     method: "PUT",
     headers: {

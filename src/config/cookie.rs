@@ -49,6 +49,18 @@ pub struct CookieStatus {
     pub token: Option<TokenInfo>,
     #[serde(default)]
     pub reset_time: Option<i64>,
+    #[serde(default)]
+    pub supports_claude_1m: Option<bool>,
+    #[serde(default)]
+    pub count_tokens_allowed: Option<bool>,
+    #[serde(default)]
+    pub total_input_tokens: u64,
+    #[serde(default)]
+    pub total_output_tokens: u64,
+    #[serde(default)]
+    pub window_input_tokens: u64,
+    #[serde(default)]
+    pub window_output_tokens: u64,
 }
 
 impl PartialEq for CookieStatus {
@@ -92,6 +104,12 @@ impl CookieStatus {
             cookie,
             token: None,
             reset_time,
+            supports_claude_1m: None,
+            count_tokens_allowed: None,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            window_input_tokens: 0,
+            window_output_tokens: 0,
         })
     }
 
@@ -107,6 +125,8 @@ impl CookieStatus {
             info!("Cookie reset time expired");
             return Self {
                 reset_time: None,
+                window_input_tokens: 0,
+                window_output_tokens: 0,
                 ..self
             };
         }
@@ -115,6 +135,29 @@ impl CookieStatus {
 
     pub fn add_token(&mut self, token: TokenInfo) {
         self.token = Some(token);
+    }
+
+    pub fn set_claude_1m_support(&mut self, value: Option<bool>) {
+        self.supports_claude_1m = value;
+    }
+
+    pub fn set_count_tokens_allowed(&mut self, value: Option<bool>) {
+        self.count_tokens_allowed = value;
+    }
+
+    pub fn add_usage(&mut self, input: u64, output: u64) {
+        if input == 0 && output == 0 {
+            return;
+        }
+        self.total_input_tokens = self.total_input_tokens.saturating_add(input);
+        self.total_output_tokens = self.total_output_tokens.saturating_add(output);
+        self.window_input_tokens = self.window_input_tokens.saturating_add(input);
+        self.window_output_tokens = self.window_output_tokens.saturating_add(output);
+    }
+
+    pub fn reset_window_usage(&mut self) {
+        self.window_input_tokens = 0;
+        self.window_output_tokens = 0;
     }
 }
 

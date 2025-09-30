@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { StorageStatus, PersistenceMode } from "../../types/config.types";
 
 interface StorageSummaryProps {
-  status: any;
-  mode?: string;
+  status: StorageStatus | null;
+  mode?: PersistenceMode;
 }
 
 export function StorageSummary({ status, mode }: StorageSummaryProps) {

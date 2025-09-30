@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use axum::http::HeaderValue;
 use snafu::ResultExt;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 use url::Url;
 use wreq::{
     Client, ClientBuilder, IntoUrl, Method, Proxy, RequestBuilder,
@@ -15,7 +15,7 @@ use crate::{
     error::{ClewdrError, WreqSnafu},
     middleware::claude::ClaudeApiFormat,
     services::cookie_actor::CookieActorHandle,
-    types::claude::Usage,
+    types::claude::{CreateMessageParams, Usage},
 };
 
 pub mod bootstrap;
@@ -40,6 +40,8 @@ pub struct ClaudeWebState {
     pub client: Client,
     pub key: Option<(u64, usize)>,
     pub usage: Usage,
+    // keep the last request params for potential post-call token accounting
+    pub last_params: Option<CreateMessageParams>,
 }
 
 impl ClaudeWebState {
@@ -59,6 +61,7 @@ impl ClaudeWebState {
             client: SUPER_CLIENT.to_owned(),
             key: None,
             usage: Usage::default(),
+            last_params: None,
         }
     }
 
@@ -131,6 +134,19 @@ impl ClaudeWebState {
                 .unwrap_or_else(|e| {
                     error!("Failed to send cookie: {}", e);
                 });
+        }
+    }
+
+    pub async fn persist_usage_totals(&mut self, input: u64, output: u64) {
+        if input == 0 && output == 0 {
+            return;
+        }
+        if let Some(cookie) = self.cookie.as_mut() {
+            cookie.add_usage(input, output);
+            let cloned = cookie.clone();
+            if let Err(err) = self.cookie_actor_handle.return_cookie(cloned, None).await {
+                warn!("Failed to persist usage statistics: {}", err);
+            }
         }
     }
 
