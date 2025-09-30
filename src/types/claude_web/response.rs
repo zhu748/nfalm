@@ -1,18 +1,24 @@
-use axum::{Json, BoxError, response::{IntoResponse, Sse, sse::Event as SseEvent}};
+use async_stream::try_stream;
+use axum::{
+    BoxError, Json,
+    response::{IntoResponse, Sse, sse::Event as SseEvent},
+};
 use bytes::Bytes;
 use eventsource_stream::{EventStream, Eventsource};
 use futures::{Stream, TryStreamExt};
-use async_stream::try_stream;
 use serde::Deserialize;
 
+use crate::claude_code_state::ClaudeCodeState;
+use crate::error::CheckClaudeErr;
 use crate::{
     claude_web_state::ClaudeWebState,
     error::ClewdrError,
-    types::claude::{ContentBlock, CreateMessageResponse, Message, Role, CountMessageTokensResponse, CreateMessageParams},
+    types::claude::{
+        ContentBlock, CountMessageTokensResponse, CreateMessageParams, CreateMessageResponse,
+        Message, Role,
+    },
     utils::print_out_text,
 };
-use crate::error::CheckClaudeErr;
-use crate::claude_code_state::ClaudeCodeState;
 use url::Url;
 use wreq::Proxy;
 
@@ -139,10 +145,10 @@ impl ClaudeWebState {
             };
             // normalize error type for axum SSE
             let stream = stream.map_err(|e: axum::Error| -> BoxError { e.into() });
-            return Ok(Sse::new(stream).keep_alive(Default::default()).into_response());
+            return Ok(Sse::new(stream)
+                .keep_alive(Default::default())
+                .into_response());
         }
-
-        
 
         let stream = wreq_res.bytes_stream();
         let stream = stream.eventsource();
@@ -154,15 +160,11 @@ impl ClaudeWebState {
         // Prefer official counting if enabled
         let enable_precise = crate::config::CLEWDR_CONFIG.load().enable_web_count_tokens;
         let mut usage = self.usage.to_owned();
-        if enable_precise
-            && let Some(inp) = self.try_code_count_tokens().await
-        {
+        if enable_precise && let Some(inp) = self.try_code_count_tokens().await {
             usage.input_tokens = inp;
         }
         let mut output_tokens = response.count_tokens();
-        if enable_precise
-            && let Some(model) = self.last_params.as_ref().map(|p| p.model.clone())
-        {
+        if enable_precise && let Some(model) = self.last_params.as_ref().map(|p| p.model.clone()) {
             let out = count_code_output_tokens_for_text(
                 self.cookie.clone(),
                 self.endpoint.clone(),
@@ -171,12 +173,16 @@ impl ClaudeWebState {
                 model,
                 text.clone(),
                 self.cookie_actor_handle.clone(),
-            ).await;
-            if let Some(v) = out { output_tokens = v; }
+            )
+            .await;
+            if let Some(v) = out {
+                output_tokens = v;
+            }
         }
         usage.output_tokens = output_tokens;
         response.usage = Some(usage.clone());
-        self.persist_usage_totals(usage.input_tokens as u64, output_tokens as u64).await;
+        self.persist_usage_totals(usage.input_tokens as u64, output_tokens as u64)
+            .await;
         Ok(Json(response).into_response())
     }
 }

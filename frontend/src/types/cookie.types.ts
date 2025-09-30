@@ -20,7 +20,7 @@ export interface CookieStatus {
 
 export interface UselessCookie {
   cookie: string;
-  reason: string | any;
+  reason: unknown;
 }
 
 export interface CookieStatusInfo {
@@ -28,6 +28,10 @@ export interface CookieStatusInfo {
   exhausted: CookieStatus[];
   invalid: UselessCookie[];
 }
+
+export type CookieItem = Partial<CookieStatus> & Pick<CookieStatus, "cookie"> & {
+  reason?: unknown;
+};
 
 export interface CookieFormState {
   cookie: string;

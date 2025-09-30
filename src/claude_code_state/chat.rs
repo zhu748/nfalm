@@ -1,5 +1,5 @@
-use axum::{Json, response::IntoResponse};
 use axum::response::{Sse, sse::Event as SseEvent};
+use axum::{Json, response::IntoResponse};
 use colored::Colorize;
 use eventsource_stream::Eventsource;
 use futures::TryStreamExt;
@@ -375,8 +375,7 @@ impl ClaudeCodeState {
     ) -> Result<axum::response::Response, ClewdrError> {
         if !self.stream {
             let (resp, usage_pair) = Self::materialize_non_stream_response(response).await?;
-            let (mut input, output) =
-                usage_pair.unwrap_or((self.usage.input_tokens as u64, 0));
+            let (mut input, output) = usage_pair.unwrap_or((self.usage.input_tokens as u64, 0));
             if input == 0 {
                 input = self.usage.input_tokens as u64;
             }
@@ -411,7 +410,10 @@ impl ClaudeCodeState {
         &mut self,
         response: wreq::Response,
     ) -> Result<axum::response::Response, ClewdrError> {
-        use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
 
         let input_tokens = self.usage.input_tokens as u64;
         let output_sum = Arc::new(AtomicU64::new(0));
@@ -419,39 +421,42 @@ impl ClaudeCodeState {
         let cookie = self.cookie.clone();
 
         let osum = output_sum.clone();
-        let stream = response
-            .bytes_stream()
-            .eventsource()
-            .map_ok(move |event| {
-                // accumulate output tokens from message_delta usage if present
-                if let Ok(parsed) =
-                    serde_json::from_str::<crate::types::claude::StreamEvent>(&event.data)
-                {
-                    match parsed {
-                        crate::types::claude::StreamEvent::MessageDelta { usage: Some(u), .. } => {
-                            osum.fetch_add(u.output_tokens as u64, Ordering::Relaxed);
-                        }
-                        crate::types::claude::StreamEvent::MessageStop => {
-                            // on stream completion, persist totals asynchronously
-                            if let (Some(cookie), handle) = (cookie.clone(), handle.clone()) {
-                                let total_out = osum.load(Ordering::Relaxed);
-                                let mut c = cookie.clone();
-                                tokio::spawn(async move {
-                                    c.add_usage(input_tokens, total_out);
-                                    let _ = handle.return_cookie(c, None).await;
-                                });
-                            }
-                        }
-                        _ => {}
+        let stream = response.bytes_stream().eventsource().map_ok(move |event| {
+            // accumulate output tokens from message_delta usage if present
+            if let Ok(parsed) =
+                serde_json::from_str::<crate::types::claude::StreamEvent>(&event.data)
+            {
+                match parsed {
+                    crate::types::claude::StreamEvent::MessageDelta { usage: Some(u), .. } => {
+                        osum.fetch_add(u.output_tokens as u64, Ordering::Relaxed);
                     }
+                    crate::types::claude::StreamEvent::MessageStop => {
+                        // on stream completion, persist totals asynchronously
+                        if let (Some(cookie), handle) = (cookie.clone(), handle.clone()) {
+                            let total_out = osum.load(Ordering::Relaxed);
+                            let mut c = cookie.clone();
+                            tokio::spawn(async move {
+                                c.add_usage(input_tokens, total_out);
+                                let _ = handle.return_cookie(c, None).await;
+                            });
+                        }
+                    }
+                    _ => {}
                 }
-                // mirror upstream SSE event unchanged
-                let e = SseEvent::default().event(event.event).id(event.id);
-                let e = if let Some(retry) = event.retry { e.retry(retry) } else { e };
-                e.data(event.data)
-            });
+            }
+            // mirror upstream SSE event unchanged
+            let e = SseEvent::default().event(event.event).id(event.id);
+            let e = if let Some(retry) = event.retry {
+                e.retry(retry)
+            } else {
+                e
+            };
+            e.data(event.data)
+        });
 
-        Ok(Sse::new(stream).keep_alive(Default::default()).into_response())
+        Ok(Sse::new(stream)
+            .keep_alive(Default::default())
+            .into_response())
     }
 
     async fn materialize_non_stream_response(
@@ -483,19 +488,20 @@ impl ClaudeCodeState {
         if let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes)
             && let Some(usage) = value.get("usage")
         {
-                let input = usage
-                    .get("input_tokens")
-                    .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|n| n.max(0) as u64)));
-                let output = usage
-                    .get("output_tokens")
-                    .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|n| n.max(0) as u64)));
-                if let (Some(i), Some(o)) = (input, output) {
-                    return Some((i, o));
-                }
+            let input = usage
+                .get("input_tokens")
+                .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|n| n.max(0) as u64)));
+            let output = usage
+                .get("output_tokens")
+                .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|n| n.max(0) as u64)));
+            if let (Some(i), Some(o)) = (input, output) {
+                return Some((i, o));
+            }
         }
 
         // Fallback: estimate output tokens from the Claude response content
-        if let Ok(parsed) = serde_json::from_slice::<crate::types::claude::CreateMessageResponse>(bytes)
+        if let Ok(parsed) =
+            serde_json::from_slice::<crate::types::claude::CreateMessageResponse>(bytes)
         {
             let output_tokens = parsed.count_tokens() as u64;
             // Input tokens already computed earlier and present in self.usage; only estimate output here

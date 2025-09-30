@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { getCookieStatus, deleteCookie } from "../../api";
 import { formatTimestamp, formatIsoTimestamp } from "../../utils/formatters";
-import { CookieStatusInfo } from "../../types/cookie.types";
+import { CookieStatusInfo, CookieItem } from "../../types/cookie.types";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 import StatusMessage from "../common/StatusMessage";
@@ -27,7 +27,7 @@ const CookieVisualization: React.FC = () => {
   const [deletingCookie, setDeletingCookie] = useState<string | null>(null);
 
   // Fetch cookie data
-  const fetchCookieStatus = async () => {
+  const fetchCookieStatus = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -46,11 +46,11 @@ const CookieVisualization: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCookieStatus();
-  }, [refreshCounter]);
+  }, [fetchCookieStatus, refreshCounter]);
 
   const handleRefresh = () => setRefreshCounter((prev) => prev + 1);
 
@@ -61,7 +61,7 @@ const CookieVisualization: React.FC = () => {
     return message;
   };
 
-  const renderUsageStats = (status: any) => {
+  const renderUsageStats = (status: CookieItem) => {
     const currentInput = status.window_input_tokens ?? status.windowInputTokens ?? 0;
     const currentOutput = status.window_output_tokens ?? status.windowOutputTokens ?? 0;
     const totalInput = status.total_input_tokens ?? status.totalInputTokens ?? 0;
@@ -93,7 +93,7 @@ const CookieVisualization: React.FC = () => {
     );
   };
 
-  const renderQuotaStats = (status: any) => {
+  const renderQuotaStats = (status: CookieItem) => {
     const sess = status.session_utilization;
     const seven = status.seven_day_utilization;
     const opus = status.seven_day_opus_utilization;
@@ -175,7 +175,7 @@ const CookieVisualization: React.FC = () => {
   };
 
   // Helper for getting reason text from cookie reason object
-  const getReasonText = (reason: any): string => {
+  const getReasonText = (reason: unknown): string => {
     if (!reason) return t("cookieStatus.status.reasons.unknown");
     if (typeof reason === "string") return reason;
 

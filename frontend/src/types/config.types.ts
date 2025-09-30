@@ -40,7 +40,32 @@ export interface ConfigData {
   persistence?: PersistenceConfig;
 }
 
+export interface StorageStatusDetails {
+  driver?: string;
+  latency_ms?: number;
+  sqlite_path?: string;
+  database_url?: string;
+}
+
+export interface StorageStatus {
+  enabled?: boolean;
+  mode?: PersistenceMode;
+  healthy?: boolean;
+  details?: StorageStatusDetails;
+  last_write_ts?: number;
+  total_writes?: number;
+  avg_write_ms?: number;
+  failure_ratio?: number;
+  retry_count?: number;
+  write_error_count?: number;
+  error?: string;
+  last_error?: string;
+}
+
 interface VertexConfig {
+  credential?: string | null;
+  credentials?: { client_email: string }[];
+  [key: string]: unknown;
 }
 
 export type PersistenceMode = "file" | "sqlite" | "postgres";

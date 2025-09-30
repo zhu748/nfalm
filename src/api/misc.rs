@@ -419,7 +419,7 @@ pub async fn api_get_models() -> Json<Value> {
 // ------------------------------
 // Ephemeral org usage enrichment
 // ------------------------------
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use http::HeaderValue;
 use wreq::{
     ClientBuilder, Method, Url,
@@ -452,8 +452,17 @@ async fn augment_utilization(cookies: Vec<CookieStatus>) -> Vec<Value> {
 
 async fn fetch_usage_percent(
     cookie: &crate::config::ClewdrCookie,
-) -> Option<(u32, Option<String>, u32, Option<String>, u32, Option<String>)> {
-    let mut builder = ClientBuilder::new().cookie_store(true).emulation(Emulation::Chrome136);
+) -> Option<(
+    u32,
+    Option<String>,
+    u32,
+    Option<String>,
+    u32,
+    Option<String>,
+)> {
+    let mut builder = ClientBuilder::new()
+        .cookie_store(true)
+        .emulation(Emulation::Chrome136);
     if let Some(proxy) = CLEWDR_CONFIG.load().wreq_proxy.clone() {
         builder = builder.proxy(proxy);
     }
@@ -467,7 +476,10 @@ async fn fetch_usage_percent(
     client.set_cookie(&console_url, &cookie_header);
 
     // Discover organization UUID (prefer chat-capable org)
-    let orgs_url = format!("{}/api/organizations", endpoint.as_str().trim_end_matches('/'));
+    let orgs_url = format!(
+        "{}/api/organizations",
+        endpoint.as_str().trim_end_matches('/')
+    );
     let orgs_res = client
         .request(Method::GET, orgs_url)
         .header(ORIGIN, CLAUDE_ENDPOINT)

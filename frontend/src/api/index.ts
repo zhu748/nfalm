@@ -145,7 +145,9 @@ export async function getConfig() {
  * Saves config data to the server
  * @param configData The config data to save
  */
-export async function saveConfig(configData: any) {
+import type { ConfigData } from "../types/config.types";
+
+export async function saveConfig(configData: ConfigData) {
   const token = localStorage.getItem("authToken") || "";
   const response = await fetch("/api/config", {
     method: "PUT",
