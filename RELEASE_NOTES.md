@@ -1,13 +1,30 @@
-# v0.11.14
+# v0.11.15
 
 ## Features
 
-- Add support for database persistence using SeaORM (optional feature).
-
-## Bug Fixes
-
-- Correctly handle 403 errors for CC
+- Claude 4.5 support
+  - Update model prefixes and request handling for Claude 3.7 Sonnet (2025-02-19).
+  - Add token usage tracking and `count_tokens` endpoints (Code/Web).
+  - Add config toggle to enable web `count_tokens`.
+  - Cookie management enhancements: 1M-context capability flag and visualization; current/total token usage fields.
+- Cookie quota visualization
+  - `/api/cookies` now returns ephemeral quota utilization: 5-hour session, 7-day, and 7-day Opus (percent).
+  - Also returns corresponding reset timestamps (ISO 8601). Frontend shows expandable details.
+- Gemini support and management
+  - AI Studio and Vertex proxy, providing OpenAI-compatible `chat/completions`.
+  - Admin APIs: submit/delete Gemini keys; list/add/delete Vertex service account credentials.
+  - Frontend Gemini tab: key submission/visualization; Vertex credential list and upload.
+- Persistence and admin
+  - Add storage Import/Export/Status endpoints (available when built with `db` feature).
+  - Settings page shows storage status summary and provides Import/Export (enabled in non-file modes).
 
 ## Improvements
 
-- Improve build process
+- Ensure log directory exists before writing when file logging is enabled.
+- Install aws-lc crypto provider before using rustls to improve TLS stability.
+- Settings UI: remove legacy Vertex Settings section; update related copy and translations.
+- Refine DB initialization and storage health reporting; tidy provider abstractions and router structure.
+
+## Bug Fixes
+
+- Docs: clarify private key handling for Google Cloud service account JSON.
