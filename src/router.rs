@@ -137,7 +137,7 @@ impl RouterBuilder {
             );
         let admin_router = Router::new()
             .route("/auth", get(api_auth))
-            .route("/config", get(api_get_config).put(api_post_config))
+            .route("/config", get(api_get_config).post(api_post_config))
             .route("/storage/import", post(api_storage_import))
             .route("/storage/export", post(api_storage_export))
             .route("/storage/status", get(api_storage_status));
