@@ -559,8 +559,13 @@ impl ClaudeCodeState {
                 .as_str()
                 .map(|s| s.to_ascii_lowercase())
                 .unwrap_or_default();
-            return message
-                .contains("the long context beta is not yet available for this subscription.");
+            // Different account tiers (e.g., Pro vs Max) surface different error texts
+            // when 1M context is not permitted. Treat both as a signal to fallback.
+            return message.contains(
+                "the long context beta is not yet available for this subscription.",
+            ) || message.contains(
+                "this authentication style is incompatible with the long context beta header.",
+            );
         }
         false
     }
