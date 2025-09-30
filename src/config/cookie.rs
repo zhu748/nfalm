@@ -16,6 +16,34 @@ use crate::{
     error::ClewdrError,
 };
 
+/// Model family for usage bucketing
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ModelFamily {
+    Sonnet,
+    Opus,
+    Other,
+}
+
+/// Per-period usage breakdown by family
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct UsageBreakdown {
+    #[serde(default)]
+    pub total_input_tokens: u64,
+    #[serde(default)]
+    pub total_output_tokens: u64,
+
+    #[serde(default)]
+    pub sonnet_input_tokens: u64,
+    #[serde(default)]
+    pub sonnet_output_tokens: u64,
+
+    #[serde(default)]
+    pub opus_input_tokens: u64,
+    #[serde(default)]
+    pub opus_output_tokens: u64,
+}
+
 /// A struct representing a cookie
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClewdrCookie {
@@ -53,14 +81,37 @@ pub struct CookieStatus {
     pub supports_claude_1m: Option<bool>,
     #[serde(default)]
     pub count_tokens_allowed: Option<bool>,
+
+    // New: Per-period usage breakdown
     #[serde(default)]
-    pub total_input_tokens: u64,
+    pub session_usage: UsageBreakdown,
     #[serde(default)]
-    pub total_output_tokens: u64,
+    pub weekly_usage: UsageBreakdown,
     #[serde(default)]
-    pub window_input_tokens: u64,
+    pub weekly_opus_usage: UsageBreakdown,
     #[serde(default)]
-    pub window_output_tokens: u64,
+    pub lifetime_usage: UsageBreakdown,
+
+    // Reset boundaries for each period (epoch seconds, UTC)
+    #[serde(default)]
+    pub session_resets_at: Option<i64>,
+    #[serde(default)]
+    pub weekly_resets_at: Option<i64>,
+    #[serde(default)]
+    pub weekly_opus_resets_at: Option<i64>,
+
+    /// Last time we probed Anthropic console for resets_at
+    #[serde(default)]
+    pub resets_last_checked_at: Option<i64>,
+
+    /// Whether the subscription exposes a reset boundary for each window
+    /// None = unknown (not probed yet), Some(true) = track this window, Some(false) = no limit, never probe again
+    #[serde(default)]
+    pub session_has_reset: Option<bool>,
+    #[serde(default)]
+    pub weekly_has_reset: Option<bool>,
+    #[serde(default)]
+    pub weekly_opus_has_reset: Option<bool>,
 }
 
 impl PartialEq for CookieStatus {
@@ -106,10 +157,18 @@ impl CookieStatus {
             reset_time,
             supports_claude_1m: None,
             count_tokens_allowed: None,
-            total_input_tokens: 0,
-            total_output_tokens: 0,
-            window_input_tokens: 0,
-            window_output_tokens: 0,
+            
+            session_usage: UsageBreakdown::default(),
+            weekly_usage: UsageBreakdown::default(),
+            weekly_opus_usage: UsageBreakdown::default(),
+            lifetime_usage: UsageBreakdown::default(),
+            session_resets_at: None,
+            weekly_resets_at: None,
+            weekly_opus_resets_at: None,
+            resets_last_checked_at: None,
+            session_has_reset: None,
+            weekly_has_reset: None,
+            weekly_opus_has_reset: None,
         })
     }
 
@@ -125,8 +184,9 @@ impl CookieStatus {
             info!("Cookie reset time expired");
             return Self {
                 reset_time: None,
-                window_input_tokens: 0,
-                window_output_tokens: 0,
+                session_usage: UsageBreakdown::default(),
+                weekly_usage: UsageBreakdown::default(),
+                weekly_opus_usage: UsageBreakdown::default(),
                 ..self
             };
         }
@@ -145,19 +205,153 @@ impl CookieStatus {
         self.count_tokens_allowed = value;
     }
 
-    pub fn add_usage(&mut self, input: u64, output: u64) {
+    pub fn reset_window_usage(&mut self) {
+        // Legacy window counters removed; reset session buckets conservatively
+        self.session_usage = UsageBreakdown::default();
+        self.weekly_usage = UsageBreakdown::default();
+        self.weekly_opus_usage = UsageBreakdown::default();
+    }
+
+    // ------------------------
+    // New usage aggregation
+    // ------------------------
+
+    pub fn set_session_resets_at(&mut self, ts: Option<i64>) {
+        self.session_resets_at = ts;
+    }
+
+    pub fn set_weekly_resets_at(&mut self, ts: Option<i64>) {
+        self.weekly_resets_at = ts;
+    }
+
+    pub fn set_weekly_opus_resets_at(&mut self, ts: Option<i64>) {
+        self.weekly_opus_resets_at = ts;
+    }
+
+    pub fn add_and_bucket_usage(&mut self, input: u64, output: u64, family: ModelFamily) {
         if input == 0 && output == 0 {
             return;
         }
-        self.total_input_tokens = self.total_input_tokens.saturating_add(input);
-        self.total_output_tokens = self.total_output_tokens.saturating_add(output);
-        self.window_input_tokens = self.window_input_tokens.saturating_add(input);
-        self.window_output_tokens = self.window_output_tokens.saturating_add(output);
-    }
+        // Legacy totals/windows removed; only bucketed aggregation remains
 
-    pub fn reset_window_usage(&mut self) {
-        self.window_input_tokens = 0;
-        self.window_output_tokens = 0;
+        // session bucket (total + per family)
+        self.session_usage.total_input_tokens = self
+            .session_usage
+            .total_input_tokens
+            .saturating_add(input);
+        self.session_usage.total_output_tokens = self
+            .session_usage
+            .total_output_tokens
+            .saturating_add(output);
+        match family {
+            ModelFamily::Sonnet => {
+                self.session_usage.sonnet_input_tokens = self
+                    .session_usage
+                    .sonnet_input_tokens
+                    .saturating_add(input);
+                self.session_usage.sonnet_output_tokens = self
+                    .session_usage
+                    .sonnet_output_tokens
+                    .saturating_add(output);
+            }
+            ModelFamily::Opus => {
+                self.session_usage.opus_input_tokens = self
+                    .session_usage
+                    .opus_input_tokens
+                    .saturating_add(input);
+                self.session_usage.opus_output_tokens = self
+                    .session_usage
+                    .opus_output_tokens
+                    .saturating_add(output);
+            }
+            ModelFamily::Other => {}
+        }
+
+        // weekly bucket (total + per family)
+        self.weekly_usage.total_input_tokens = self
+            .weekly_usage
+            .total_input_tokens
+            .saturating_add(input);
+        self.weekly_usage.total_output_tokens = self
+            .weekly_usage
+            .total_output_tokens
+            .saturating_add(output);
+        match family {
+            ModelFamily::Sonnet => {
+                self.weekly_usage.sonnet_input_tokens = self
+                    .weekly_usage
+                    .sonnet_input_tokens
+                    .saturating_add(input);
+                self.weekly_usage.sonnet_output_tokens = self
+                    .weekly_usage
+                    .sonnet_output_tokens
+                    .saturating_add(output);
+            }
+            ModelFamily::Opus => {
+                self.weekly_usage.opus_input_tokens = self
+                    .weekly_usage
+                    .opus_input_tokens
+                    .saturating_add(input);
+                self.weekly_usage.opus_output_tokens = self
+                    .weekly_usage
+                    .opus_output_tokens
+                    .saturating_add(output);
+            }
+            ModelFamily::Other => {}
+        }
+
+        // weekly_opus bucket (only opus contributes)
+        if matches!(family, ModelFamily::Opus) {
+            self.weekly_opus_usage.total_input_tokens = self
+                .weekly_opus_usage
+                .total_input_tokens
+                .saturating_add(input);
+            self.weekly_opus_usage.total_output_tokens = self
+                .weekly_opus_usage
+                .total_output_tokens
+                .saturating_add(output);
+            self.weekly_opus_usage.opus_input_tokens = self
+                .weekly_opus_usage
+                .opus_input_tokens
+                .saturating_add(input);
+            self.weekly_opus_usage.opus_output_tokens = self
+                .weekly_opus_usage
+                .opus_output_tokens
+                .saturating_add(output);
+        }
+
+        // lifetime bucket (total + per family)
+        self.lifetime_usage.total_input_tokens = self
+            .lifetime_usage
+            .total_input_tokens
+            .saturating_add(input);
+        self.lifetime_usage.total_output_tokens = self
+            .lifetime_usage
+            .total_output_tokens
+            .saturating_add(output);
+        match family {
+            ModelFamily::Sonnet => {
+                self.lifetime_usage.sonnet_input_tokens = self
+                    .lifetime_usage
+                    .sonnet_input_tokens
+                    .saturating_add(input);
+                self.lifetime_usage.sonnet_output_tokens = self
+                    .lifetime_usage
+                    .sonnet_output_tokens
+                    .saturating_add(output);
+            }
+            ModelFamily::Opus => {
+                self.lifetime_usage.opus_input_tokens = self
+                    .lifetime_usage
+                    .opus_input_tokens
+                    .saturating_add(input);
+                self.lifetime_usage.opus_output_tokens = self
+                    .lifetime_usage
+                    .opus_output_tokens
+                    .saturating_add(output);
+            }
+            ModelFamily::Other => {}
+        }
     }
 }
 

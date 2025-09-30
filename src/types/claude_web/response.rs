@@ -134,12 +134,40 @@ impl ClaudeWebState {
                         resp.count_tokens() as u64
                     });
                     if let Some(mut c) = cookie.clone() {
-                        c.add_usage(input_tokens, out);
+                        let family = last_params
+                            .as_ref()
+                            .map(|p| p.model.as_str())
+                            .map(|m| {
+                                let m = m.to_ascii_lowercase();
+                                if m.contains("opus") {
+                                    crate::config::ModelFamily::Opus
+                                } else if m.contains("sonnet") {
+                                    crate::config::ModelFamily::Sonnet
+                                } else {
+                                    crate::config::ModelFamily::Other
+                                }
+                            })
+                            .unwrap_or(crate::config::ModelFamily::Other);
+                        c.add_and_bucket_usage(input_tokens, out, family);
                         let _ = handle.return_cookie(c, None).await;
                     }
                 } else if let Some(mut c) = cookie.clone() {
                     // still persist input tokens to maintain parity
-                    c.add_usage(input_tokens, 0);
+                    let family = last_params
+                        .as_ref()
+                        .map(|p| p.model.as_str())
+                        .map(|m| {
+                            let m = m.to_ascii_lowercase();
+                            if m.contains("opus") {
+                                crate::config::ModelFamily::Opus
+                            } else if m.contains("sonnet") {
+                                crate::config::ModelFamily::Sonnet
+                            } else {
+                                crate::config::ModelFamily::Other
+                            }
+                        })
+                        .unwrap_or(crate::config::ModelFamily::Other);
+                    c.add_and_bucket_usage(input_tokens, 0, family);
                     let _ = handle.return_cookie(c, None).await;
                 }
             };

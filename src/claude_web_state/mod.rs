@@ -137,12 +137,28 @@ impl ClaudeWebState {
         }
     }
 
+    fn classify_model(model: &str) -> crate::config::ModelFamily {
+        let m = model.to_ascii_lowercase();
+        if m.contains("opus") {
+            crate::config::ModelFamily::Opus
+        } else if m.contains("sonnet") {
+            crate::config::ModelFamily::Sonnet
+        } else {
+            crate::config::ModelFamily::Other
+        }
+    }
+
     pub async fn persist_usage_totals(&mut self, input: u64, output: u64) {
         if input == 0 && output == 0 {
             return;
         }
         if let Some(cookie) = self.cookie.as_mut() {
-            cookie.add_usage(input, output);
+            let family = self
+                .last_params
+                .as_ref()
+                .map(|p| Self::classify_model(&p.model))
+                .unwrap_or(crate::config::ModelFamily::Other);
+            cookie.add_and_bucket_usage(input, output, family);
             let cloned = cookie.clone();
             if let Err(err) = self.cookie_actor_handle.return_cookie(cloned, None).await {
                 warn!("Failed to persist usage statistics: {}", err);

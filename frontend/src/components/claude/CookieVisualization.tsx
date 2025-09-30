@@ -62,48 +62,52 @@ const CookieVisualization: React.FC = () => {
   };
 
   const renderUsageStats = (status: CookieItem) => {
-    const rec = status as unknown as Record<string, unknown>;
-    const pickNumber = (a: unknown, b: unknown): number =>
-      typeof a === "number" ? a : typeof b === "number" ? (b as number) : 0;
-    const currentInput = pickNumber(
-      status.window_input_tokens,
-      rec["windowInputTokens"],
-    );
-    const currentOutput = pickNumber(
-      status.window_output_tokens,
-      rec["windowOutputTokens"],
-    );
-    const totalInput = pickNumber(
-      status.total_input_tokens,
-      rec["totalInputTokens"],
-    );
-    const totalOutput = pickNumber(
-      status.total_output_tokens,
-      rec["totalOutputTokens"],
-    );
 
-    if (currentInput === 0 && currentOutput === 0 && totalInput === 0 && totalOutput === 0) {
-      return null;
-    }
+    // New buckets (session/7d/7d-opus)
+    const sIn = status.session_usage?.total_input_tokens ?? 0;
+    const sOut = status.session_usage?.total_output_tokens ?? 0;
+    const wIn = status.weekly_usage?.total_input_tokens ?? 0;
+    const wOut = status.weekly_usage?.total_output_tokens ?? 0;
+    const woIn = status.weekly_opus_usage?.total_input_tokens ?? 0;
+    const woOut = status.weekly_opus_usage?.total_output_tokens ?? 0;
+    const ltIn = status.lifetime_usage?.total_input_tokens ?? 0;
+    const ltOut = status.lifetime_usage?.total_output_tokens ?? 0;
+
+    // If everything is zero, display nothing
+    const nothing = [sIn, sOut, wIn, wOut, woIn, woOut, ltIn, ltOut].every(
+      (n) => (n ?? 0) === 0,
+    );
+    if (nothing) return null;
+
+    const Group = ({ title, input, output }: { title: string; input: number; output: number }) => (
+      <div className="flex gap-3 flex-wrap">
+        <span>
+          {title} · {t("cookieStatus.usage.totalInput")}: {input}
+        </span>
+        <span>
+          {t("cookieStatus.usage.totalOutput")}: {output}
+        </span>
+      </div>
+    );
 
     return (
       <div className="grid gap-1 text-xs text-gray-400">
-        <div className="flex gap-3 flex-wrap">
-          <span>
-            {t("cookieStatus.usage.currentInput")}: {currentInput}
-          </span>
-          <span>
-            {t("cookieStatus.usage.currentOutput")}: {currentOutput}
-          </span>
-        </div>
-        <div className="flex gap-3 flex-wrap">
-          <span>
-            {t("cookieStatus.usage.totalInput")}: {totalInput}
-          </span>
-          <span>
-            {t("cookieStatus.usage.totalOutput")}: {totalOutput}
-          </span>
-        </div>
+        {(sIn > 0 || sOut > 0) && (
+          <Group title={t("cookieStatus.quota.session") as string} input={sIn} output={sOut} />
+        )}
+        {(wIn > 0 || wOut > 0) && (
+          <Group title={t("cookieStatus.quota.sevenDay") as string} input={wIn} output={wOut} />
+        )}
+        {(woIn > 0 || woOut > 0) && (
+          <Group
+            title={t("cookieStatus.quota.sevenDayOpus") as string}
+            input={woIn}
+            output={woOut}
+          />
+        )}
+        {(ltIn > 0 || ltOut > 0) && (
+          <Group title={t("cookieStatus.quota.total") as string} input={ltIn} output={ltOut} />
+        )}
       </div>
     );
   };

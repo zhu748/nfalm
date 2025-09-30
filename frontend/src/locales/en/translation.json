@@ -137,6 +137,7 @@
       "session": "Session utilization",
       "sevenDay": "7-day utilization",
       "sevenDayOpus": "7-day Opus utilization",
+      "total": "Total usage",
       "resetsAt": "Resets at {{time}}"
     },
     "meta": {
