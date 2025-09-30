@@ -3,7 +3,7 @@ use tracing::error;
 
 use sea_orm::{ActiveValue::Set, entity::prelude::*};
 
-use crate::config::{ClewdrConfig, CookieStatus, KeyStatus, UselessCookie};
+use crate::config::{ClewdrConfig, CookieStatus, KeyStatus, UselessCookie, UsageBreakdown};
 use crate::error::ClewdrError;
 
 use super::{conn::ensure_conn, entities::*, metrics::*};
@@ -100,10 +100,14 @@ pub async fn persist_cookie_upsert(c: &CookieStatus) -> Result<(), ClewdrError> 
         token_org_uuid: Set(org),
         supports_claude_1m: Set(c.supports_claude_1m),
         count_tokens_allowed: Set(c.count_tokens_allowed),
-        total_input_tokens: Set(Some(clamp_u64_to_i64(c.total_input_tokens))),
-        total_output_tokens: Set(Some(clamp_u64_to_i64(c.total_output_tokens))),
-        window_input_tokens: Set(Some(clamp_u64_to_i64(c.window_input_tokens))),
-        window_output_tokens: Set(Some(clamp_u64_to_i64(c.window_output_tokens))),
+        total_input_tokens: Set(None),
+        total_output_tokens: Set(None),
+        window_input_tokens: Set(None),
+        window_output_tokens: Set(None),
+        session_usage: Set(Some(serde_json::to_string(&c.session_usage).unwrap_or_else(|_| "{}".to_string()))),
+        weekly_usage: Set(Some(serde_json::to_string(&c.weekly_usage).unwrap_or_else(|_| "{}".to_string()))),
+        weekly_opus_usage: Set(Some(serde_json::to_string(&c.weekly_opus_usage).unwrap_or_else(|_| "{}".to_string()))),
+        lifetime_usage: Set(Some(serde_json::to_string(&c.lifetime_usage).unwrap_or_else(|_| "{}".to_string()))),
     };
     let start = std::time::Instant::now();
     let res = EntityCookie::insert(am)
@@ -118,10 +122,10 @@ pub async fn persist_cookie_upsert(c: &CookieStatus) -> Result<(), ClewdrError> 
                     ColumnCookie::TokenOrgUuid,
                     ColumnCookie::SupportsClaude1m,
                     ColumnCookie::CountTokensAllowed,
-                    ColumnCookie::TotalInputTokens,
-                    ColumnCookie::TotalOutputTokens,
-                    ColumnCookie::WindowInputTokens,
-                    ColumnCookie::WindowOutputTokens,
+                    ColumnCookie::SessionUsage,
+                    ColumnCookie::WeeklyUsage,
+                    ColumnCookie::WeeklyOpusUsage,
+                    ColumnCookie::LifetimeUsage,
                 ])
                 .to_owned(),
         )
@@ -353,10 +357,26 @@ pub async fn export_current_config() -> Result<serde_json::Value, ClewdrError> {
         }
         c.supports_claude_1m = r.supports_claude_1m;
         c.count_tokens_allowed = r.count_tokens_allowed;
-        c.total_input_tokens = r.total_input_tokens.unwrap_or(0).max(0) as u64;
-        c.total_output_tokens = r.total_output_tokens.unwrap_or(0).max(0) as u64;
-        c.window_input_tokens = r.window_input_tokens.unwrap_or(0).max(0) as u64;
-        c.window_output_tokens = r.window_output_tokens.unwrap_or(0).max(0) as u64;
+        if let Some(s) = r.session_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.session_usage = v;
+            }
+        }
+        if let Some(s) = r.weekly_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.weekly_usage = v;
+            }
+        }
+        if let Some(s) = r.weekly_opus_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.weekly_opus_usage = v;
+            }
+        }
+        if let Some(s) = r.lifetime_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.lifetime_usage = v;
+            }
+        }
         cfg.cookie_array.insert(c);
     }
     // wasted
@@ -462,10 +482,27 @@ pub async fn load_all_cookies()
         }
         c.supports_claude_1m = r.supports_claude_1m;
         c.count_tokens_allowed = r.count_tokens_allowed;
-        c.total_input_tokens = r.total_input_tokens.unwrap_or(0).max(0) as u64;
-        c.total_output_tokens = r.total_output_tokens.unwrap_or(0).max(0) as u64;
-        c.window_input_tokens = r.window_input_tokens.unwrap_or(0).max(0) as u64;
-        c.window_output_tokens = r.window_output_tokens.unwrap_or(0).max(0) as u64;
+        // Legacy totals/windows removed; ignore DB columns if present
+        if let Some(s) = r.session_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.session_usage = v;
+            }
+        }
+        if let Some(s) = r.weekly_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.weekly_usage = v;
+            }
+        }
+        if let Some(s) = r.weekly_opus_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.weekly_opus_usage = v;
+            }
+        }
+        if let Some(s) = r.lifetime_usage.as_ref() {
+            if let Ok(v) = serde_json::from_str::<UsageBreakdown>(s) {
+                c.lifetime_usage = v;
+            }
+        }
         if c.reset_time.is_some() {
             exhausted.push(c);
         } else {

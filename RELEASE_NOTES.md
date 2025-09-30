@@ -1,30 +1,21 @@
-# v0.11.15
+# v0.11.17
 
 ## Features
 
-- Claude 4.5 support
-  - Update model prefixes and request handling for Claude 3.7 Sonnet (2025-02-19).
-  - Add token usage tracking and `count_tokens` endpoints (Code/Web).
-  - Add config toggle to enable web `count_tokens`.
-  - Cookie management enhancements: 1M-context capability flag and visualization; current/total token usage fields.
-- Cookie quota visualization
-  - `/api/cookies` now returns ephemeral quota utilization: 5-hour session, 7-day, and 7-day Opus (percent).
-  - Also returns corresponding reset timestamps (ISO 8601). Frontend shows expandable details.
-- Gemini support and management
-  - AI Studio and Vertex proxy, providing OpenAI-compatible `chat/completions`.
-  - Admin APIs: submit/delete Gemini keys; list/add/delete Vertex service account credentials.
-  - Frontend Gemini tab: key submission/visualization; Vertex credential list and upload.
-- Persistence and admin
-  - Add storage Import/Export/Status endpoints (available when built with `db` feature).
-  - Settings page shows storage status summary and provides Import/Export (enabled in non-file modes).
+- Cookie usage breakdown by model family
+  - Add session/7‑day/7‑day Opus/lifetime usage buckets with per‑family totals (Sonnet, Opus) alongside overall totals (input/output tokens).
+  - Frontend visualization now expands each window to show Sonnet/Opus input/output when present.
+  - Storage layer persists the new UsageBreakdown structures when DB persistence is enabled.
 
 ## Improvements
 
-- Ensure log directory exists before writing when file logging is enabled.
-- Install aws-lc crypto provider before using rustls to improve TLS stability.
-- Settings UI: remove legacy Vertex Settings section; update related copy and translations.
-- Refine DB initialization and storage health reporting; tidy provider abstractions and router structure.
+- Settings: decouple Vertex from the Config page
+  - The Config page payload no longer includes `vertex`; Vertex credentials are managed exclusively under the Gemini tab.
+  - Server preserves existing Vertex configuration on config updates regardless of request body contents.
+  - GET /api/config no longer returns Vertex fields to the frontend to avoid accidental round‑trips.
+- API ergonomics
+  - Change Config update to POST semantics and enhance error propagation so the UI surfaces backend error messages.
 
 ## Bug Fixes
 
-- Docs: clarify private key handling for Google Cloud service account JSON.
+- Fix 422 on config save when a placeholder `vertex.credential` string was round‑tripped from the UI. The endpoint now ignores Vertex from the Config page and preserves existing values.

@@ -8,16 +8,15 @@ use tracing::{Instrument, error, info, warn};
 
 use crate::{
     claude_code_state::{ClaudeCodeState, TokenStatus},
-    config::CLEWDR_CONFIG,
+    config::{ModelFamily, CLEWDR_CONFIG, CLAUDE_CONSOLE_ENDPOINT},
     error::{CheckClaudeErr, ClewdrError, WreqSnafu},
     types::claude::{CountMessageTokensResponse, CreateMessageParams},
 };
+use wreq::{ClientBuilder, Method, Url, header::{ORIGIN, REFERER}};
+use wreq_util::Emulation;
 
 const CLAUDE_BETA_BASE: &str = "oauth-2025-04-20";
 const CLAUDE_BETA_CONTEXT_1M: &str = "oauth-2025-04-20,context-1m-2025-08-07";
-const CLAUDE_SONNET_4_PREFIX: &str = "claude-sonnet-4-20250514";
-const CLAUDE_SONNET_4_5_PREFIX: &str = "claude-sonnet-4-5-20250929";
-const CLAUDE_SONNET_4_PREFIXES: &[&str] = &[CLAUDE_SONNET_4_PREFIX, CLAUDE_SONNET_4_5_PREFIX];
 
 impl ClaudeCodeState {
     /// Attempts to send a chat message to Claude API with retry mechanism
@@ -133,13 +132,14 @@ impl ClaudeCodeState {
         };
 
         p.model = base_model;
+        let model_family = Self::classify_model(&p.model);
 
         let mut last_err: Option<ClewdrError> = None;
         for (idx, use_1m) in attempts.iter().copied().enumerate() {
             match self.execute_claude_request(&access_token, &p, use_1m).await {
                 Ok(response) => {
                     return self
-                        .handle_success_response(response, is_sonnet && use_1m)
+                        .handle_success_response(response, is_sonnet && use_1m, model_family)
                         .await;
                 }
                 Err(err) => {
@@ -372,14 +372,12 @@ impl ClaudeCodeState {
         &mut self,
         response: wreq::Response,
         mark_support_true: bool,
+        model_family: ModelFamily,
     ) -> Result<axum::response::Response, ClewdrError> {
         if !self.stream {
             let (resp, usage_pair) = Self::materialize_non_stream_response(response).await?;
-            let (mut input, output) = usage_pair.unwrap_or((self.usage.input_tokens as u64, 0));
-            if input == 0 {
-                input = self.usage.input_tokens as u64;
-            }
-            self.persist_usage_totals(input, output).await;
+            let (input, output) = usage_pair.unwrap_or((self.usage.input_tokens as u64, 0));
+            self.persist_usage_totals(input, output, model_family).await;
             if mark_support_true {
                 self.persist_claude_1m_support(true).await;
             }
@@ -389,16 +387,18 @@ impl ClaudeCodeState {
                 self.persist_claude_1m_support(true).await;
             }
             // Stream pass-through while accumulating output token usage from message_delta events
-            return self.forward_stream_with_usage(response).await;
+            return self.forward_stream_with_usage(response, model_family).await;
         }
     }
 
-    async fn persist_usage_totals(&mut self, input: u64, output: u64) {
+    async fn persist_usage_totals(&mut self, input: u64, output: u64, family: ModelFamily) {
         if input == 0 && output == 0 {
             return;
         }
         if let Some(cookie) = self.cookie.as_mut() {
-            cookie.add_usage(input, output);
+            // Lazy boundary refresh if due, then reset period counters and start fresh
+            Self::update_cookie_boundaries_if_due(cookie).await;
+            cookie.add_and_bucket_usage(input, output, family);
             let cloned = cookie.clone();
             if let Err(err) = self.cookie_actor_handle.return_cookie(cloned, None).await {
                 warn!("Failed to persist usage statistics: {}", err);
@@ -409,6 +409,7 @@ impl ClaudeCodeState {
     async fn forward_stream_with_usage(
         &mut self,
         response: wreq::Response,
+        family: ModelFamily,
     ) -> Result<axum::response::Response, ClewdrError> {
         use std::sync::{
             Arc,
@@ -436,7 +437,9 @@ impl ClaudeCodeState {
                             let total_out = osum.load(Ordering::Relaxed);
                             let mut c = cookie.clone();
                             tokio::spawn(async move {
-                                c.add_usage(input_tokens, total_out);
+                                // Update period boundaries if needed, then accumulate
+                                ClaudeCodeState::update_cookie_boundaries_if_due(&mut c).await;
+                                c.add_and_bucket_usage(input_tokens, total_out, family);
                                 let _ = handle.return_cookie(c, None).await;
                             });
                         }
@@ -538,9 +541,197 @@ impl ClaudeCodeState {
     }
 
     fn is_sonnet4_model(model: &str) -> bool {
-        CLAUDE_SONNET_4_PREFIXES
-            .iter()
-            .any(|prefix| model.starts_with(prefix))
+        // Simplify detection: treat any model id containing
+        // "claude-sonnet-4" as Sonnet 4.x for 1M probing.
+        let m = model.to_ascii_lowercase();
+        m.contains("claude-sonnet-4")
+    }
+
+    fn classify_model(model: &str) -> ModelFamily {
+        let m = model.to_ascii_lowercase();
+        if m.contains("opus") {
+            ModelFamily::Opus
+        } else if m.contains("sonnet") {
+            ModelFamily::Sonnet
+        } else {
+            ModelFamily::Other
+        }
+    }
+
+    // ---------------------------------------------
+    // Lazy boundary refresh (no timers, fetch-on-due)
+    // ---------------------------------------------
+    async fn update_cookie_boundaries_if_due(cookie: &mut crate::config::CookieStatus) {
+        let now = chrono::Utc::now().timestamp();
+        const SESSION_WINDOW_SECS: i64 = 5 * 60 * 60; // 5h
+        const WEEKLY_WINDOW_SECS: i64 = 7 * 24 * 60 * 60; // 7d
+
+        let tracked = |flag: Option<bool>| flag == Some(true);
+        let unknown = |flag: Option<bool>| flag.is_none();
+        let due = |ts: Option<i64>| ts.map(|t| now >= t).unwrap_or(false);
+
+        let session_tracked = tracked(cookie.session_has_reset);
+        let weekly_tracked = tracked(cookie.weekly_has_reset);
+        let opus_tracked = tracked(cookie.weekly_opus_has_reset);
+
+        let session_due = session_tracked && due(cookie.session_resets_at);
+        let weekly_due = weekly_tracked && due(cookie.weekly_resets_at);
+        let opus_due = opus_tracked && due(cookie.weekly_opus_resets_at);
+
+        let need_probe_unknown = unknown(cookie.session_has_reset)
+            || unknown(cookie.weekly_has_reset)
+            || unknown(cookie.weekly_opus_has_reset);
+        let any_due = session_due || weekly_due || opus_due;
+
+        if !(need_probe_unknown || any_due) {
+            return;
+        }
+
+        cookie.resets_last_checked_at = Some(now);
+        if let Some((sess, week, opus)) = Self::fetch_usage_resets(&cookie.cookie).await {
+            // Unknown -> decide track/not-track
+            if unknown(cookie.session_has_reset) {
+                cookie.session_has_reset = Some(sess.is_some());
+            }
+            if unknown(cookie.weekly_has_reset) {
+                cookie.weekly_has_reset = Some(week.is_some());
+            }
+            if unknown(cookie.weekly_opus_has_reset) {
+                cookie.weekly_opus_has_reset = Some(opus.is_some());
+            }
+
+            // Handle due tracked windows: reset usage then update boundaries if provided
+            if session_due {
+                cookie.session_usage = crate::config::UsageBreakdown::default();
+            }
+            if weekly_due {
+                cookie.weekly_usage = crate::config::UsageBreakdown::default();
+            }
+            if opus_due {
+                cookie.weekly_opus_usage = crate::config::UsageBreakdown::default();
+            }
+
+            // Update/reset boundaries for tracked windows
+            if cookie.session_has_reset == Some(true) {
+                if let Some(ts) = sess {
+                    cookie.session_resets_at = Some(ts);
+                } else {
+                    // Server indicates no boundary -> stop tracking and clear ts
+                    cookie.session_has_reset = Some(false);
+                    cookie.session_resets_at = None;
+                }
+            }
+            if cookie.weekly_has_reset == Some(true) {
+                if let Some(ts) = week {
+                    cookie.weekly_resets_at = Some(ts);
+                } else {
+                    cookie.weekly_has_reset = Some(false);
+                    cookie.weekly_resets_at = None;
+                }
+            }
+            if cookie.weekly_opus_has_reset == Some(true) {
+                if let Some(ts) = opus {
+                    cookie.weekly_opus_resets_at = Some(ts);
+                } else {
+                    cookie.weekly_opus_has_reset = Some(false);
+                    cookie.weekly_opus_resets_at = None;
+                }
+            }
+        } else {
+            // Network/parse failure: apply fallback only for windows we currently track
+            if session_due && session_tracked {
+                cookie.session_usage = crate::config::UsageBreakdown::default();
+                cookie.session_resets_at = Some(now + SESSION_WINDOW_SECS);
+            }
+            if weekly_due && weekly_tracked {
+                cookie.weekly_usage = crate::config::UsageBreakdown::default();
+                cookie.weekly_resets_at = Some(now + WEEKLY_WINDOW_SECS);
+            }
+            if opus_due && opus_tracked {
+                cookie.weekly_opus_usage = crate::config::UsageBreakdown::default();
+                cookie.weekly_opus_resets_at = Some(now + WEEKLY_WINDOW_SECS);
+            }
+        }
+    }
+
+    async fn fetch_usage_resets(
+        cookie: &crate::config::ClewdrCookie,
+    ) -> Option<(Option<i64>, Option<i64>, Option<i64>)> {
+        // Build a fresh client (mirrors misc.rs behavior)
+        let mut builder = ClientBuilder::new()
+            .cookie_store(true)
+            .emulation(Emulation::Chrome136);
+        if let Some(proxy) = CLEWDR_CONFIG.load().wreq_proxy.clone() {
+            builder = builder.proxy(proxy);
+        }
+        let client = builder.build().ok()?;
+
+        // Attach cookie for both api and console domains
+        let endpoint: Url = CLEWDR_CONFIG.load().endpoint();
+        let cookie_header = http::HeaderValue::from_str(&cookie.to_string()).ok()?;
+        client.set_cookie(&endpoint, &cookie_header);
+        let console_url = Url::parse(CLAUDE_CONSOLE_ENDPOINT).ok()?;
+        client.set_cookie(&console_url, &cookie_header);
+
+        // Discover organization UUID (prefer chat-capable org)
+        let orgs_url = format!(
+            "{}/api/organizations",
+            endpoint.as_str().trim_end_matches('/')
+        );
+        let orgs_res = client
+            .request(Method::GET, orgs_url)
+            .header(ORIGIN, crate::config::CLAUDE_ENDPOINT)
+            .header(REFERER, format!("{}/new", crate::config::CLAUDE_ENDPOINT))
+            .send()
+            .await
+            .ok()?;
+        let orgs_val: serde_json::Value = orgs_res.json().await.ok()?;
+        let org_uuid = orgs_val
+            .as_array()
+            .and_then(|a| {
+                a.iter()
+                    .filter(|v| {
+                        v.get("capabilities")
+                            .and_then(|c| c.as_array())
+                            .map(|c| c.iter().any(|x| x.as_str() == Some("chat")))
+                            .unwrap_or(false)
+                    })
+                    .max_by_key(|v| {
+                        v.get("capabilities")
+                            .and_then(|c| c.as_array())
+                            .map(|c| c.len())
+                            .unwrap_or_default()
+                    })
+                    .and_then(|v| v.get("uuid").and_then(|u| u.as_str()))
+            })
+            .or_else(|| {
+                orgs_val
+                    .get(0)
+                    .and_then(|v| v.get("uuid").and_then(|u| u.as_str()))
+            })?;
+
+        // Query usage from console API
+        let usage_url = format!(
+            "{}/api/organizations/{}/usage",
+            CLAUDE_CONSOLE_ENDPOINT, org_uuid
+        );
+        let usage_res = client.request(Method::GET, usage_url).send().await.ok()?;
+        let usage: serde_json::Value = usage_res.json().await.ok()?;
+
+        let parse_reset = |obj_key: &str| -> Option<i64> {
+            usage
+                .get(obj_key)
+                .and_then(|o| o.get("resets_at"))
+                .and_then(|v| v.as_str())
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.timestamp())
+        };
+
+        Some((
+            parse_reset("five_hour"),
+            parse_reset("seven_day"),
+            parse_reset("seven_day_opus"),
+        ))
     }
 
     fn local_count_tokens_response(body: &CreateMessageParams) -> axum::response::Response {

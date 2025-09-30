@@ -131,12 +131,17 @@
       "currentInput": "Current input tokens",
       "currentOutput": "Current output tokens",
       "totalInput": "Total input tokens",
-      "totalOutput": "Total output tokens"
+      "totalOutput": "Total output tokens",
+      "sonnetInput": "Sonnet input tokens",
+      "sonnetOutput": "Sonnet output tokens",
+      "opusInput": "Opus input tokens",
+      "opusOutput": "Opus output tokens"
     },
     "quota": {
       "session": "Session utilization",
       "sevenDay": "7-day utilization",
       "sevenDayOpus": "7-day Opus utilization",
+      "total": "Total usage",
       "resetsAt": "Resets at {{time}}"
     },
     "meta": {

@@ -44,6 +44,7 @@ pub mod entity_cookie {
         pub supports_claude_1m: Option<bool>,
         #[sea_orm(nullable)]
         pub count_tokens_allowed: Option<bool>,
+        // Legacy token counters retained in DB but ignored by app
         #[sea_orm(column_type = "BigInteger", nullable)]
         pub total_input_tokens: Option<i64>,
         #[sea_orm(column_type = "BigInteger", nullable)]
@@ -52,6 +53,14 @@ pub mod entity_cookie {
         pub window_input_tokens: Option<i64>,
         #[sea_orm(column_type = "BigInteger", nullable)]
         pub window_output_tokens: Option<i64>,
+        #[sea_orm(nullable)]
+        pub session_usage: Option<String>,
+        #[sea_orm(nullable)]
+        pub weekly_usage: Option<String>,
+        #[sea_orm(nullable)]
+        pub weekly_opus_usage: Option<String>,
+        #[sea_orm(nullable)]
+        pub lifetime_usage: Option<String>,
     }
     #[derive(Copy, Clone, Debug, EnumIter)]
     pub enum Relation {}

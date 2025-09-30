@@ -62,48 +62,116 @@ const CookieVisualization: React.FC = () => {
   };
 
   const renderUsageStats = (status: CookieItem) => {
-    const rec = status as unknown as Record<string, unknown>;
-    const pickNumber = (a: unknown, b: unknown): number =>
-      typeof a === "number" ? a : typeof b === "number" ? (b as number) : 0;
-    const currentInput = pickNumber(
-      status.window_input_tokens,
-      rec["windowInputTokens"],
-    );
-    const currentOutput = pickNumber(
-      status.window_output_tokens,
-      rec["windowOutputTokens"],
-    );
-    const totalInput = pickNumber(
-      status.total_input_tokens,
-      rec["totalInputTokens"],
-    );
-    const totalOutput = pickNumber(
-      status.total_output_tokens,
-      rec["totalOutputTokens"],
-    );
+    const s = status.session_usage || {};
+    const w = status.weekly_usage || {};
+    const wo = status.weekly_opus_usage || {};
+    const lt = status.lifetime_usage || {};
 
-    if (currentInput === 0 && currentOutput === 0 && totalInput === 0 && totalOutput === 0) {
-      return null;
+    const groups: Array<{
+      title: string;
+      b: Required<Pick<
+        typeof s,
+        | "total_input_tokens"
+        | "total_output_tokens"
+        | "sonnet_input_tokens"
+        | "sonnet_output_tokens"
+        | "opus_input_tokens"
+        | "opus_output_tokens"
+      >>;
+      showSonnet: boolean;
+      showOpus: boolean;
+    }> = [];
+
+    const toReq = (x: typeof s) => ({
+      total_input_tokens: x.total_input_tokens ?? 0,
+      total_output_tokens: x.total_output_tokens ?? 0,
+      sonnet_input_tokens: x.sonnet_input_tokens ?? 0,
+      sonnet_output_tokens: x.sonnet_output_tokens ?? 0,
+      opus_input_tokens: x.opus_input_tokens ?? 0,
+      opus_output_tokens: x.opus_output_tokens ?? 0,
+    });
+
+    const sReq = toReq(s);
+    const wReq = toReq(w);
+    const woReq = toReq(wo);
+    const ltReq = toReq(lt);
+
+    const anyNonZero = (req: typeof sReq) =>
+      req.total_input_tokens > 0 ||
+      req.total_output_tokens > 0 ||
+      req.sonnet_input_tokens > 0 ||
+      req.sonnet_output_tokens > 0 ||
+      req.opus_input_tokens > 0 ||
+      req.opus_output_tokens > 0;
+
+    if (anyNonZero(sReq)) {
+      groups.push({
+        title: t("cookieStatus.quota.session") as string,
+        b: sReq,
+        showSonnet: sReq.sonnet_input_tokens > 0 || sReq.sonnet_output_tokens > 0,
+        showOpus: sReq.opus_input_tokens > 0 || sReq.opus_output_tokens > 0,
+      });
+    }
+    if (anyNonZero(wReq)) {
+      groups.push({
+        title: t("cookieStatus.quota.sevenDay") as string,
+        b: wReq,
+        showSonnet: wReq.sonnet_input_tokens > 0 || wReq.sonnet_output_tokens > 0,
+        showOpus: wReq.opus_input_tokens > 0 || wReq.opus_output_tokens > 0,
+      });
+    }
+    if (anyNonZero(woReq)) {
+      groups.push({
+        title: t("cookieStatus.quota.sevenDayOpus") as string,
+        b: woReq,
+        // weekly_opus bucket only counts Opus; still guard by > 0
+        showSonnet: woReq.sonnet_input_tokens > 0 || woReq.sonnet_output_tokens > 0,
+        showOpus: woReq.opus_input_tokens > 0 || woReq.opus_output_tokens > 0,
+      });
+    }
+    if (anyNonZero(ltReq)) {
+      groups.push({
+        title: t("cookieStatus.quota.total") as string,
+        b: ltReq,
+        showSonnet: ltReq.sonnet_input_tokens > 0 || ltReq.sonnet_output_tokens > 0,
+        showOpus: ltReq.opus_input_tokens > 0 || ltReq.opus_output_tokens > 0,
+      });
     }
 
+    if (groups.length === 0) return null;
+
+    const Row = ({ label, value }: { label: string; value: number }) => (
+      <span>
+        {label}: {value}
+      </span>
+    );
+
     return (
-      <div className="grid gap-1 text-xs text-gray-400">
-        <div className="flex gap-3 flex-wrap">
-          <span>
-            {t("cookieStatus.usage.currentInput")}: {currentInput}
-          </span>
-          <span>
-            {t("cookieStatus.usage.currentOutput")}: {currentOutput}
-          </span>
-        </div>
-        <div className="flex gap-3 flex-wrap">
-          <span>
-            {t("cookieStatus.usage.totalInput")}: {totalInput}
-          </span>
-          <span>
-            {t("cookieStatus.usage.totalOutput")}: {totalOutput}
-          </span>
-        </div>
+      <div className="grid gap-2 text-xs text-gray-400">
+        {groups.map(({ title, b, showSonnet, showOpus }, idx) => (
+          <div key={idx} className="flex flex-col gap-1">
+            <div className="flex gap-3 flex-wrap">
+              <span>
+                {title} · {t("cookieStatus.usage.totalInput")}: {b.total_input_tokens}
+              </span>
+              <span>
+                {t("cookieStatus.usage.totalOutput")}: {b.total_output_tokens}
+              </span>
+            </div>
+            {showSonnet && (
+              <div className="flex gap-3 flex-wrap pl-1 text-gray-500">
+                <Row label={t("cookieStatus.usage.sonnetInput") as string} value={b.sonnet_input_tokens} />
+                <Row label={t("cookieStatus.usage.sonnetOutput") as string} value={b.sonnet_output_tokens} />
+              </div>
+            )}
+            {showOpus && (
+              <div className="flex gap-3 flex-wrap pl-1 text-gray-500">
+                <Row label={t("cookieStatus.usage.opusInput") as string} value={b.opus_input_tokens} />
+                <Row label={t("cookieStatus.usage.opusOutput") as string} value={b.opus_output_tokens} />
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     );
   };
