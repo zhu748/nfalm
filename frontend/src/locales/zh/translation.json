@@ -131,7 +131,11 @@
       "currentInput": "本轮输入 Token",
       "currentOutput": "本轮输出 Token",
       "totalInput": "累计输入 Token",
-      "totalOutput": "累计输出 Token"
+      "totalOutput": "累计输出 Token",
+      "sonnetInput": "Sonnet 输入 Token",
+      "sonnetOutput": "Sonnet 输出 Token",
+      "opusInput": "Opus 输入 Token",
+      "opusOutput": "Opus 输出 Token"
     },
     "quota": {
       "session": "会话配额使用",
