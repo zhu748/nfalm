@@ -62,10 +62,25 @@ const CookieVisualization: React.FC = () => {
   };
 
   const renderUsageStats = (status: CookieItem) => {
-    const currentInput = status.window_input_tokens ?? status.windowInputTokens ?? 0;
-    const currentOutput = status.window_output_tokens ?? status.windowOutputTokens ?? 0;
-    const totalInput = status.total_input_tokens ?? status.totalInputTokens ?? 0;
-    const totalOutput = status.total_output_tokens ?? status.totalOutputTokens ?? 0;
+    const rec = status as unknown as Record<string, unknown>;
+    const pickNumber = (a: unknown, b: unknown): number =>
+      typeof a === "number" ? a : typeof b === "number" ? (b as number) : 0;
+    const currentInput = pickNumber(
+      status.window_input_tokens,
+      rec["windowInputTokens"],
+    );
+    const currentOutput = pickNumber(
+      status.window_output_tokens,
+      rec["windowOutputTokens"],
+    );
+    const totalInput = pickNumber(
+      status.total_input_tokens,
+      rec["totalInputTokens"],
+    );
+    const totalOutput = pickNumber(
+      status.total_output_tokens,
+      rec["totalOutputTokens"],
+    );
 
     if (currentInput === 0 && currentOutput === 0 && totalInput === 0 && totalOutput === 0) {
       return null;
@@ -180,23 +195,21 @@ const CookieVisualization: React.FC = () => {
     if (typeof reason === "string") return reason;
 
     try {
-      if ("NonPro" in reason)
-        return t("cookieStatus.status.reasons.freAccount");
-      if ("Disabled" in reason)
-        return t("cookieStatus.status.reasons.disabled");
-      if ("Banned" in reason) return t("cookieStatus.status.reasons.banned");
-      if ("Null" in reason) return t("cookieStatus.status.reasons.invalid");
-      if ("Restricted" in reason && typeof reason.Restricted === "number")
-        return t("cookieStatus.status.reasons.restricted", {
-          time: formatTimestamp(reason.Restricted),
-        });
-      if (
-        "TooManyRequest" in reason &&
-        typeof reason.TooManyRequest === "number"
-      )
-        return t("cookieStatus.status.reasons.rateLimited", {
-          time: formatTimestamp(reason.TooManyRequest),
-        });
+      if (typeof reason === "object" && reason !== null) {
+        const r = reason as Record<string, unknown>;
+        if ("NonPro" in r) return t("cookieStatus.status.reasons.freAccount");
+        if ("Disabled" in r) return t("cookieStatus.status.reasons.disabled");
+        if ("Banned" in r) return t("cookieStatus.status.reasons.banned");
+        if ("Null" in r) return t("cookieStatus.status.reasons.invalid");
+        if ("Restricted" in r && typeof r["Restricted"] === "number")
+          return t("cookieStatus.status.reasons.restricted", {
+            time: formatTimestamp(r["Restricted"] as number),
+          });
+        if ("TooManyRequest" in r && typeof r["TooManyRequest"] === "number")
+          return t("cookieStatus.status.reasons.rateLimited", {
+            time: formatTimestamp(r["TooManyRequest"] as number),
+          });
+      }
     } catch (e) {
       console.error("Error parsing reason:", e, reason);
     }
