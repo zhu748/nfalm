@@ -145,30 +145,33 @@ export async function getConfig() {
  * Saves config data to the server
  * @param configData The config data to save
  */
-export async function saveConfig(configData: any) {
-  const token = localStorage.getItem("authToken") || "";
-  // if configData.vertex.credential is no empty string, parse it
-  if (configData?.vertex?.credential !== "") {
-    try {
-      configData.vertex.credential = JSON.parse(configData.vertex.credential);
-    } catch {
-      configData.vertex.credential = null;
-    }
-  } else {
-    configData.vertex.credential = null;
-  }
+import type { ConfigData } from "../types/config.types";
 
+export async function saveConfig(configData: ConfigData) {
+  const token = localStorage.getItem("authToken") || "";
+  // The config page no longer manages Vertex credentials.
+  // Exclude `vertex` from the payload to avoid accidental type mismatches
+  // with the backend's ServiceAccountKey structure and to preserve
+  // credentials managed in the Gemini section.
+  const { vertex: _omitVertex, ...payload } = (configData as unknown) as Record<string, unknown>;
   const response = await fetch("/api/config", {
-    method: "PUT",
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(configData),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to save config: ${response.status}`);
+    // Try to include server error message when available for easier debugging
+    try {
+      const data = await response.json();
+      const serverMsg = typeof data?.error === "string" ? ` - ${data.error}` : "";
+      throw new Error(`Failed to save config: ${response.status}${serverMsg}`);
+    } catch (_) {
+      throw new Error(`Failed to save config: ${response.status}`);
+    }
   }
 
   return response;

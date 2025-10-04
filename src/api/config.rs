@@ -27,7 +27,13 @@ pub async fn api_get_config(
         obj.remove("cookie_array");
         obj.remove("wasted_cookie");
         obj.remove("gemini_keys");
-        obj["vertex"]["credential"] = "placeholder".into();
+        if let Some(vertex) = obj.get_mut("vertex").and_then(|v| v.as_object_mut()) {
+            // Do not leak sensitive fields to the frontend. Use null instead of a string
+            // placeholder so that round-tripping the config back to the server deserializes
+            // correctly (Option<ServiceAccountKey> accepts null).
+            vertex.insert("credential".to_string(), serde_json::Value::Null);
+            vertex.insert("credentials".to_string(), json!([]));
+        }
     }
 
     Ok(Json(config_json))
@@ -57,9 +63,8 @@ pub async fn api_post_config(
         new_c.cookie_array = old_c.cookie_array.to_owned();
         new_c.wasted_cookie = old_c.wasted_cookie.to_owned();
         new_c.gemini_keys = old_c.gemini_keys.to_owned();
-        if new_c.vertex.credential.is_none() {
-            new_c.vertex.credential = old_c.vertex.credential.to_owned();
-        }
+        // Vertex is not managed by the config page anymore. Always preserve existing vertex config.
+        new_c.vertex = old_c.vertex.clone();
         new_c
     });
     if let Err(e) = CLEWDR_CONFIG.load().save().await {

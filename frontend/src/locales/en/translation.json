@@ -23,14 +23,56 @@
     "passwordChanged": "Note: You have been logged out because your password was changed. Please log in with your new credentials."
   },
   "tabs": {
-    "cookie": "Cookie",
+    "claude": "Claude",
+    "gemini": "Gemini",
     "config": "Config",
-    "keys": "Keys",
     "auth": "Auth"
   },
-  "cookieTab": {
+  "claudeTab": {
     "submit": "Submit Cookie",
     "status": "Cookie Status"
+  },
+  "geminiTabs": {
+    "aistudio": "AI Studio",
+    "vertex": "Vertex AI"
+  },
+  "geminiAiStudio": {
+    "submit": "Submit API Key",
+    "status": "Key Status"
+  },
+  "geminiVertex": {
+    "tabUpload": "Upload Service Account",
+    "tabStatus": "Service Accounts",
+    "notifications": {
+      "uploaded": "Service account saved",
+      "deleted": "Service account removed",
+      "fileLoaded": "File loaded"
+    },
+    "errors": {
+      "load": "Failed to load service accounts.",
+      "upload": "Failed to upload service account.",
+      "delete": "Failed to delete service account.",
+      "readFile": "Failed to read the selected file.",
+      "empty": "Please paste the service account JSON.",
+      "missingEmail": "The service account is missing client_email.",
+      "parse": "Invalid JSON payload."
+    },
+    "status": {
+      "loading": "Loading service accounts...",
+      "empty": "No service accounts configured.",
+      "project": "Project: {{project}}",
+      "unknown": "Unknown",
+      "keyId": "Key ID: {{id}}"
+    },
+    "form": {
+      "instructions": "Paste the Google Cloud service account JSON payload.",
+      "placeholder": "{ \"client_email\": \"service-account@project.iam.gserviceaccount.com\" }",
+      "jsonLabel": "Service Account JSON",
+      "chooseFile": "Choose JSON file",
+      "noFile": "No file selected",
+      "submitting": "Uploading...",
+      "button": "Upload"
+    }
   },
   "cookieSubmit": {
     "value": "Cookie Value",
@@ -79,6 +121,32 @@
         "unknown": "Unknown"
       }
     },
+    "context": {
+      "label": "1M context",
+      "enabled": "1M context enabled",
+      "disabled": "1M context unavailable",
+      "unknown": "1M context not tested"
+    },
+    "usage": {
+      "currentInput": "Current input tokens",
+      "currentOutput": "Current output tokens",
+      "totalInput": "Total input tokens",
+      "totalOutput": "Total output tokens",
+      "sonnetInput": "Sonnet input tokens",
+      "sonnetOutput": "Sonnet output tokens",
+      "opusInput": "Opus input tokens",
+      "opusOutput": "Opus output tokens"
+    },
+    "quota": {
+      "session": "Session utilization",
+      "sevenDay": "7-day utilization",
+      "sevenDayOpus": "7-day Opus utilization",
+      "total": "Total usage",
+      "resetsAt": "Resets at {{time}}"
+    },
+    "meta": {
+      "summary": "Details"
+    },
     "noCookies": "No {{type}}",
     "deleteConfirm": "Are you sure you want to delete this cookie?",
     "copy": "Copy to clipboard"
@@ -114,20 +182,12 @@
         "rproxy": "Reverse Proxy (optional)",
         "rproxyPlaceholder": "https://example.com"
       },
-      "vertex": {
-        "title": "Vertex Settings",
-        "credential": "Credential",
-        "clientSecret": "Client Secret",
-        "clientId": "Client ID",
-        "projectId": "Project ID",
-        "modelId": "Model ID",
-        "modelIdNote": "Note: This will override model in API queries"
-      },
       "api": {
-        "title": "API Settings",
-        "maxRetries": "Max Retries",
-        "preserveChats": "Preserve Chats",
-        "webSearch": "Web Search"
+      "title": "API Settings",
+      "maxRetries": "Max Retries",
+      "preserveChats": "Preserve Chats",
+      "webSearch": "Web Search",
+      "webCountTokens": "Enable web count_tokens"
       },
       "cookie": {
         "title": "Cookie Settings",

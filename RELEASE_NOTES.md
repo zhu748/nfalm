@@ -1,13 +1,5 @@
-# v0.11.14
-
-## Features
-
-- Add support for database persistence using SeaORM (optional feature).
+# v0.11.18
 
 ## Bug Fixes
 
-- Correctly handle 403 errors for CC
-
-## Improvements
-
-- Improve build process
+- Claude API: trim whitespace-only assistant messages before dispatching so Anthropic no longer returns 400 for streams that include blank turns.

@@ -82,11 +82,7 @@ pub fn spawn(
             for u in db_invalid.iter() {
                 let key = u.cookie.to_string();
                 if !cur_inv.contains(&key) {
-                    let tmp = CookieStatus {
-                        cookie: u.cookie.clone(),
-                        token: None,
-                        reset_time: None,
-                    };
+                    let tmp = CookieStatus { cookie: u.cookie.clone(), ..Default::default() };
                     let _ = c_handle.return_cookie(tmp, Some(u.reason.clone())).await;
                 }
             }

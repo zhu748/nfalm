@@ -56,7 +56,8 @@ fn generate_password() -> String {
 pub struct VertexConfig {
     #[serde(default)]
     pub credential: Option<ServiceAccountKey>,
-    pub model_id: Option<String>,
+    #[serde(default)]
+    pub credentials: Vec<ServiceAccountKey>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
@@ -87,7 +88,19 @@ pub struct PersistenceConfig {
 
 impl VertexConfig {
     pub fn validate(&self) -> bool {
-        self.credential.is_some()
+        !self.credential_list().is_empty()
+    }
+
+    pub fn credential_list(&self) -> Vec<ServiceAccountKey> {
+        let mut list = self.credentials.clone();
+        if let Some(single) = &self.credential
+            && !list
+                .iter()
+                .any(|cred| cred.client_email == single.client_email)
+        {
+            list.push(single.clone());
+        }
+        list
     }
 }
 
@@ -141,6 +154,8 @@ pub struct ClewdrConfig {
     pub preserve_chats: bool,
     #[serde(default)]
     pub web_search: bool,
+    #[serde(default)]
+    pub enable_web_count_tokens: bool,
 
     // Cookie settings, can hot reload
     #[serde(default)]
@@ -201,6 +216,7 @@ impl Default for ClewdrConfig {
             wreq_proxy: None,
             preserve_chats: false,
             web_search: false,
+            enable_web_count_tokens: false,
             skip_first_warning: false,
             skip_second_warning: false,
             skip_restricted: false,
@@ -274,6 +290,11 @@ impl Display for ClewdrConfig {
         )?;
         writeln!(f, "Skip normal Pro: {}", enabled(self.skip_normal_pro))?;
         writeln!(f, "Skip rate limit: {}", enabled(self.skip_rate_limit))?;
+        writeln!(
+            f,
+            "Web count_tokens: {}",
+            enabled(self.enable_web_count_tokens)
+        )?;
         match self.persistence.mode {
             PersistenceMode::File => writeln!(f, "Persistence: file")?,
             PersistenceMode::Sqlite => writeln!(
@@ -446,6 +467,15 @@ impl ClewdrConfig {
                 })
                 .ok()
         });
+        let mut seen = HashSet::new();
+        let mut credentials = Vec::new();
+        for cred in self.vertex.credential_list() {
+            if seen.insert(cred.client_email.clone()) {
+                credentials.push(cred);
+            }
+        }
+        self.vertex.credentials = credentials;
+        self.vertex.credential = None;
         self
     }
 }

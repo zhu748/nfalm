@@ -106,32 +106,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
         />
       </ConfigSection>
 
-      {/* Vertex Settings Section */}
-      <ConfigSection title={t("config.sections.vertex.title")}>
-        <FormInput
-          id="vertex.credential"
-          name="vertex.credential"
-          type="password"
-          value={config.vertex.credential || ""}
-          onChange={onChange}
-          label={t("config.sections.vertex.credential")}
-        />
-
-        <div className="relative">
-          <FormInput
-            id="vertex.model_id"
-            name="vertex.model_id"
-            type="text"
-            value={config.vertex.model_id || ""}
-            onChange={onChange}
-            label={t("config.sections.vertex.modelId")}
-          />
-          <div className="text-amber-400 text-xs mt-1">
-            {t("config.sections.vertex.modelIdNote")}
-          </div>
-        </div>
-      </ConfigSection>
-
       {/* API Settings Section */}
       <ConfigSection title={t("config.sections.api.title")}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
@@ -157,6 +131,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
             checked={config.web_search}
             onChange={onChange}
             label={t("config.sections.api.webSearch")}
+          />
+
+          <ConfigCheckbox
+            name="enable_web_count_tokens"
+            checked={!!config.enable_web_count_tokens}
+            onChange={onChange}
+            label={t("config.sections.api.webCountTokens")}
           />
         </div>
       </ConfigSection>

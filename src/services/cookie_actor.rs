@@ -143,11 +143,8 @@ impl CookieActor {
     /// Collects a returned cookie and processes it based on the return reason
     fn collect(state: &mut CookieActorState, mut cookie: CookieStatus, reason: Option<Reason>) {
         let Some(reason) = reason else {
-            // replace the cookie in valid collection
-            if cookie.token.is_some()
-                && let Some(c) = state.valid.iter_mut().find(|c| **c == cookie)
-            {
-                *c = cookie;
+            if let Some(existing) = state.valid.iter_mut().find(|c| **c == cookie) {
+                *existing = cookie;
                 Self::save(state);
             }
             return;
@@ -162,6 +159,7 @@ impl CookieActor {
             Reason::TooManyRequest(i) => {
                 find_remove(&cookie);
                 cookie.reset_time = Some(i);
+                cookie.reset_window_usage();
                 if !state.exhausted.insert(cookie) {
                     return;
                 }
@@ -169,24 +167,29 @@ impl CookieActor {
             Reason::Restricted(i) => {
                 find_remove(&cookie);
                 cookie.reset_time = Some(i);
+                cookie.reset_window_usage();
                 if !state.exhausted.insert(cookie) {
                     return;
                 }
             }
             Reason::NonPro => {
                 find_remove(&cookie);
+                let mut removed = cookie.clone();
+                removed.reset_window_usage();
                 if !state
                     .invalid
-                    .insert(UselessCookie::new(cookie.cookie, reason))
+                    .insert(UselessCookie::new(removed.cookie.clone(), reason))
                 {
                     return;
                 }
             }
             _ => {
                 find_remove(&cookie);
+                let mut removed = cookie.clone();
+                removed.reset_window_usage();
                 if !state
                     .invalid
-                    .insert(UselessCookie::new(cookie.cookie, reason))
+                    .insert(UselessCookie::new(removed.cookie.clone(), reason))
                 {
                     return;
                 }
