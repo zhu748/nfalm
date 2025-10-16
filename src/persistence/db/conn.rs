@@ -1,11 +1,10 @@
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, Schema};
 use tokio::sync::OnceCell;
 
-use crate::error::ClewdrError;
-
 use super::entities::{
     ColumnCookie, ColumnKeyRow, EntityConfig, EntityCookie, EntityKeyRow, EntityWasted,
 };
+use crate::error::ClewdrError;
 
 static CONN: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -110,21 +109,9 @@ async fn migrate(db: &DatabaseConnection) -> Result<(), ClewdrError> {
                 .big_integer()
                 .null(),
         )
-        .add_column(
-            ColumnDef::new(ColumnCookie::LifetimeUsage)
-                .string()
-                .null(),
-        )
-        .add_column(
-            ColumnDef::new(ColumnCookie::SessionUsage)
-                .string()
-                .null(),
-        )
-        .add_column(
-            ColumnDef::new(ColumnCookie::WeeklyUsage)
-                .string()
-                .null(),
-        )
+        .add_column(ColumnDef::new(ColumnCookie::LifetimeUsage).string().null())
+        .add_column(ColumnDef::new(ColumnCookie::SessionUsage).string().null())
+        .add_column(ColumnDef::new(ColumnCookie::WeeklyUsage).string().null())
         .add_column(
             ColumnDef::new(ColumnCookie::WeeklyOpusUsage)
                 .string()

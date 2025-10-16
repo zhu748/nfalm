@@ -5,10 +5,10 @@ use serde::Serialize;
 use snafu::{GenerateImplicitData, Location};
 use tracing::{error, info};
 
-use crate::persistence::StorageLayer;
 use crate::{
     config::{CLEWDR_CONFIG, ClewdrConfig, KeyStatus},
     error::ClewdrError,
+    persistence::StorageLayer,
 };
 
 #[derive(Debug, Serialize, Clone)]

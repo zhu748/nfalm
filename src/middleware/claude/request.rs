@@ -1,5 +1,6 @@
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
+    mem,
     sync::LazyLock,
     vec,
 };
@@ -15,7 +16,9 @@ use crate::{
     error::ClewdrError,
     middleware::claude::{ClaudeApiFormat, ClaudeContext},
     types::{
-        claude::{ContentBlock, CreateMessageParams, Message, MessageContent, Role, Thinking, Usage},
+        claude::{
+            ContentBlock, CreateMessageParams, Message, MessageContent, Role, Thinking, Usage,
+        },
         oai::CreateMessageParams as OaiCreateMessageParams,
     },
 };
@@ -72,9 +75,8 @@ static TEST_MESSAGE_OAI: LazyLock<Message> = LazyLock::new(|| Message::new_text(
 
 struct NormalizeRequest(CreateMessageParams, ClaudeApiFormat);
 
-fn sanitize_messages(mut msgs: Vec<Message>) -> Vec<Message> {
-    msgs
-        .into_iter()
+fn sanitize_messages(msgs: Vec<Message>) -> Vec<Message> {
+    msgs.into_iter()
         .filter_map(|m| {
             let role = m.role;
             let content = match m.content {
@@ -103,7 +105,9 @@ fn sanitize_messages(mut msgs: Vec<Message>) -> Vec<Message> {
                     if role == Role::Assistant && new_blocks.is_empty() {
                         return None;
                     }
-                    MessageContent::Blocks { content: new_blocks.drain(..).collect() }
+                    MessageContent::Blocks {
+                        content: mem::take(&mut new_blocks),
+                    }
                 }
             };
             Some(Message { role, content })
