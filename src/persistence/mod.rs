@@ -1,8 +1,11 @@
 use std::sync::LazyLock;
 
-use crate::config::{ClewdrConfig, CookieStatus, KeyStatus, UselessCookie};
-use crate::error::ClewdrError;
 use serde_json::json;
+
+use crate::{
+    config::{ClewdrConfig, CookieStatus, KeyStatus, UselessCookie},
+    error::ClewdrError,
+};
 
 /// Storage abstraction for Clewdr persistent state.
 /// Implementations may back onto a database or the filesystem.

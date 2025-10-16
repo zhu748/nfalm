@@ -5,8 +5,10 @@ use axum::{Extension, extract::State, response::Response};
 use crate::{
     error::ClewdrError,
     middleware::claude::{ClaudeContext, ClaudeWebPreprocess},
-    providers::LLMProvider,
-    providers::claude::{ClaudeInvocation, ClaudeProviderResponse, ClaudeWebProvider},
+    providers::{
+        LLMProvider,
+        claude::{ClaudeInvocation, ClaudeProviderResponse, ClaudeWebProvider},
+    },
 };
 /// Axum handler for the API messages
 /// Main API endpoint for handling message requests to Claude

@@ -1,6 +1,5 @@
-use std::sync::LazyLock;
 use std::sync::{
-    Mutex,
+    LazyLock, Mutex,
     atomic::{AtomicI64, AtomicU64, Ordering},
 };
 

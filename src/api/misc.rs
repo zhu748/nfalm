@@ -1,4 +1,3 @@
-use super::error::ApiError;
 use axum::{Json, extract::State};
 use axum_auth::AuthBearer;
 use serde::{Deserialize, Serialize};
@@ -7,6 +6,7 @@ use tracing::{error, info, warn};
 use wreq::StatusCode;
 use yup_oauth2::ServiceAccountKey;
 
+use super::error::ApiError;
 use crate::{
     VERSION_INFO,
     config::{

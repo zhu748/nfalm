@@ -4,6 +4,7 @@ use axum::response::Response;
 use colored::Colorize;
 use tracing::info;
 
+use super::LLMProvider;
 use crate::{
     claude_code_state::ClaudeCodeState,
     claude_web_state::ClaudeWebState,
@@ -13,8 +14,6 @@ use crate::{
     types::claude::CreateMessageParams,
     utils::{enabled, print_out_json},
 };
-
-use super::LLMProvider;
 
 #[derive(Clone, Copy)]
 pub enum ClaudeOperation {

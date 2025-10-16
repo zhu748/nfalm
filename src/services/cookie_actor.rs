@@ -6,10 +6,10 @@ use serde::Serialize;
 use snafu::{GenerateImplicitData, Location};
 use tracing::{error, info, warn};
 
-use crate::persistence::StorageLayer;
 use crate::{
     config::{CLEWDR_CONFIG, ClewdrConfig, CookieStatus, Reason, UselessCookie},
     error::ClewdrError,
+    persistence::StorageLayer,
 };
 
 const INTERVAL: u64 = 300;

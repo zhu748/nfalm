@@ -1,19 +1,24 @@
-use axum::response::{Sse, sse::Event as SseEvent};
-use axum::{Json, response::IntoResponse};
+use axum::{
+    Json,
+    response::{IntoResponse, Sse, sse::Event as SseEvent},
+};
 use colored::Colorize;
 use eventsource_stream::Eventsource;
 use futures::TryStreamExt;
 use snafu::{GenerateImplicitData, ResultExt};
 use tracing::{Instrument, error, info, warn};
+use wreq::{
+    ClientBuilder, Method, Url,
+    header::{ORIGIN, REFERER},
+};
+use wreq_util::Emulation;
 
 use crate::{
     claude_code_state::{ClaudeCodeState, TokenStatus},
-    config::{ModelFamily, CLEWDR_CONFIG, CLAUDE_CONSOLE_ENDPOINT},
+    config::{CLAUDE_CONSOLE_ENDPOINT, CLEWDR_CONFIG, ModelFamily},
     error::{CheckClaudeErr, ClewdrError, WreqSnafu},
     types::claude::{CountMessageTokensResponse, CreateMessageParams},
 };
-use wreq::{ClientBuilder, Method, Url, header::{ORIGIN, REFERER}};
-use wreq_util::Emulation;
 
 const CLAUDE_BETA_BASE: &str = "oauth-2025-04-20";
 const CLAUDE_BETA_CONTEXT_1M: &str = "oauth-2025-04-20,context-1m-2025-08-07";
@@ -752,11 +757,11 @@ impl ClaudeCodeState {
                 .unwrap_or_default();
             // Different account tiers (e.g., Pro vs Max) surface different error texts
             // when 1M context is not permitted. Treat both as a signal to fallback.
-            return message.contains(
-                "the long context beta is not yet available for this subscription.",
-            ) || message.contains(
-                "this authentication style is incompatible with the long context beta header.",
-            );
+            return message
+                .contains("the long context beta is not yet available for this subscription.")
+                || message.contains(
+                    "this authentication style is incompatible with the long context beta header.",
+                );
         }
         false
     }
