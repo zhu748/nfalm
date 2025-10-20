@@ -19,6 +19,7 @@ use tokio::select;
 use tracing::info;
 use yup_oauth2::ServiceAccountKey;
 
+use super::LLMProvider;
 use crate::{
     config::CLEWDR_CONFIG,
     error::ClewdrError,
@@ -28,8 +29,6 @@ use crate::{
     types::{gemini::request::GeminiRequestBody, oai::CreateMessageParams},
     utils::enabled,
 };
-
-use super::LLMProvider;
 
 #[derive(Clone)]
 pub enum GeminiPayload {

@@ -157,7 +157,7 @@ impl CookieStatus {
             reset_time,
             supports_claude_1m: None,
             count_tokens_allowed: None,
-            
+
             session_usage: UsageBreakdown::default(),
             weekly_usage: UsageBreakdown::default(),
             weekly_opus_usage: UsageBreakdown::default(),
@@ -235,67 +235,49 @@ impl CookieStatus {
         // Legacy totals/windows removed; only bucketed aggregation remains
 
         // session bucket (total + per family)
-        self.session_usage.total_input_tokens = self
-            .session_usage
-            .total_input_tokens
-            .saturating_add(input);
+        self.session_usage.total_input_tokens =
+            self.session_usage.total_input_tokens.saturating_add(input);
         self.session_usage.total_output_tokens = self
             .session_usage
             .total_output_tokens
             .saturating_add(output);
         match family {
             ModelFamily::Sonnet => {
-                self.session_usage.sonnet_input_tokens = self
-                    .session_usage
-                    .sonnet_input_tokens
-                    .saturating_add(input);
+                self.session_usage.sonnet_input_tokens =
+                    self.session_usage.sonnet_input_tokens.saturating_add(input);
                 self.session_usage.sonnet_output_tokens = self
                     .session_usage
                     .sonnet_output_tokens
                     .saturating_add(output);
             }
             ModelFamily::Opus => {
-                self.session_usage.opus_input_tokens = self
-                    .session_usage
-                    .opus_input_tokens
-                    .saturating_add(input);
-                self.session_usage.opus_output_tokens = self
-                    .session_usage
-                    .opus_output_tokens
-                    .saturating_add(output);
+                self.session_usage.opus_input_tokens =
+                    self.session_usage.opus_input_tokens.saturating_add(input);
+                self.session_usage.opus_output_tokens =
+                    self.session_usage.opus_output_tokens.saturating_add(output);
             }
             ModelFamily::Other => {}
         }
 
         // weekly bucket (total + per family)
-        self.weekly_usage.total_input_tokens = self
-            .weekly_usage
-            .total_input_tokens
-            .saturating_add(input);
-        self.weekly_usage.total_output_tokens = self
-            .weekly_usage
-            .total_output_tokens
-            .saturating_add(output);
+        self.weekly_usage.total_input_tokens =
+            self.weekly_usage.total_input_tokens.saturating_add(input);
+        self.weekly_usage.total_output_tokens =
+            self.weekly_usage.total_output_tokens.saturating_add(output);
         match family {
             ModelFamily::Sonnet => {
-                self.weekly_usage.sonnet_input_tokens = self
-                    .weekly_usage
-                    .sonnet_input_tokens
-                    .saturating_add(input);
+                self.weekly_usage.sonnet_input_tokens =
+                    self.weekly_usage.sonnet_input_tokens.saturating_add(input);
                 self.weekly_usage.sonnet_output_tokens = self
                     .weekly_usage
                     .sonnet_output_tokens
                     .saturating_add(output);
             }
             ModelFamily::Opus => {
-                self.weekly_usage.opus_input_tokens = self
-                    .weekly_usage
-                    .opus_input_tokens
-                    .saturating_add(input);
-                self.weekly_usage.opus_output_tokens = self
-                    .weekly_usage
-                    .opus_output_tokens
-                    .saturating_add(output);
+                self.weekly_usage.opus_input_tokens =
+                    self.weekly_usage.opus_input_tokens.saturating_add(input);
+                self.weekly_usage.opus_output_tokens =
+                    self.weekly_usage.opus_output_tokens.saturating_add(output);
             }
             ModelFamily::Other => {}
         }
@@ -321,10 +303,8 @@ impl CookieStatus {
         }
 
         // lifetime bucket (total + per family)
-        self.lifetime_usage.total_input_tokens = self
-            .lifetime_usage
-            .total_input_tokens
-            .saturating_add(input);
+        self.lifetime_usage.total_input_tokens =
+            self.lifetime_usage.total_input_tokens.saturating_add(input);
         self.lifetime_usage.total_output_tokens = self
             .lifetime_usage
             .total_output_tokens
@@ -341,10 +321,8 @@ impl CookieStatus {
                     .saturating_add(output);
             }
             ModelFamily::Opus => {
-                self.lifetime_usage.opus_input_tokens = self
-                    .lifetime_usage
-                    .opus_input_tokens
-                    .saturating_add(input);
+                self.lifetime_usage.opus_input_tokens =
+                    self.lifetime_usage.opus_input_tokens.saturating_add(input);
                 self.lifetime_usage.opus_output_tokens = self
                     .lifetime_usage
                     .opus_output_tokens

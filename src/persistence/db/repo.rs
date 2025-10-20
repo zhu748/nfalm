@@ -1,12 +1,12 @@
+use sea_orm::{ActiveValue::Set, entity::prelude::*};
 use serde_json::json;
 use tracing::error;
 
-use sea_orm::{ActiveValue::Set, entity::prelude::*};
-
-use crate::config::{ClewdrConfig, CookieStatus, KeyStatus, UselessCookie, UsageBreakdown};
-use crate::error::ClewdrError;
-
 use super::{conn::ensure_conn, entities::*, metrics::*};
+use crate::{
+    config::{ClewdrConfig, CookieStatus, KeyStatus, UsageBreakdown, UselessCookie},
+    error::ClewdrError,
+};
 
 fn clamp_u64_to_i64(value: u64) -> i64 {
     if value > i64::MAX as u64 {
@@ -104,10 +104,18 @@ pub async fn persist_cookie_upsert(c: &CookieStatus) -> Result<(), ClewdrError> 
         total_output_tokens: Set(None),
         window_input_tokens: Set(None),
         window_output_tokens: Set(None),
-        session_usage: Set(Some(serde_json::to_string(&c.session_usage).unwrap_or_else(|_| "{}".to_string()))),
-        weekly_usage: Set(Some(serde_json::to_string(&c.weekly_usage).unwrap_or_else(|_| "{}".to_string()))),
-        weekly_opus_usage: Set(Some(serde_json::to_string(&c.weekly_opus_usage).unwrap_or_else(|_| "{}".to_string()))),
-        lifetime_usage: Set(Some(serde_json::to_string(&c.lifetime_usage).unwrap_or_else(|_| "{}".to_string()))),
+        session_usage: Set(Some(
+            serde_json::to_string(&c.session_usage).unwrap_or_else(|_| "{}".to_string()),
+        )),
+        weekly_usage: Set(Some(
+            serde_json::to_string(&c.weekly_usage).unwrap_or_else(|_| "{}".to_string()),
+        )),
+        weekly_opus_usage: Set(Some(
+            serde_json::to_string(&c.weekly_opus_usage).unwrap_or_else(|_| "{}".to_string()),
+        )),
+        lifetime_usage: Set(Some(
+            serde_json::to_string(&c.lifetime_usage).unwrap_or_else(|_| "{}".to_string()),
+        )),
     };
     let start = std::time::Instant::now();
     let res = EntityCookie::insert(am)
@@ -527,8 +535,9 @@ pub async fn load_all_cookies()
 }
 
 pub async fn status_json() -> Result<serde_json::Value, ClewdrError> {
-    use sea_orm::{DatabaseBackend, Statement};
     use std::sync::atomic::Ordering;
+
+    use sea_orm::{DatabaseBackend, Statement};
 
     let mut healthy = false;
     let mut err_str: Option<String> = None;

@@ -7,20 +7,19 @@ use bytes::Bytes;
 use eventsource_stream::{EventStream, Eventsource};
 use futures::{Stream, TryStreamExt};
 use serde::Deserialize;
+use url::Url;
+use wreq::Proxy;
 
-use crate::claude_code_state::ClaudeCodeState;
-use crate::error::CheckClaudeErr;
 use crate::{
+    claude_code_state::ClaudeCodeState,
     claude_web_state::ClaudeWebState,
-    error::ClewdrError,
+    error::{CheckClaudeErr, ClewdrError},
     types::claude::{
         ContentBlock, CountMessageTokensResponse, CreateMessageParams, CreateMessageResponse,
         Message, Role,
     },
     utils::print_out_text,
 };
-use url::Url;
-use wreq::Proxy;
 
 /// Merges server-sent events (SSE) from a stream into a single string
 /// Extracts and concatenates completion data from events

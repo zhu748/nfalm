@@ -1,8 +1,8 @@
 use axum::Json;
 use axum_auth::AuthBearer;
 use serde_json::json;
-// no direct StatusCode usage here; ApiError handles responses
 
+// no direct StatusCode usage here; ApiError handles responses
 use super::error::ApiError;
 use crate::config::{CLEWDR_CONFIG, ClewdrConfig};
 
