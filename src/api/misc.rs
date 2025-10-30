@@ -513,9 +513,9 @@ async fn fetch_usage_percent(
         })?;
 
     // Query usage from console API
-    let usage_url = format!(
-        "{CLAUDE_CONSOLE_ENDPOINT}api/organizations/{org_uuid}/usage"
-    );
+    let usage_url = console_url
+        .join(&format!("api/organizations/{org_uuid}/usage"))
+        .ok()?;
     let usage_res = client.request(Method::GET, usage_url).send().await.ok()?;
     let usage: Value = usage_res.json().await.ok()?;
     let five = usage
