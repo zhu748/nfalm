@@ -183,7 +183,7 @@ impl ClaudeCodeState {
         };
 
         self.client
-            .post(format!("{}v1/messages", self.endpoint))
+            .post(self.endpoint.join("v1/messages").expect("Url parse error"))
             .bearer_auth(access_token)
             .header("anthropic-beta", beta_header)
             .header("anthropic-version", "2023-06-01")
@@ -531,7 +531,11 @@ impl ClaudeCodeState {
         };
 
         self.client
-            .post(format!("{}v1/messages/count_tokens", self.endpoint))
+            .post(
+                self.endpoint
+                    .join("v1/messages/count_tokens")
+                    .expect("Url parse error"),
+            )
             .bearer_auth(access_token)
             .header("anthropic-beta", beta_header)
             .header("anthropic-version", "2023-06-01")
@@ -680,7 +684,7 @@ impl ClaudeCodeState {
 
         // Discover organization UUID (prefer chat-capable org)
         let orgs_url = format!(
-            "{}/api/organizations",
+            "{}api/organizations",
             endpoint.as_str().trim_end_matches('/')
         );
         let orgs_res = client
@@ -717,7 +721,7 @@ impl ClaudeCodeState {
 
         // Query usage from console API
         let usage_url = format!(
-            "{}/api/organizations/{}/usage",
+            "{}api/organizations/{}/usage",
             CLAUDE_CONSOLE_ENDPOINT, org_uuid
         );
         let usage_res = client.request(Method::GET, usage_url).send().await.ok()?;

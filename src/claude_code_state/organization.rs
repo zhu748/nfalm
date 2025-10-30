@@ -12,7 +12,10 @@ use crate::{
 
 impl ClaudeCodeState {
     pub async fn get_organization(&self) -> Result<String, ClewdrError> {
-        let end_point = format!("{}/api/bootstrap", self.endpoint);
+        let end_point = self
+            .endpoint
+            .join("api/bootstrap")
+            .expect("Url parse error");
         let res = self
             .build_request(Method::GET, end_point)
             .send()

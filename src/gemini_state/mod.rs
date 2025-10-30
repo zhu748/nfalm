@@ -218,7 +218,7 @@ impl GeminiState {
                 let mut query_vec = self.query.to_vec();
                 query_vec.push(("key", key.as_str()));
                 self.client
-                    .post(format!("{}/v1beta/{}", GEMINI_ENDPOINT, self.path))
+                    .post(format!("{}v1beta/{}", GEMINI_ENDPOINT, self.path))
                     .query(&query_vec)
                     .json(&p)
                     .send()
@@ -229,7 +229,7 @@ impl GeminiState {
             }
             GeminiApiFormat::OpenAI => self
                 .client
-                .post(format!("{GEMINI_ENDPOINT}/v1beta/openai/chat/completions",))
+                .post(format!("{GEMINI_ENDPOINT}v1beta/openai/chat/completions",))
                 .header(AUTHORIZATION, format!("Bearer {key}"))
                 .json(&p)
                 .send()
