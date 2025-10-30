@@ -183,7 +183,7 @@ impl ClaudeCodeState {
         };
 
         self.client
-            .post(format!("{}/v1/messages", self.endpoint))
+            .post(format!("{}v1/messages", self.endpoint))
             .bearer_auth(access_token)
             .header("anthropic-beta", beta_header)
             .header("anthropic-version", "2023-06-01")
@@ -531,7 +531,7 @@ impl ClaudeCodeState {
         };
 
         self.client
-            .post(format!("{}/v1/messages/count_tokens", self.endpoint))
+            .post(format!("{}v1/messages/count_tokens", self.endpoint))
             .bearer_auth(access_token)
             .header("anthropic-beta", beta_header)
             .header("anthropic-version", "2023-06-01")
