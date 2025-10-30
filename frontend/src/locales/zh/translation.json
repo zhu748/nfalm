@@ -100,6 +100,8 @@
     "total": "总计：{{count}}个cookie",
     "refresh": "刷新",
     "refreshing": "刷新中...",
+    "forceRefreshing": "强制刷新中...",
+    "refreshTooltip": "刷新数据 (Ctrl/⌘+点击强制刷新所有缓存)",
     "sections": {
       "valid": "有效Cookie",
       "inUse": "使用中Cookie",
