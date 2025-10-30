@@ -1,7 +1,8 @@
 use clewdr::{
-    self, FIG, IS_DEBUG, VERSION_INFO,
+    self, FIG, IS_DEBUG,
     config::{CLEWDR_CONFIG, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
+    version_info_colored,
 };
 use colored::Colorize;
 #[cfg(feature = "mimalloc")]
@@ -98,7 +99,7 @@ async fn main() -> Result<(), ClewdrError> {
         None
     };
 
-    println!("{}\n{}", FIG, *VERSION_INFO);
+    println!("{}\n{}", FIG, version_info_colored());
 
     #[cfg(feature = "portable")]
     {
