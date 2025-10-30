@@ -89,7 +89,7 @@ impl ClaudeWebState {
                 REFERER,
                 self.endpoint
                     .join(&format!("chat/{uuid}"))
-                    .map(|u| u.to_string())
+                    .map(|u| u.into())
                     .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}chat/{uuid}"))
             )
         } else {
@@ -97,7 +97,7 @@ impl ClaudeWebState {
                 REFERER,
                 self.endpoint
                     .join("new")
-                    .map(|u| u.to_string())
+                    .map(|u| u.into())
                     .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}new"))
             )
         }

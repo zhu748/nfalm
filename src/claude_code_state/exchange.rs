@@ -92,20 +92,16 @@ fn setup_client(cc_client_id: String) -> Result<ClaudeOauthClient, ClewdrError> 
 
 impl ClaudeCodeState {
     pub async fn exchange_code(&self, org_uuid: &str) -> Result<ExchangeResult, ClewdrError> {
-        let authorize_url = |org_uuid: &str| {
-            CLEWDR_CONFIG
-                .load()
-                .endpoint()
-                .join(&format!("v1/oauth/{}/authorize", org_uuid))
-                .expect("Url parse error")
-                .to_string()
-        };
+        // Build OAuth authorization URL using Url::join for proper URL construction
+        let authorize_url = CLEWDR_CONFIG
+            .load()
+            .endpoint()
+            .join(&format!("v1/oauth/{}/authorize", org_uuid))
+            .expect("Url parse error");
         let cc_client_id = CLEWDR_CONFIG.load().cc_client_id();
 
         let client = setup_client(cc_client_id)?.set_auth_uri(
-            AuthUrl::new(authorize_url(org_uuid)).map_err(|_| ClewdrError::UnexpectedNone {
-                msg: "Invalid auth URI",
-            })?,
+            AuthUrl::from_url(authorize_url), // Avoid reparsing the URL
         );
 
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();

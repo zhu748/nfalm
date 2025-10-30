@@ -476,17 +476,14 @@ async fn fetch_usage_percent(
     client.set_cookie(&console_url, &cookie_header);
 
     // Discover organization UUID (prefer chat-capable org)
-    let orgs_url = endpoint
+    let orgs_url: String = endpoint
         .join("api/organizations")
-        .map(|u| u.to_string())
+        .map(|u| u.into())
         .ok()?;
     let orgs_res = client
         .request(Method::GET, orgs_url)
         .header(ORIGIN, CLAUDE_ENDPOINT)
-        .header(
-            REFERER,
-            endpoint.join("new").ok()?.to_string()
-        )
+        .header(REFERER, String::from(endpoint.join("new").ok()?))
         .send()
         .await
         .ok()?;
