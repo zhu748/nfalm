@@ -1,7 +1,8 @@
 use clewdr::{
-    self, FIG, IS_DEBUG, version_info_colored,
+    self, FIG, IS_DEBUG,
     config::{CLEWDR_CONFIG, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
+    version_info_colored,
 };
 use colored::Colorize;
 #[cfg(feature = "mimalloc")]
