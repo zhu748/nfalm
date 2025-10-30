@@ -72,7 +72,7 @@ impl ClaudeCodeState {
         self.client
             .request(method, url)
             .header(ORIGIN, CLAUDE_ENDPOINT)
-            .header(REFERER, format!("{CLAUDE_ENDPOINT}/new"))
+            .header(REFERER, format!("{CLAUDE_ENDPOINT}new"))
     }
 
     /// Set the cookie header value

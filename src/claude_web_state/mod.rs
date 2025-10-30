@@ -85,9 +85,9 @@ impl ClaudeWebState {
             .request(method, url)
             .header(ORIGIN, CLAUDE_ENDPOINT);
         if let Some(uuid) = self.conv_uuid.to_owned() {
-            req.header(REFERER, format!("{CLAUDE_ENDPOINT}/chat/{uuid}"))
+            req.header(REFERER, format!("{CLAUDE_ENDPOINT}chat/{uuid}"))
         } else {
-            req.header(REFERER, format!("{CLAUDE_ENDPOINT}/new"))
+            req.header(REFERER, format!("{CLAUDE_ENDPOINT}new"))
         }
     }
 
@@ -178,10 +178,13 @@ impl ClaudeWebState {
         let Some(ref conv_uuid) = self.conv_uuid else {
             return Ok(());
         };
-        let endpoint = format!(
-            "{}/api/organizations/{}/chat_conversations/{}",
-            self.endpoint, org_uuid, conv_uuid
-        );
+        let endpoint = self
+            .endpoint
+            .join(&format!(
+                "api/organizations/{}/chat_conversations/{}",
+                org_uuid, conv_uuid
+            ))
+            .expect("Url parse error");
         debug!("Deleting chat: {}", conv_uuid);
         let _ = self
             .build_request(Method::DELETE, endpoint)
