@@ -1,5 +1,5 @@
 use clewdr::{
-    self, FIG, IS_DEBUG, VERSION_INFO,
+    self, FIG, IS_DEBUG, version_info_colored,
     config::{CLEWDR_CONFIG, CONFIG_PATH, LOG_DIR},
     error::ClewdrError,
 };
@@ -98,7 +98,7 @@ async fn main() -> Result<(), ClewdrError> {
         None
     };
 
-    println!("{}\n{}", FIG, *VERSION_INFO);
+    println!("{}\n{}", FIG, version_info_colored());
 
     #[cfg(feature = "portable")]
     {
