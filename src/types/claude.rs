@@ -222,7 +222,7 @@ pub enum ContentBlock {
     #[serde(rename = "tool_result")]
     ToolResult {
         tool_use_id: String,
-        content: String,
+        content: serde_json::Value,
     },
 }
 
