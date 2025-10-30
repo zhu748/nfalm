@@ -48,6 +48,9 @@ static COOKIES_CACHE: LazyLock<Cache<String, CookieStatusCache>> = LazyLock::new
         .build()
 });
 
+/// Cache key for cookie status
+const COOKIE_STATUS_CACHE_KEY: &str = "all_cookies";
+
 #[derive(Deserialize)]
 pub struct VertexCredentialPayload {
     pub credential: ServiceAccountKey,
@@ -121,6 +124,9 @@ pub async fn api_post_cookie(
     match s.submit(c).await {
         Ok(_) => {
             info!("Cookie submitted successfully");
+            // Clear cache to ensure fresh data on next request
+            COOKIES_CACHE.invalidate(COOKIE_STATUS_CACHE_KEY);
+            info!("Cookie status cache invalidated after adding new cookie");
             Ok(StatusCode::OK)
         }
         Err(e) => {
@@ -285,16 +291,16 @@ pub async fn api_get_cookies(
         return Err(ApiError::unauthorized());
     }
 
-    const CACHE_KEY: &str = "all_cookies";
     let mut headers = HeaderMap::new();
 
     // Check cache if not force refreshing
     if !query.refresh {
-        if let Some(cached) = COOKIES_CACHE.get(CACHE_KEY) {
-            headers.insert("X-Cache-Status", "HIT".parse().unwrap());
+        if let Some(cached) = COOKIES_CACHE.get(COOKIE_STATUS_CACHE_KEY) {
+            headers.insert("X-Cache-Status", HeaderValue::from_static("HIT"));
             headers.insert(
                 "X-Cache-Timestamp",
-                cached.timestamp.to_string().parse().unwrap(),
+                HeaderValue::from_str(&cached.timestamp.to_string())
+                    .unwrap_or_else(|_| HeaderValue::from_static("0")),
             );
             info!("Cookie status served from cache");
             return Ok((headers, Json(cached.data)));
@@ -321,19 +327,26 @@ pub async fn api_get_cookies(
             // Store in cache
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_else(|e| {
+                    warn!("System time error: {}, using fallback timestamp", e);
+                    Duration::from_secs(0)
+                })
                 .as_secs();
 
             COOKIES_CACHE.insert(
-                CACHE_KEY.to_string(),
+                COOKIE_STATUS_CACHE_KEY.to_string(),
                 CookieStatusCache {
                     data: response_data.clone(),
                     timestamp,
                 },
             );
 
-            headers.insert("X-Cache-Status", "MISS".parse().unwrap());
-            headers.insert("X-Cache-Timestamp", timestamp.to_string().parse().unwrap());
+            headers.insert("X-Cache-Status", HeaderValue::from_static("MISS"));
+            headers.insert(
+                "X-Cache-Timestamp",
+                HeaderValue::from_str(&timestamp.to_string())
+                    .unwrap_or_else(|_| HeaderValue::from_static("0")),
+            );
 
             if query.refresh {
                 info!("Cookie status force refreshed");
@@ -392,7 +405,7 @@ pub async fn api_delete_cookie(
         Ok(_) => {
             info!("Cookie deleted successfully: {}", c.cookie);
             // Clear cache to ensure fresh data on next request
-            COOKIES_CACHE.invalidate("all_cookies");
+            COOKIES_CACHE.invalidate(COOKIE_STATUS_CACHE_KEY);
             info!("Cookie status cache invalidated");
             Ok(StatusCode::NO_CONTENT)
         }
