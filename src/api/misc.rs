@@ -483,7 +483,10 @@ async fn fetch_usage_percent(
     let orgs_res = client
         .request(Method::GET, orgs_url)
         .header(ORIGIN, CLAUDE_ENDPOINT)
-        .header(REFERER, format!("{CLAUDE_ENDPOINT}new"))
+        .header(
+            REFERER,
+            endpoint.join("new").ok()?.to_string()
+        )
         .send()
         .await
         .ok()?;

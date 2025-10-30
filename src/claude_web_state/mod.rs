@@ -85,9 +85,21 @@ impl ClaudeWebState {
             .request(method, url)
             .header(ORIGIN, CLAUDE_ENDPOINT);
         if let Some(uuid) = self.conv_uuid.to_owned() {
-            req.header(REFERER, format!("{CLAUDE_ENDPOINT}chat/{uuid}"))
+            req.header(
+                REFERER,
+                self.endpoint
+                    .join(&format!("chat/{uuid}"))
+                    .map(|u| u.to_string())
+                    .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}chat/{uuid}"))
+            )
         } else {
-            req.header(REFERER, format!("{CLAUDE_ENDPOINT}new"))
+            req.header(
+                REFERER,
+                self.endpoint
+                    .join("new")
+                    .map(|u| u.to_string())
+                    .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}new"))
+            )
         }
     }
 
