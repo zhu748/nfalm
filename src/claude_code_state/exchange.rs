@@ -93,11 +93,12 @@ fn setup_client(cc_client_id: String) -> Result<ClaudeOauthClient, ClewdrError> 
 impl ClaudeCodeState {
     pub async fn exchange_code(&self, org_uuid: &str) -> Result<ExchangeResult, ClewdrError> {
         let authorize_url = |org_uuid: &str| {
-            format!(
-                "{}/v1/oauth/{}/authorize",
-                CLEWDR_CONFIG.load().endpoint(),
-                org_uuid
-            )
+            CLEWDR_CONFIG
+                .load()
+                .endpoint()
+                .join(&format!("v1/oauth/{}/authorize", org_uuid))
+                .expect("Url parse error")
+                .to_string()
         };
         let cc_client_id = CLEWDR_CONFIG.load().cc_client_id();
 
