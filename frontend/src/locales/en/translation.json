@@ -100,6 +100,8 @@
     "total": "Total: {{count}} cookies",
     "refresh": "Refresh",
     "refreshing": "Refreshing...",
+    "forceRefreshing": "Force Refreshing...",
+    "refreshTooltip": "Refresh Data (Ctrl/⌘+Click to force refresh all cache)",
     "sections": {
       "valid": "Valid Cookies",
       "inUse": "In-Use Cookies",

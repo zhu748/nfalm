@@ -73,16 +73,19 @@ export async function postCookie(cookie: string) {
 
 /**
  * Gets cookie status information from the server.
- * @returns The cookie status data
+ * @param forceRefresh If true, bypasses cache and fetches fresh data
+ * @returns The cookie status data with cache metadata
  *
  * Possible Status Codes:
  * - 200: Success with cookie status data
  * - 401: Invalid bearer token
  * - 500: Server error
  */
-export async function getCookieStatus() {
+export async function getCookieStatus(forceRefresh = false) {
   const token = localStorage.getItem("authToken") || "";
-  const response = await fetch("/api/cookies", {
+  const url = forceRefresh ? "/api/cookies?refresh=true" : "/api/cookies";
+
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -94,7 +97,17 @@ export async function getCookieStatus() {
     throw new Error(`Error ${response.status}: ${response.statusText}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+  const cacheStatus = response.headers.get("X-Cache-Status");
+  const cacheTimestamp = response.headers.get("X-Cache-Timestamp");
+
+  return {
+    data,
+    cacheInfo: {
+      isFromCache: cacheStatus === "HIT",
+      timestamp: cacheTimestamp ? parseInt(cacheTimestamp, 10) : null,
+    },
+  };
 }
 
 /**

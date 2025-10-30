@@ -25,26 +25,36 @@ const CookieVisualization: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [deletingCookie, setDeletingCookie] = useState<string | null>(null);
+  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
 
   // Fetch cookie data
-  const fetchCookieStatus = useCallback(async () => {
+  const fetchCookieStatus = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
+    if (forceRefresh) {
+      setIsForceRefreshing(true);
+    }
 
     try {
-      const data = await getCookieStatus();
+      const response = await getCookieStatus(forceRefresh);
       const safeData: CookieStatusInfo = {
-        valid: Array.isArray(data?.valid) ? data.valid : [],
-        exhausted: Array.isArray(data?.exhausted) ? data.exhausted : [],
-        invalid: Array.isArray(data?.invalid) ? data.invalid : [],
+        valid: Array.isArray(response.data?.valid) ? response.data.valid : [],
+        exhausted: Array.isArray(response.data?.exhausted)
+          ? response.data.exhausted
+          : [],
+        invalid: Array.isArray(response.data?.invalid)
+          ? response.data.invalid
+          : [],
       };
       setCookieStatus(safeData);
+      // Cache info is available in response.cacheInfo for debugging
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(translateError(message));
       setCookieStatus(emptyCookieStatus);
     } finally {
       setLoading(false);
+      setIsForceRefreshing(false);
     }
   }, []);
 
@@ -52,7 +62,16 @@ const CookieVisualization: React.FC = () => {
     fetchCookieStatus();
   }, [fetchCookieStatus, refreshCounter]);
 
-  const handleRefresh = () => setRefreshCounter((prev) => prev + 1);
+  const handleRefresh = (
+    event?: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    const forceRefresh = event ? event.ctrlKey || event.metaKey : false;
+    if (forceRefresh) {
+      fetchCookieStatus(true);
+    } else {
+      setRefreshCounter((prev) => prev + 1);
+    }
+  };
 
   const translateError = (message: string) => {
     if (message.includes("Database storage is unavailable")) {
@@ -336,55 +355,69 @@ const CookieVisualization: React.FC = () => {
             {t("cookieStatus.total", { count: totalCookies })}
           </p>
         </div>
-        <Button
-          onClick={handleRefresh}
-          className="p-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors text-sm"
-          disabled={loading}
-          variant="secondary"
-        >
-          {loading ? (
-            <span className="flex items-center">
-              <svg
-                className="animate-spin h-4 w-4 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
+        <div className="relative group">
+          <Button
+            onClick={handleRefresh}
+            className={`p-2 rounded-md transition-colors text-sm ${
+              isForceRefreshing
+                ? "bg-orange-600 hover:bg-orange-500"
+                : "bg-gray-700 hover:bg-gray-600"
+            }`}
+            disabled={loading}
+            variant="secondary"
+          >
+            {loading ? (
+              <span className="flex items-center">
+                <svg
+                  className="animate-spin h-4 w-4 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                {isForceRefreshing
+                  ? t("cookieStatus.forceRefreshing")
+                  : t("cookieStatus.refreshing")}
+              </span>
+            ) : (
+              <span className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
                   stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              {t("cookieStatus.refreshing")}
-            </span>
-          ) : (
-            <span className="flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              {t("cookieStatus.refresh")}
-            </span>
-          )}
-        </Button>
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {t("cookieStatus.refresh")}
+              </span>
+            )}
+          </Button>
+          {/* Tooltip */}
+          <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-full mt-2 w-auto whitespace-nowrap bg-gray-800 text-white text-xs rounded-lg p-2 z-10 shadow-lg">
+            <div className="text-gray-200">
+              {t("cookieStatus.refreshTooltip")}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Error Display */}

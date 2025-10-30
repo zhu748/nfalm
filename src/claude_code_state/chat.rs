@@ -15,7 +15,7 @@ use wreq_util::Emulation;
 
 use crate::{
     claude_code_state::{ClaudeCodeState, TokenStatus},
-    config::{CLAUDE_CONSOLE_ENDPOINT, CLEWDR_CONFIG, ModelFamily},
+    config::{CLAUDE_CONSOLE_ENDPOINT, CLAUDE_ENDPOINT, CLEWDR_CONFIG, ModelFamily},
     error::{CheckClaudeErr, ClewdrError, WreqSnafu},
     types::claude::{CountMessageTokensResponse, CreateMessageParams},
 };
@@ -687,7 +687,7 @@ impl ClaudeCodeState {
         let orgs_res = client
             .request(Method::GET, orgs_url)
             .header(ORIGIN, crate::config::CLAUDE_ENDPOINT)
-            .header(REFERER, format!("{}/new", crate::config::CLAUDE_ENDPOINT))
+            .header(REFERER, format!("{CLAUDE_ENDPOINT}new"))
             .send()
             .await
             .ok()?;
