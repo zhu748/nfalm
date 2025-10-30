@@ -106,7 +106,10 @@ impl ClaudeWebState {
         let new_uuid = uuid::Uuid::new_v4().to_string();
         let endpoint = self
             .endpoint
-            .join(&format!("api/organizations/{}/chat_conversations", org_uuid))
+            .join(&format!(
+                "api/organizations/{}/chat_conversations",
+                org_uuid
+            ))
             .expect("Url parse error");
         let body = json!({
             "uuid": new_uuid,

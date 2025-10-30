@@ -90,7 +90,7 @@ impl ClaudeWebState {
                 self.endpoint
                     .join(&format!("chat/{uuid}"))
                     .map(|u| u.into())
-                    .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}chat/{uuid}"))
+                    .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}chat/{uuid}")),
             )
         } else {
             req.header(
@@ -98,7 +98,7 @@ impl ClaudeWebState {
                 self.endpoint
                     .join("new")
                     .map(|u| u.into())
-                    .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}new"))
+                    .unwrap_or_else(|_| format!("{CLAUDE_ENDPOINT}new")),
             )
         }
     }
