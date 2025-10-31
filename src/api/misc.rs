@@ -1,5 +1,15 @@
-use axum::{Json, extract::State};
+use std::{
+    sync::LazyLock,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+use axum::{
+    Json,
+    extract::{Query, State},
+    http::HeaderMap,
+};
 use axum_auth::AuthBearer;
+use moka::sync::Cache;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tracing::{error, info, warn};
@@ -21,6 +31,31 @@ use crate::{
 };
 
 const DB_UNAVAILABLE_MESSAGE: &str = "Database storage is unavailable";
+
+/// Cache entry for cookie status responses
+#[derive(Clone)]
+struct CookieStatusCache {
+    data: Value,
+    timestamp: u64,
+}
+
+/// Query parameters for cookie status endpoint
+#[derive(Deserialize)]
+pub struct CookieStatusQuery {
+    #[serde(default)]
+    refresh: bool,
+}
+
+/// Global cache for cookie status responses (TTL: 5 minutes)
+static COOKIES_CACHE: LazyLock<Cache<String, CookieStatusCache>> = LazyLock::new(|| {
+    Cache::builder()
+        .max_capacity(1)
+        .time_to_live(Duration::from_secs(300)) // 5 minutes
+        .build()
+});
+
+/// Cache key for cookie status
+const COOKIE_STATUS_CACHE_KEY: &str = "all_cookies";
 
 #[derive(Deserialize)]
 pub struct VertexCredentialPayload {
@@ -95,6 +130,9 @@ pub async fn api_post_cookie(
     match s.submit(c).await {
         Ok(_) => {
             info!("Cookie submitted successfully");
+            // Clear cache to ensure fresh data on next request
+            COOKIES_CACHE.invalidate(COOKIE_STATUS_CACHE_KEY);
+            info!("Cookie status cache invalidated after adding new cookie");
             Ok(StatusCode::OK)
         }
         Err(e) => {
@@ -246,17 +284,36 @@ pub async fn api_delete_vertex_credential(
 /// # Arguments
 /// * `s` - Application state containing event sender
 /// * `t` - Auth bearer token for admin authentication
+/// * `query` - Query parameters including optional refresh flag
 ///
 /// # Returns
-/// * `Result<Json<CookieStatusInfo>, (StatusCode, Json<serde_json::Value>)>` - Cookie status info or error
+/// * `Result<(HeaderMap, Json<Value>), ApiError>` - Response with cache headers and cookie status
 pub async fn api_get_cookies(
     State(s): State<CookieActorHandle>,
     AuthBearer(t): AuthBearer,
-) -> Result<Json<Value>, ApiError> {
+    Query(query): Query<CookieStatusQuery>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
     if !CLEWDR_CONFIG.load().admin_auth(&t) {
         return Err(ApiError::unauthorized());
     }
 
+    let mut headers = HeaderMap::new();
+
+    // Check cache if not force refreshing
+    if !query.refresh {
+        if let Some(cached) = COOKIES_CACHE.get(COOKIE_STATUS_CACHE_KEY) {
+            headers.insert("X-Cache-Status", HeaderValue::from_static("HIT"));
+            headers.insert(
+                "X-Cache-Timestamp",
+                HeaderValue::from_str(&cached.timestamp.to_string())
+                    .unwrap_or_else(|_| HeaderValue::from_static("0")),
+            );
+            info!("Cookie status served from cache");
+            return Ok((headers, Json(cached.data)));
+        }
+    }
+
+    // Cache miss or force refresh - fetch fresh data
     match s.get_status().await {
         Ok(status) => {
             let valid = augment_utilization(status.valid).await;
@@ -266,11 +323,44 @@ pub async fn api_get_cookies(
                 .into_iter()
                 .map(|u| serde_json::to_value(u).unwrap_or(json!({})))
                 .collect::<Vec<_>>();
-            Ok(Json(json!({
+
+            let response_data = json!({
                 "valid": valid,
                 "exhausted": exhausted,
                 "invalid": invalid,
-            })))
+            });
+
+            // Store in cache
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_else(|e| {
+                    warn!("System time error: {}, using fallback timestamp", e);
+                    Duration::from_secs(0)
+                })
+                .as_secs();
+
+            COOKIES_CACHE.insert(
+                COOKIE_STATUS_CACHE_KEY.to_string(),
+                CookieStatusCache {
+                    data: response_data.clone(),
+                    timestamp,
+                },
+            );
+
+            headers.insert("X-Cache-Status", HeaderValue::from_static("MISS"));
+            headers.insert(
+                "X-Cache-Timestamp",
+                HeaderValue::from_str(&timestamp.to_string())
+                    .unwrap_or_else(|_| HeaderValue::from_static("0")),
+            );
+
+            if query.refresh {
+                info!("Cookie status force refreshed");
+            } else {
+                info!("Cookie status fetched and cached");
+            }
+
+            Ok((headers, Json(response_data)))
         }
         Err(e) => Err(ApiError::internal(format!(
             "Failed to get cookie status: {}",
@@ -320,6 +410,9 @@ pub async fn api_delete_cookie(
     match s.delete_cookie(c.to_owned()).await {
         Ok(_) => {
             info!("Cookie deleted successfully: {}", c.cookie);
+            // Clear cache to ensure fresh data on next request
+            COOKIES_CACHE.invalidate(COOKIE_STATUS_CACHE_KEY);
+            info!("Cookie status cache invalidated");
             Ok(StatusCode::NO_CONTENT)
         }
         Err(e) => {
@@ -476,14 +569,11 @@ async fn fetch_usage_percent(
     client.set_cookie(&console_url, &cookie_header);
 
     // Discover organization UUID (prefer chat-capable org)
-    let orgs_url = format!(
-        "{}/api/organizations",
-        endpoint.as_str().trim_end_matches('/')
-    );
+    let orgs_url = endpoint.join("api/organizations").ok()?;
     let orgs_res = client
         .request(Method::GET, orgs_url)
         .header(ORIGIN, CLAUDE_ENDPOINT)
-        .header(REFERER, format!("{}/new", CLAUDE_ENDPOINT))
+        .header(REFERER, String::from(endpoint.join("new").ok()?))
         .send()
         .await
         .ok()?;
@@ -513,10 +603,9 @@ async fn fetch_usage_percent(
         })?;
 
     // Query usage from console API
-    let usage_url = format!(
-        "{}/api/organizations/{}/usage",
-        CLAUDE_CONSOLE_ENDPOINT, org_uuid
-    );
+    let usage_url = console_url
+        .join(&format!("api/organizations/{org_uuid}/usage"))
+        .ok()?;
     let usage_res = client.request(Method::GET, usage_url).send().await.ok()?;
     let usage: Value = usage_res.json().await.ok()?;
     let five = usage

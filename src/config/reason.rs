@@ -3,7 +3,6 @@ use std::{
     hash::Hash,
 };
 
-use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -24,11 +23,10 @@ pub enum Reason {
 
 impl Display for Reason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let colored_time = |secs: i64| {
+        let format_time = |secs: i64| {
             chrono::DateTime::from_timestamp(secs, 0)
                 .map(|t| t.format("UTC %Y-%m-%d %H:%M:%S").to_string())
                 .unwrap_or("Invalid date".to_string())
-                .yellow()
         };
         match self {
             Reason::NormalPro => write!(f, "Normal Pro account"),
@@ -37,10 +35,10 @@ impl Display for Reason {
             Reason::Banned => write!(f, "Banned"),
             Reason::Null => write!(f, "Null"),
             Reason::Restricted(i) => {
-                write!(f, "Restricted/Warning: until {}", colored_time(*i))
+                write!(f, "Restricted/Warning: until {}", format_time(*i))
             }
             Reason::TooManyRequest(i) => {
-                write!(f, "429 Too many request: until {}", colored_time(*i))
+                write!(f, "429 Too many request: until {}", format_time(*i))
             }
         }
     }

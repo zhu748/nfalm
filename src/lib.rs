@@ -27,6 +27,22 @@ pub static VERSION_INFO: LazyLock<String> = LazyLock::new(|| {
         "v{} by {}\n| profile: {}\n| mode: {}\n| no_fs: {}",
         env!("CARGO_PKG_VERSION"),
         env!("CARGO_PKG_AUTHORS"),
+        if IS_DEBUG { "debug" } else { "release" },
+        if *IS_DEV { "dev" } else { "prod" },
+        if CLEWDR_CONFIG.load().no_fs {
+            "true"
+        } else {
+            "false"
+        }
+    )
+});
+
+/// Returns version info with colors for terminal output
+pub fn version_info_colored() -> String {
+    format!(
+        "v{} by {}\n| profile: {}\n| mode: {}\n| no_fs: {}",
+        env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_AUTHORS"),
         if IS_DEBUG {
             "debug".yellow()
         } else {
@@ -43,7 +59,7 @@ pub static VERSION_INFO: LazyLock<String> = LazyLock::new(|| {
             "false".green()
         }
     )
-});
+}
 
 pub const FIG: &str = r#"
     //   ) )                                    //   ) ) 

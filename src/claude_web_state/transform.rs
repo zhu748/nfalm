@@ -79,7 +79,10 @@ impl ClaudeWebState {
                 // create the part and form
                 let part = Part::bytes(bytes).file_name(file_name);
                 let form = Form::new().part("file", part);
-                let endpoint = format!("{}/api/{}/upload", self.endpoint, self.org_uuid.as_ref()?);
+                let endpoint = self
+                    .endpoint
+                    .join(&format!("api/{}/upload", self.org_uuid.as_ref()?))
+                    .expect("Url parse error");
                 // send the request into future
                 let res = self
                     .build_request(http::Method::POST, endpoint)
